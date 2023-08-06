@@ -1,0 +1,24 @@
+[package]
+name = "astro-run-shared"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# async-trait = "0.1.72"
+serde = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+tokio-stream = { workspace = true }
+octocrate = { workspace = true }
+tokio = { workspace = true, features = [
+  "sync",
+  "macros",
+  "process",
+  "fs",
+  "io-util",
+  "rt-multi-thread",
+  "time",
+] }
+parking_lot = { workspace = true }

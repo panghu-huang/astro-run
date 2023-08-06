@@ -1,0 +1,20 @@
+[package]
+name = "runner"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio-stream = { workspace = true }
+astro-run-shared = { path = "../shared" }
+tokio = { workspace = true, features = [
+  "sync",
+  "macros",
+  "process",
+  "fs",
+  "io-util",
+  "rt-multi-thread",
+  "time",
+] }
+parking_lot = { workspace = true }

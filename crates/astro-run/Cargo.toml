@@ -1,0 +1,22 @@
+[package]
+name = "astro-run"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+astro-run-shared = { path = "../shared" }
+parking_lot = { workspace = true }
+tokio = { workspace = true, features = [
+  "sync",
+  "macros",
+  "process",
+  "fs",
+  "io-util",
+  "rt-multi-thread",
+  "time",
+] }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_yaml = "0.9.17"
