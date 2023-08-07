@@ -67,3 +67,21 @@ impl WorkflowEventPayload for WorkflowEvent {
     }
   }
 }
+
+impl Default for WorkflowAPIEvent {
+  fn default() -> Self {
+    Self {
+      repo_owner: "".to_string(),
+      repo_name: "".to_string(),
+      ref_name: "".to_string(),
+      sha: "".to_string(),
+      pr_number: None,
+    }
+  }
+}
+
+impl Default for WorkflowEvent {
+  fn default() -> Self {
+    Self::API(WorkflowAPIEvent::default())
+  }
+}

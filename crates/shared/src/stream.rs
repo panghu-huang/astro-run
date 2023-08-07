@@ -1,11 +1,12 @@
-use super::response::{Log, StreamResponse};
+use super::{Log, RunResult};
 use parking_lot::Mutex;
-use std::{process::ExitStatus, sync::Arc, task::Waker};
+use std::{sync::Arc, task::Waker};
 
 use tokio_stream::Stream;
 
 struct SharedState {
-  responses: Vec<StreamResponse>,
+  logs: Vec<Log>,
+  result: Option<RunResult>,
   waker: Option<Waker>,
 }
 
@@ -21,10 +22,14 @@ impl StreamReceiver {
       state,
     }
   }
+
+  pub fn result(&self) -> Option<RunResult> {
+    self.state.lock().result.clone()
+  }
 }
 
 impl Stream for StreamReceiver {
-  type Item = StreamResponse;
+  type Item = Log;
 
   fn poll_next(
     self: std::pin::Pin<&mut Self>,
@@ -33,20 +38,20 @@ impl Stream for StreamReceiver {
     let mut state = self.state.lock();
     state.waker = Some(cx.waker().clone());
 
-    let responses = state.responses.clone();
-    let total = responses.len();
+    let logs = state.logs.clone();
+    let total = logs.len();
     let current_index = self.current_index.lock().clone();
 
     if current_index < total {
-      let response = responses[current_index].clone();
+      let log = logs[current_index].clone();
       *self.current_index.lock() += 1;
 
       cx.waker().wake_by_ref();
 
-      return std::task::Poll::Ready(Some(response));
+      return std::task::Poll::Ready(Some(log));
     }
 
-    if current_index == total && total > 0 {
+    if state.result.is_some() {
       return std::task::Poll::Ready(None);
     }
 
@@ -70,18 +75,27 @@ impl StreamSender {
     }
   }
 
-  pub fn log(&self, log: Log) {
+  pub fn log(&self, message: impl Into<String>) {
     let mut state = self.state.lock();
-    state.responses.push(StreamResponse::Log(log));
+    state.logs.push(Log::log(message.into()));
 
     if let Some(waker) = state.waker.take() {
       waker.wake();
     }
   }
 
-  pub fn end(&self, exit_status: ExitStatus) {
+  pub fn error(&self, message: impl Into<String>) {
     let mut state = self.state.lock();
-    state.responses.push(StreamResponse::End(exit_status));
+    state.logs.push(Log::error(message.into()));
+
+    if let Some(waker) = state.waker.take() {
+      waker.wake();
+    }
+  }
+
+  pub fn end(&self, result: RunResult) {
+    let mut state = self.state.lock();
+    state.result = Some(result);
 
     if let Some(waker) = state.waker.take() {
       waker.wake();
@@ -91,8 +105,9 @@ impl StreamSender {
 
 pub fn stream() -> (StreamSender, StreamReceiver) {
   let state = Arc::new(Mutex::new(SharedState {
-    responses: Vec::new(),
+    logs: Vec::new(),
     waker: None,
+    result: None,
   }));
 
   let sender = StreamSender::new(state.clone());

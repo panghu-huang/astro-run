@@ -1,4 +1,5 @@
-use crate::{step::Step, ExecutionContext, WorkflowTriggerEvents};
+use super::Step;
+use crate::{ExecutionContext, WorkflowTriggerEvents};
 use astro_run_shared::Id;
 use serde::{Deserialize, Serialize};
 
@@ -15,8 +16,9 @@ pub struct Job {
 
 impl Job {
   pub async fn run(&self, ctx: ExecutionContext) -> astro_run_shared::Result<()> {
-    for step in &self.steps {
-      step.run(&ctx).await?;
+    for step in self.steps.iter().cloned() {
+      // TODO: inject environment variables
+      ctx.run(step).await?;
     }
 
     Ok(())

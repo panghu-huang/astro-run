@@ -85,15 +85,6 @@ pub struct WorkflowTriggerEvents {
 }
 
 impl UserWorkflow {
-  pub fn from_str(str: &str) -> Result<Self> {
-    let workflow = serde_yaml::from_str(str)
-      .map_err(|e| Error::workflow_config_error(format!("Failed to parse workflow: {}", e)))?;
-
-    Self::validate(&workflow)?;
-
-    Ok(workflow)
-  }
-
   fn validate(workflow: &UserWorkflow) -> Result<()> {
     if workflow.jobs.is_empty() {
       return Err(Error::workflow_config_error(
@@ -139,6 +130,27 @@ impl UserWorkflow {
   }
 }
 
+impl TryFrom<&str> for UserWorkflow {
+  type Error = Error;
+
+  fn try_from(value: &str) -> Result<Self> {
+    let workflow = serde_yaml::from_str(value)
+      .map_err(|e| Error::workflow_config_error(format!("Failed to parse workflow: {}", e)))?;
+
+    Self::validate(&workflow)?;
+
+    Ok(workflow)
+  }
+}
+
+impl TryFrom<String> for UserWorkflow {
+  type Error = Error;
+
+  fn try_from(value: String) -> Result<Self> {
+    Self::try_from(value.as_str())
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -171,7 +183,7 @@ jobs:
         uses: cache
 "#;
 
-    let workflow = UserWorkflow::from_str(yaml).unwrap();
+    let workflow = UserWorkflow::try_from(yaml).unwrap();
 
     assert_eq!(workflow.name, Some("Test Workflow".to_string()));
 
@@ -232,7 +244,7 @@ jobs:
   fn test_empty_jobs() {
     let yaml = r#"jobs:"#;
 
-    let res = UserWorkflow::from_str(yaml);
+    let res = UserWorkflow::try_from(yaml);
 
     assert_eq!(
       res.unwrap_err(),
@@ -250,7 +262,7 @@ jobs:
       - run: echo "Hello World"
 "#;
 
-    let res = UserWorkflow::from_str(yaml);
+    let res = UserWorkflow::try_from(yaml);
     assert_eq!(
       res.unwrap_err(),
       Error::workflow_config_error("Job job1 depends on job job2, but job job2 is not defined")
@@ -271,7 +283,7 @@ jobs:
       - run: echo "Hello World"
 "#;
 
-    let res = UserWorkflow::from_str(yaml);
+    let res = UserWorkflow::try_from(yaml);
     assert_eq!(
       res.unwrap_err(),
       Error::workflow_config_error("Cannot have all jobs has dependencies")
@@ -287,7 +299,7 @@ jobs:
     steps:
 "#;
 
-    let res = UserWorkflow::from_str(yaml);
+    let res = UserWorkflow::try_from(yaml);
     assert_eq!(
       res.unwrap_err(),
       Error::workflow_config_error("Job `job1` must have at least one step")

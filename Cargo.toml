@@ -2,6 +2,14 @@
 resolver = "2"
 members = ["./crates/*"]
 
+package.edition = "2021"
+package.repository = "https://github.com/panghu-huang/astro-run"
+package.homepage = "https://github.com/panghu-huang/astro-run"
+package.description = "AstroRun is a highly customizable workflow orchestrator that allows users to define their own core runners. Whether it's Docker or other platforms, AstroRun empowers users to run workflows with ease and flexibility."
+package.keywords = ["workflow", "runner", "automation", "docker", "CI"]
+package.authors = ["wokeyifrontend@gmail"]
+package.license = "MIT"
+
 [workspace.dependencies]
 anyhow = "1.0.69"
 log = "0.4.17"
@@ -13,3 +21,4 @@ parking_lot = "0.12.1"
 thiserror = "1.0.44"
 tokio-stream = "0.1.14"
 chrono = { version = "0.4.23" }
+uuid = { version = "1.4.1", features = ["serde", "v4"] }

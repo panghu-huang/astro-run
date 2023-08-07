@@ -1,17 +1,20 @@
+use parking_lot::Mutex;
+use std::sync::Arc;
+
 use astro_run_shared::{WorkflowLog, WorkflowStateEvent};
 
-type OnStateChange = fn(event: &WorkflowStateEvent) -> ();
-type OnLog = fn(log: &WorkflowLog) -> ();
+type OnStateChange = dyn Fn(WorkflowStateEvent) -> ();
+type OnLog = dyn Fn(WorkflowLog) -> ();
 
 pub trait Plugin: Send {
-  fn on_state_change(&self, event: &WorkflowStateEvent) -> ();
-  fn on_log(&self, log: &WorkflowLog) -> ();
+  fn on_state_change(&self, event: WorkflowStateEvent) -> ();
+  fn on_log(&self, log: WorkflowLog) -> ();
 }
 
 pub struct PluginBuilder {
   name: &'static str,
-  on_state_change: Option<OnStateChange>,
-  on_log: Option<OnLog>,
+  on_state_change: Option<Box<OnStateChange>>,
+  on_log: Option<Box<OnLog>>,
 }
 
 impl PluginBuilder {
@@ -23,62 +26,71 @@ impl PluginBuilder {
     }
   }
 
-  pub fn on_state_change(mut self, on_state_change: OnStateChange) -> Self {
-    self.on_state_change = Some(on_state_change);
+  pub fn on_state_change<T>(mut self, on_state_change: T) -> Self
+  where
+    T: Fn(WorkflowStateEvent) -> () + 'static,
+  {
+    self.on_state_change = Some(Box::new(on_state_change));
     self
   }
 
-  pub fn on_log(mut self, on_log: OnLog) -> Self {
-    self.on_log = Some(on_log);
+  pub fn on_log<T>(mut self, on_log: T) -> Self
+  where
+    T: Fn(WorkflowLog) -> () + 'static,
+  {
+    self.on_log = Some(Box::new(on_log));
     self
   }
 
   pub fn build(self) -> AstroRunPlugin {
     AstroRunPlugin {
       name: self.name,
-      on_state_change: Box::new(self.on_state_change),
-      on_log: Box::new(self.on_log),
+      on_state_change: self.on_state_change,
+      on_log: self.on_log,
     }
   }
 }
 
-#[derive(Clone)]
 pub struct AstroRunPlugin {
   name: &'static str,
-  on_state_change: Box<Option<OnStateChange>>,
-  on_log: Box<Option<OnLog>>,
+  on_state_change: Option<Box<OnStateChange>>,
+  on_log: Option<Box<OnLog>>,
 }
 
 #[derive(Clone)]
 pub struct PluginManager {
-  plugins: Vec<AstroRunPlugin>,
+  plugins: Arc<Mutex<Vec<AstroRunPlugin>>>,
 }
 
 impl PluginManager {
   pub fn new() -> Self {
-    PluginManager { plugins: vec![] }
+    PluginManager {
+      plugins: Arc::new(Mutex::new(Vec::new())),
+    }
   }
 
-  pub fn register(&mut self, plugin: AstroRunPlugin) {
-    self.plugins.push(plugin);
+  pub fn register(&self, plugin: AstroRunPlugin) {
+    self.plugins.lock().push(plugin);
   }
 
-  pub fn unregister(&mut self, name: &'static str) {
-    self.plugins.retain(|plugin| plugin.name != name);
+  pub fn unregister(&self, name: &'static str) {
+    self.plugins.lock().retain(|plugin| plugin.name != name);
   }
 
   pub fn on_state_change(&self, event: &WorkflowStateEvent) {
-    for plugin in &self.plugins {
-      if let Some(on_state_change) = plugin.on_state_change.as_ref() {
-        on_state_change(event);
+    let plugins = self.plugins.lock();
+    for plugin in plugins.iter() {
+      if let Some(on_state_change) = &plugin.on_state_change {
+        on_state_change(event.clone());
       }
     }
   }
 
   pub fn on_log(&self, log: &WorkflowLog) {
-    for plugin in &self.plugins {
-      if let Some(on_log) = plugin.on_log.as_ref() {
-        on_log(log);
+    let plugins = self.plugins.lock();
+    for plugin in plugins.iter() {
+      if let Some(on_log) = &plugin.on_log {
+        on_log(log.clone());
       }
     }
   }
@@ -91,33 +103,33 @@ mod tests {
 
   #[test]
   fn plugin_manager_register() {
-    let mut plugin_manager = PluginManager::new();
+    let plugin_manager = PluginManager::new();
     let plugin = PluginBuilder::new("test").build();
 
     plugin_manager.register(plugin);
 
-    assert_eq!(plugin_manager.plugins.len(), 1);
+    assert_eq!(plugin_manager.plugins.lock().len(), 1);
   }
 
   #[test]
   fn plugin_manager_unregister() {
-    let mut plugin_manager = PluginManager::new();
+    let plugin_manager = PluginManager::new();
     let plugin = PluginBuilder::new("test").build();
 
     plugin_manager.register(plugin);
     plugin_manager.unregister("test");
 
-    assert_eq!(plugin_manager.plugins.len(), 0);
+    assert_eq!(plugin_manager.plugins.lock().len(), 0);
   }
 
   #[test]
   fn plugin_manager_on_state_change() {
-    let mut plugin_manager = PluginManager::new();
+    let plugin_manager = PluginManager::new();
     let plugin = PluginBuilder::new("test")
       .on_state_change(|event| {
         if let WorkflowStateEvent::WorkflowStateUpdated { workflow_id, state } = event {
           assert_eq!(workflow_id, "test");
-          assert_eq!(state, &WorkflowState::Cancelled);
+          assert_eq!(state, WorkflowState::Cancelled);
         } else {
           panic!("Unexpected event type");
         }
@@ -133,7 +145,7 @@ mod tests {
 
   #[test]
   fn plugin_manager_on_log() {
-    let mut plugin_manager = PluginManager::new();
+    let plugin_manager = PluginManager::new();
     let plugin = PluginBuilder::new("test")
       .on_log(|log| {
         assert_eq!(log.message, "test");

@@ -3,21 +3,12 @@ mod workflow_shared;
 
 use self::{builder::ExecutionContextBuilder, workflow_shared::WorkflowShared};
 use crate::PluginManager;
-use astro_run_shared::{Command, Id, Runner, StreamExt, StreamResponse, WorkflowLog};
+use astro_run_shared::{Command, Config, Error, RunResult, Runner, StreamExt, WorkflowLog};
 use parking_lot::Mutex;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 struct ExecutionContextInner {
   plugin_manager: PluginManager,
-}
-
-/// Execution result of a command
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ExecuteResult {
-  Success(i32),
-  Error { exit_code: i32, error: String },
-  ExitWithoutStatus,
 }
 
 #[derive(Clone)]
@@ -32,50 +23,32 @@ impl ExecutionContext {
     ExecutionContextBuilder::new()
   }
 
-  pub async fn run(
-    &self,
-    workflow_id: Id,
-    job_key: String,
-    step_number: usize,
-    command: Command,
-  ) -> astro_run_shared::Result<ExecuteResult> {
+  pub async fn run(&self, command: Command) -> astro_run_shared::Result<RunResult> {
+    let (workflow_id, job_key, step_number) = command.id.clone();
+
     let inner = self.inner.lock();
     let plugin_manager = inner.plugin_manager.clone();
-    let mut stream = self.runner.run(command)?;
+    let mut receiver = self.runner.run(Config { command })?;
 
     drop(inner);
 
-    let mut error = None;
-    while let Some(res) = stream.next().await {
-      match res {
-        StreamResponse::Log(log) => {
-          if log.is_error() {
-            error = Some(log.message.clone());
-          }
+    while let Some(log) = receiver.next().await {
+      let log = WorkflowLog {
+        workflow_id: workflow_id.clone(),
+        job_key: job_key.clone(),
+        step_number,
+        log_type: log.log_type,
+        message: log.message,
+        time: chrono::Utc::now(),
+      };
 
-          let log = WorkflowLog {
-            workflow_id: workflow_id.clone(),
-            job_key: job_key.clone(),
-            step_number,
-            log_type: log.log_type,
-            message: log.message,
-            time: chrono::Utc::now(),
-          };
-
-          plugin_manager.on_log(&log);
-        }
-        StreamResponse::End(status) => {
-          if status.success() {
-            return Ok(ExecuteResult::Success(status.code().unwrap_or(0)));
-          }
-          return Ok(ExecuteResult::Error {
-            exit_code: status.code().unwrap_or(1),
-            error: error.unwrap_or_else(|| "Unknown error".to_string()),
-          });
-        }
-      }
+      plugin_manager.on_log(&log);
     }
 
-    Ok(ExecuteResult::ExitWithoutStatus)
+    let res = receiver.result().ok_or(Error::internal_runtime_error(
+      "Missing result from runner. This is a bug in the runner implementation.",
+    ))?;
+
+    Ok(res)
   }
 }

@@ -2,10 +2,9 @@ use super::{workflow_shared::WorkflowShared, ExecutionContext, ExecutionContextI
 use crate::PluginManager;
 use astro_run_shared::{Error, Result, Runner};
 use parking_lot::Mutex;
-use std::{env, path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 pub struct ExecutionContextBuilder {
-  working_directory: Option<PathBuf>,
   runner: Option<Arc<Box<dyn Runner>>>,
   plugin_manager: Option<PluginManager>,
 }
@@ -13,7 +12,6 @@ pub struct ExecutionContextBuilder {
 impl ExecutionContextBuilder {
   pub fn new() -> Self {
     ExecutionContextBuilder {
-      working_directory: None,
       runner: None,
       plugin_manager: None,
     }
@@ -36,22 +34,10 @@ impl ExecutionContextBuilder {
 
     let plugin_manager = self.plugin_manager.unwrap_or(PluginManager::new());
 
-    let working_directory = self.working_directory.unwrap_or({
-      #[allow(deprecated)]
-      env::home_dir()
-        .ok_or(Error::init_error(
-          "Working directory is not set in execution context builder",
-        ))?
-        .join("astro-run")
-    });
-
     let ctx = ExecutionContext {
       runner,
       inner: Arc::new(Mutex::new(ExecutionContextInner { plugin_manager })),
-      workflow_shared: WorkflowShared {
-        working_directory,
-        ..Default::default()
-      },
+      workflow_shared: WorkflowShared::default(),
     };
 
     Ok(ctx)

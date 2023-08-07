@@ -1,24 +1,24 @@
 [package]
 name = "astro-run-shared"
-version = "0.1.0"
-edition = "2021"
+version = "0.1.0-dev.1"
+edition.workspace = true
+description = "Provides a foundational library for customizing AstroRun and other Astro runners."
+keywords.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+path = "src/lib.rs"
+name = "astro_run_shared"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# async-trait = "0.1.72"
 serde = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 tokio-stream = { workspace = true }
 octocrate = { workspace = true }
-tokio = { workspace = true, features = [
-  "sync",
-  "macros",
-  "process",
-  "fs",
-  "io-util",
-  "rt-multi-thread",
-  "time",
-] }
 parking_lot = { workspace = true }

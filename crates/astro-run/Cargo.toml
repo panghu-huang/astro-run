@@ -1,12 +1,22 @@
 [package]
 name = "astro-run"
-version = "0.1.0"
-edition = "2021"
+version = "0.1.0-dev.1"
+description = "A highly customizable workflow orchestrator"
+edition.workspace = true
+keywords.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+path = "src/lib.rs"
+name = "astro_run"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-astro-run-shared = { path = "../shared" }
+astro-run-shared = { version = "0.1.0-dev.1", path = "../shared" }
 parking_lot = { workspace = true }
 tokio = { workspace = true, features = [
   "sync",
@@ -20,3 +30,6 @@ tokio = { workspace = true, features = [
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_yaml = "0.9.17"
+uuid = { workspace = true }
+log = { workspace = true }
+humantime = "2.1.0"
