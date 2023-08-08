@@ -22,3 +22,4 @@ chrono = { workspace = true, features = ["serde"] }
 tokio-stream = { workspace = true }
 octocrate = { workspace = true }
 parking_lot = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }

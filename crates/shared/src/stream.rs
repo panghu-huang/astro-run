@@ -115,3 +115,26 @@ pub fn stream() -> (StreamSender, StreamReceiver) {
 
   (sender, receiver)
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use tokio_stream::StreamExt;
+
+  #[tokio::test]
+  async fn test_stream() {
+    let (sender, mut receiver) = stream();
+
+    sender.log("test");
+    sender.error("error");
+    sender.end(RunResult::Succeeded);
+
+    let mut logs = Vec::new();
+    while let Some(log) = receiver.next().await {
+      logs.push(log);
+    }
+
+    assert_eq!(logs, vec![Log::log("test"), Log::error("error"),]);
+    assert_eq!(receiver.result().unwrap(), RunResult::Succeeded);
+  }
+}

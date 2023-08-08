@@ -20,3 +20,24 @@ impl ToString for EnvironmentVariable {
 }
 
 pub type EnvironmentVariables = HashMap<String, EnvironmentVariable>;
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_to_string() {
+    assert_eq!(
+      EnvironmentVariable::String("test".to_string()).to_string(),
+      "test".to_string()
+    );
+    assert_eq!(
+      EnvironmentVariable::Number(1.0).to_string(),
+      "1".to_string()
+    );
+    assert_eq!(
+      EnvironmentVariable::Boolean(true).to_string(),
+      "true".to_string()
+    );
+  }
+}

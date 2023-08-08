@@ -36,3 +36,21 @@ impl Default for WorkflowShared {
     }
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_set_environment() {
+    let mut shared = WorkflowShared::default();
+    shared.set_environment(
+      "test".to_string(),
+      EnvironmentVariable::String("test".to_string()),
+    );
+    assert_eq!(
+      shared.get_environment("test".to_string()),
+      Some(EnvironmentVariable::String("test".to_string()))
+    );
+  }
+}

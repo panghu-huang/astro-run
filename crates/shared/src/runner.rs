@@ -1,14 +1,14 @@
 use crate::{context, stream::StreamReceiver, WorkflowLogType};
 pub use tokio_stream::{Stream, StreamExt};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RunResult {
   Succeeded,
   Failed { exit_code: i32 },
   Cancelled,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Log {
   pub log_type: WorkflowLogType,
   pub message: String,

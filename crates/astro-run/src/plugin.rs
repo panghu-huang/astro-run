@@ -57,9 +57,15 @@ pub struct AstroRunPlugin {
   on_log: Option<Box<OnLog>>,
 }
 
+impl AstroRunPlugin {
+  pub fn builder(name: &'static str) -> PluginBuilder {
+    PluginBuilder::new(name)
+  }
+}
+
 #[derive(Clone)]
 pub struct PluginManager {
-  plugins: Arc<Mutex<Vec<AstroRunPlugin>>>,
+  pub(crate) plugins: Arc<Mutex<Vec<AstroRunPlugin>>>,
 }
 
 impl PluginManager {
