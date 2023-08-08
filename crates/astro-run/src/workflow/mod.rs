@@ -2,12 +2,15 @@ mod builder;
 mod job;
 mod parser;
 
-use crate::{ExecutionContext, WorkflowTriggerEvents};
-use astro_run_shared::{Id, WorkflowEvent};
+use crate::{ExecutionContext, JobRunResult, WorkflowRunResult, WorkflowTriggerEvents};
+use astro_run_shared::{Id, WorkflowEvent, WorkflowState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tokio::sync::mpsc::{channel, Sender};
 
 pub type Step = astro_run_shared::Command;
+
+type Result = (Id, JobRunResult);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Workflow {
@@ -19,12 +22,124 @@ pub struct Workflow {
 }
 
 impl Workflow {
-  pub async fn run(&self, ctx: ExecutionContext) -> astro_run_shared::Result<()> {
-    for job in self.jobs.values() {
-      job.run(ctx.clone()).await?;
+  pub async fn run(&self, ctx: ExecutionContext) -> astro_run_shared::Result<WorkflowRunResult> {
+    let started_at = chrono::Utc::now();
+
+    let mut workflow_state = WorkflowState::InProgress;
+    let (sender, mut receiver) = channel::<Result>(10);
+
+    let mut waiting_jobs: Vec<(Id, job::Job)> = vec![];
+    let mut job_results: HashMap<String, JobRunResult> = HashMap::new();
+
+    for (key, job) in self.jobs.iter() {
+      let key = key.clone();
+      let job = job.clone();
+
+      if let Some(depends_on) = &job.depends_on {
+        for depends_on_key in depends_on {
+          if !self.jobs.contains_key(depends_on_key) {
+            log::error!(
+              "Job {} depends on job {} which does not exist",
+              key,
+              depends_on_key
+            );
+            workflow_state = WorkflowState::Failed;
+            break;
+          }
+        }
+
+        waiting_jobs.push((key, job));
+        continue;
+      }
+      self.run_job(key.clone(), job.clone(), ctx.clone(), sender.clone());
     }
 
-    Ok(())
+    let total_jobs = self.jobs.len();
+
+    // If there are no jobs to run, we are done
+    while let Some((key, job_result)) = receiver.recv().await {
+      if job_result.state == WorkflowState::Failed {
+        workflow_state = WorkflowState::Failed;
+      } else if job_result.state == WorkflowState::Cancelled {
+        workflow_state = WorkflowState::Cancelled;
+      }
+
+      job_results.insert(key, job_result);
+
+      if job_results.len() == total_jobs {
+        if workflow_state == WorkflowState::InProgress {
+          workflow_state = WorkflowState::Succeeded;
+        }
+        break;
+      }
+
+      for (job_id, job) in waiting_jobs.iter() {
+        if let Some(depends_on) = &job.depends_on {
+          let mut all_finished = true;
+          for depends_on_key in depends_on {
+            if !job_results.contains_key(depends_on_key) {
+              all_finished = false;
+              break;
+            }
+          }
+
+          if all_finished {
+            self.run_job(job_id.clone(), job.clone(), ctx.clone(), sender.clone());
+          }
+        }
+      }
+    }
+
+    let ended_at = chrono::Utc::now();
+
+    log::info!(
+      "Duration: {:?}ms",
+      ended_at.timestamp_millis() - started_at.timestamp_millis()
+    );
+
+    Ok(WorkflowRunResult {
+      state: workflow_state,
+      started_at: Some(started_at),
+      ended_at: Some(ended_at),
+      jobs: job_results,
+    })
+  }
+
+  fn run_job(&self, key: Id, job: job::Job, context: ExecutionContext, sender: Sender<Result>) {
+    let _res = tokio::spawn(async move {
+      match job.run(context).await {
+        Ok(result) => {
+          sender.send((key.clone(), result)).await.map_err(|_| {
+            astro_run_shared::Error::internal_runtime_error(format!(
+              "Failed to send result for job {}",
+              key
+            ))
+          })?;
+        }
+        Err(err) => {
+          log::error!("Failed to run job {}: {:?}", key, err);
+          sender
+            .send((
+              key.clone(),
+              JobRunResult {
+                state: WorkflowState::Failed,
+                started_at: None,
+                ended_at: None,
+                steps: vec![],
+              },
+            ))
+            .await
+            .map_err(|_| {
+              astro_run_shared::Error::internal_runtime_error(format!(
+                "Failed to send result for job {}",
+                key
+              ))
+            })?;
+        }
+      }
+
+      Ok::<(), astro_run_shared::Error>(())
+    });
   }
 
   pub fn builder() -> builder::WorkflowBuilder {

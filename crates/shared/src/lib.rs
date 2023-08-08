@@ -1,10 +1,10 @@
-mod config;
+mod context;
 mod error;
 mod runner;
 mod stream;
 mod types;
 
-pub use config::*;
+pub use context::*;
 pub use error::Error;
 pub use runner::*;
 pub use stream::*;

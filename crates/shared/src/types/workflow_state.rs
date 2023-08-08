@@ -23,9 +23,9 @@ impl WorkflowState {
     }
   }
 
-  pub fn is_running(&self) -> bool {
+  pub fn is_in_progress(&self) -> bool {
     match self {
-      WorkflowState::InProgress | WorkflowState::Queued | WorkflowState::Pending => true,
+      WorkflowState::InProgress => true,
       _ => false,
     }
   }

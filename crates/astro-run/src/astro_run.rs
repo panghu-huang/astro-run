@@ -1,10 +1,14 @@
-use crate::{AstroRunPlugin, ExecutionContext, PluginManager};
+use crate::{
+  shared_state::{AstroRunSharedState, SharedState},
+  AstroRunPlugin, ExecutionContext,
+};
 use astro_run_shared::Runner;
+use parking_lot::Mutex;
 use std::sync::Arc;
 
 pub struct AstroRun {
   runner: Arc<Box<dyn Runner>>,
-  plugin_manager: PluginManager,
+  shared_state: AstroRunSharedState,
 }
 
 impl AstroRun {
@@ -12,19 +16,19 @@ impl AstroRun {
     AstroRunBuilder::new()
   }
 
-  pub fn register_plugin(&self, plugin: AstroRunPlugin) {
-    self.plugin_manager.register(plugin);
-  }
+  // pub fn register_plugin(&self, plugin: AstroRunPlugin) {
+  //   self.shared_state.lock().plugins.register(plugin);
+  // }
 
-  pub fn unregister_plugin(&self, plugin_name: &'static str) {
-    self.plugin_manager.unregister(plugin_name);
-  }
+  // pub fn unregister_plugin(&self, plugin_name: &'static str) {
+  //   self.shared_state.lock().plugins.unregister(plugin_name);
+  // }
 
   pub fn execution_context(&self) -> ExecutionContext {
-    let plugin_manager = self.plugin_manager.clone();
+    let shared_state = self.shared_state.clone();
     ExecutionContext::builder()
       .runner(self.runner.clone())
-      .plugin_manager(plugin_manager)
+      .shared_state(shared_state)
       .build()
       .unwrap()
   }
@@ -32,14 +36,14 @@ impl AstroRun {
 
 pub struct AstroRunBuilder {
   runner: Option<Box<dyn Runner>>,
-  plugin_manager: PluginManager,
+  shared_state: AstroRunSharedState,
 }
 
 impl AstroRunBuilder {
   pub fn new() -> Self {
     AstroRunBuilder {
       runner: None,
-      plugin_manager: PluginManager::new(),
+      shared_state: Arc::new(Mutex::new(SharedState::new())),
     }
   }
 
@@ -49,7 +53,7 @@ impl AstroRunBuilder {
   }
 
   pub fn plugin(self, plugin: AstroRunPlugin) -> Self {
-    self.plugin_manager.register(plugin);
+    self.shared_state.lock().plugins.register(plugin);
     self
   }
 
@@ -58,7 +62,7 @@ impl AstroRunBuilder {
 
     AstroRun {
       runner: Arc::new(runner),
-      plugin_manager: self.plugin_manager,
+      shared_state: self.shared_state,
     }
   }
 }

@@ -1,6 +1,6 @@
 use astro_run::{stream, AstroRun, AstroRunPlugin, PluginBuilder, Runner, Workflow};
-use astro_run_shared::{Config, RunResult};
-use std::cell::RefCell;
+use astro_run_shared::{Context, RunResult, WorkflowState};
+use parking_lot::Mutex;
 
 struct TestRunner {}
 
@@ -11,10 +11,10 @@ impl TestRunner {
 }
 
 impl Runner for TestRunner {
-  fn run(&self, config: Config) -> astro_run_shared::RunResponse {
+  fn run(&self, ctx: Context) -> astro_run_shared::RunResponse {
     let (tx, rx) = stream();
 
-    tx.log(config.command.run);
+    tx.log(ctx.command.run);
 
     tx.end(RunResult::Succeeded);
 
@@ -23,11 +23,11 @@ impl Runner for TestRunner {
 }
 
 fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
-  let index = RefCell::new(0);
+  let index = Mutex::new(0);
 
   PluginBuilder::new("test-plugin")
     .on_log(move |log| {
-      let mut i = index.borrow_mut();
+      let mut i = index.lock();
       assert_eq!(log.message, excepted_logs[*i]);
       *i += 1;
     })
@@ -57,7 +57,16 @@ jobs:
 
   let ctx = astro_run.execution_context();
 
-  workflow.run(ctx).await.unwrap();
+  let res = workflow.run(ctx).await.unwrap();
+
+  assert_eq!(res.state, WorkflowState::Succeeded);
+  let job_result = res.jobs.get("test").unwrap();
+  assert_eq!(job_result.state, WorkflowState::Succeeded);
+  assert_eq!(job_result.steps.len(), 1);
+
+  for step in &job_result.steps {
+    assert_eq!(step.state, WorkflowState::Succeeded);
+  }
 }
 
 #[tokio::test]
@@ -90,5 +99,14 @@ jobs:
 
   let ctx = astro_run.execution_context();
 
-  workflow.run(ctx).await.unwrap();
+  let res = workflow.run(ctx).await.unwrap();
+
+  assert_eq!(res.state, WorkflowState::Succeeded);
+  let job_result = res.jobs.get("test").unwrap();
+  assert_eq!(job_result.state, WorkflowState::Succeeded);
+  assert_eq!(job_result.steps.len(), 3);
+
+  for step in &job_result.steps {
+    assert_eq!(step.state, WorkflowState::Succeeded);
+  }
 }

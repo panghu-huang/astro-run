@@ -18,6 +18,7 @@ impl WorkflowParser {
     for (key, job) in user_workflow.jobs {
       let mut steps = Vec::new();
       let job_image = job.image;
+      let job_working_dirs = job.working_dirs.unwrap_or_default();
       for (idx, step) in job.steps.iter().enumerate() {
         if let UserStep::Command(UserCommandStep {
           name,
@@ -43,6 +44,7 @@ impl WorkflowParser {
             name,
             image: image.or(job_image.clone()),
             run,
+            working_directories: job_working_dirs.clone(),
             continue_on_error: continue_on_error.unwrap_or(false),
             environments: environments.unwrap_or_default(),
             // TODO: support volumes and secrets
@@ -64,7 +66,7 @@ impl WorkflowParser {
           steps,
           on: job.on,
           depends_on: job.depends_on,
-          working_dirs: job.working_dirs,
+          working_dirs: job_working_dirs,
         },
       );
     }

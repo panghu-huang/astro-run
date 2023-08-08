@@ -1,4 +1,4 @@
-use crate::{config, stream::StreamReceiver, WorkflowLogType};
+use crate::{context, stream::StreamReceiver, WorkflowLogType};
 pub use tokio_stream::{Stream, StreamExt};
 
 #[derive(Debug, Clone)]
@@ -36,6 +36,6 @@ impl Log {
 
 pub type RunResponse = crate::Result<StreamReceiver>;
 
-pub trait Runner {
-  fn run(&self, config: config::Config) -> RunResponse;
+pub trait Runner: Send + Sync {
+  fn run(&self, config: context::Context) -> RunResponse;
 }

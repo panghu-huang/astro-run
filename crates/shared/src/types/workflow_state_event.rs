@@ -15,7 +15,7 @@ pub enum WorkflowStateEvent {
   StepStateUpdated {
     workflow_id: Id,
     job_id: String,
-    number: u64,
+    number: usize,
     state: WorkflowState,
   },
 }
@@ -36,7 +36,7 @@ impl WorkflowStateEvent {
   pub fn step_state_updated(
     workflow_id: Id,
     job_id: String,
-    number: u64,
+    number: usize,
     state: WorkflowState,
   ) -> Self {
     WorkflowStateEvent::StepStateUpdated {

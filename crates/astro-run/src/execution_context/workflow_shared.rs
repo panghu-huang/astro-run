@@ -5,6 +5,7 @@ use std::collections::HashMap;
 pub struct WorkflowShared {
   // workflow state controller
   // workflow log controller
+  // job working directories ??
   pub event: Option<WorkflowEvent>,
   pub environments: HashMap<String, EnvironmentVariable>,
 }
@@ -16,6 +17,14 @@ impl WorkflowShared {
 
   pub fn get_environment(&self, key: String) -> Option<EnvironmentVariable> {
     self.environments.get(&key).cloned()
+  }
+
+  pub fn set_event(&mut self, event: WorkflowEvent) {
+    self.event = Some(event);
+  }
+
+  pub fn get_event(&self) -> Option<WorkflowEvent> {
+    self.event.clone()
   }
 }
 

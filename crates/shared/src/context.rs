@@ -24,6 +24,7 @@ pub struct Command {
   pub name: Option<String>,
   pub image: Option<String>,
   pub run: String,
+  pub working_directories: Vec<String>,
   pub continue_on_error: bool,
   pub environments: EnvironmentVariables,
   pub secrets: Vec<Secret>,
@@ -33,7 +34,7 @@ pub struct Command {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Config {
+pub struct Context {
   pub command: Command,
   // cancel signal
 }

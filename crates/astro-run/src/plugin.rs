@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use astro_run_shared::{WorkflowLog, WorkflowStateEvent};
 
-type OnStateChange = dyn Fn(WorkflowStateEvent) -> ();
-type OnLog = dyn Fn(WorkflowLog) -> ();
+type OnStateChange = dyn Fn(WorkflowStateEvent) -> () + Send + Sync;
+type OnLog = dyn Fn(WorkflowLog) -> () + Send + Sync;
 
 pub trait Plugin: Send {
   fn on_state_change(&self, event: WorkflowStateEvent) -> ();
@@ -28,7 +28,7 @@ impl PluginBuilder {
 
   pub fn on_state_change<T>(mut self, on_state_change: T) -> Self
   where
-    T: Fn(WorkflowStateEvent) -> () + 'static,
+    T: Fn(WorkflowStateEvent) -> () + 'static + Send + Sync,
   {
     self.on_state_change = Some(Box::new(on_state_change));
     self
@@ -36,7 +36,7 @@ impl PluginBuilder {
 
   pub fn on_log<T>(mut self, on_log: T) -> Self
   where
-    T: Fn(WorkflowLog) -> () + 'static,
+    T: Fn(WorkflowLog) -> () + 'static + Send + Sync,
   {
     self.on_log = Some(Box::new(on_log));
     self
@@ -69,6 +69,10 @@ impl PluginManager {
     }
   }
 
+  pub fn size(&self) -> usize {
+    self.plugins.lock().len()
+  }
+
   pub fn register(&self, plugin: AstroRunPlugin) {
     self.plugins.lock().push(plugin);
   }
@@ -77,7 +81,7 @@ impl PluginManager {
     self.plugins.lock().retain(|plugin| plugin.name != name);
   }
 
-  pub fn on_state_change(&self, event: &WorkflowStateEvent) {
+  pub fn on_state_change(&self, event: WorkflowStateEvent) {
     let plugins = self.plugins.lock();
     for plugin in plugins.iter() {
       if let Some(on_state_change) = &plugin.on_state_change {
@@ -86,7 +90,7 @@ impl PluginManager {
     }
   }
 
-  pub fn on_log(&self, log: &WorkflowLog) {
+  pub fn on_log(&self, log: WorkflowLog) {
     let plugins = self.plugins.lock();
     for plugin in plugins.iter() {
       if let Some(on_log) = &plugin.on_log {
@@ -108,7 +112,7 @@ mod tests {
 
     plugin_manager.register(plugin);
 
-    assert_eq!(plugin_manager.plugins.lock().len(), 1);
+    assert_eq!(plugin_manager.size(), 1);
   }
 
   #[test]
@@ -119,7 +123,7 @@ mod tests {
     plugin_manager.register(plugin);
     plugin_manager.unregister("test");
 
-    assert_eq!(plugin_manager.plugins.lock().len(), 0);
+    assert_eq!(plugin_manager.size(), 0);
   }
 
   #[test]
@@ -137,7 +141,7 @@ mod tests {
       .build();
 
     plugin_manager.register(plugin);
-    plugin_manager.on_state_change(&WorkflowStateEvent::WorkflowStateUpdated {
+    plugin_manager.on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
       workflow_id: "test".to_string(),
       state: WorkflowState::Cancelled,
     });
@@ -153,7 +157,7 @@ mod tests {
       .build();
 
     plugin_manager.register(plugin);
-    plugin_manager.on_log(&WorkflowLog {
+    plugin_manager.on_log(WorkflowLog {
       message: "test".to_string(),
       ..Default::default()
     });
