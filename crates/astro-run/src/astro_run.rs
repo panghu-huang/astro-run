@@ -1,9 +1,5 @@
-use crate::{
-  shared_state::{AstroRunSharedState, SharedState},
-  AstroRunPlugin, ExecutionContext,
-};
+use crate::{shared_state::AstroRunSharedState, AstroRunPlugin, ExecutionContext};
 use astro_run_shared::Runner;
-use parking_lot::Mutex;
 use std::sync::Arc;
 
 pub struct AstroRun {
@@ -16,13 +12,17 @@ impl AstroRun {
     AstroRunBuilder::new()
   }
 
-  // pub fn register_plugin(&self, plugin: AstroRunPlugin) {
-  //   self.shared_state.lock().plugins.register(plugin);
-  // }
+  pub fn register_plugin(&self, plugin: AstroRunPlugin) -> &Self {
+    self.shared_state.register_plugin(plugin);
 
-  // pub fn unregister_plugin(&self, plugin_name: &'static str) {
-  //   self.shared_state.lock().plugins.unregister(plugin_name);
-  // }
+    self
+  }
+
+  pub fn unregister_plugin(&self, plugin_name: &'static str) -> &Self {
+    self.shared_state.unregister_plugin(plugin_name);
+
+    self
+  }
 
   pub fn execution_context(&self) -> ExecutionContext {
     let shared_state = self.shared_state.clone();
@@ -43,7 +43,7 @@ impl AstroRunBuilder {
   pub fn new() -> Self {
     AstroRunBuilder {
       runner: None,
-      shared_state: Arc::new(Mutex::new(SharedState::new())),
+      shared_state: AstroRunSharedState::new(),
     }
   }
 
@@ -53,7 +53,7 @@ impl AstroRunBuilder {
   }
 
   pub fn plugin(self, plugin: AstroRunPlugin) -> Self {
-    self.shared_state.lock().plugins.register(plugin);
+    self.shared_state.register_plugin(plugin);
     self
   }
 

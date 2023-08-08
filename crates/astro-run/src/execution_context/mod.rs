@@ -24,7 +24,7 @@ impl ExecutionContext {
   pub async fn run(&self, command: Command) -> astro_run_shared::Result<StepRunResult> {
     let (workflow_id, job_key, step_number) = command.id.clone();
 
-    let plugin_manager = self.shared_state.lock().plugins.clone();
+    let plugin_manager = self.shared_state.plugins();
 
     let started_at = chrono::Utc::now();
     plugin_manager.on_state_change(WorkflowStateEvent::StepStateUpdated {

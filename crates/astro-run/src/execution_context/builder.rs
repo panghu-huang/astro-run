@@ -1,7 +1,6 @@
 use super::{workflow_shared::WorkflowShared, ExecutionContext};
-use crate::shared_state::{AstroRunSharedState, SharedState};
+use crate::shared_state::AstroRunSharedState;
 use astro_run_shared::{Error, Result, Runner};
-use parking_lot::Mutex;
 use std::sync::Arc;
 
 pub struct ExecutionContextBuilder {
@@ -34,7 +33,7 @@ impl ExecutionContextBuilder {
 
     let shared_state = self
       .shared_state
-      .unwrap_or_else(|| Arc::new(Mutex::new(SharedState::new())));
+      .unwrap_or_else(|| AstroRunSharedState::new());
 
     let ctx = ExecutionContext {
       runner,
