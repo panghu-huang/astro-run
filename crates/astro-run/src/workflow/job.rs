@@ -1,11 +1,11 @@
 use super::Step;
 use crate::{ExecutionContext, JobRunResult, StepRunResult, WorkflowTriggerEvents};
-use astro_run_shared::{Id, WorkflowState};
+use astro_run_shared::{JobId, WorkflowState, WorkflowStateEvent};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Job {
-  pub id: (Id, Id),
+  pub id: JobId,
   pub name: Option<String>,
   pub steps: Vec<Step>,
   pub on: Option<WorkflowTriggerEvents>,
@@ -17,8 +17,16 @@ pub struct Job {
 impl Job {
   pub async fn run(&self, ctx: ExecutionContext) -> astro_run_shared::Result<JobRunResult> {
     let started_at = chrono::Utc::now();
-    let mut steps = Vec::new();
     let mut job_state = WorkflowState::InProgress;
+
+    // Dispatch run job event
+    ctx.on_run_job(self.clone());
+    ctx.on_state_change(WorkflowStateEvent::JobStateUpdated {
+      id: self.id.clone(),
+      state: job_state.clone(),
+    });
+
+    let mut steps = Vec::new();
 
     for step in self.steps.iter().cloned() {
       let skipped = match job_state {
@@ -59,6 +67,11 @@ impl Job {
     }
 
     let ended_at = chrono::Utc::now();
+
+    ctx.on_state_change(WorkflowStateEvent::JobStateUpdated {
+      id: self.id.clone(),
+      state: job_state.clone(),
+    });
 
     Ok(JobRunResult {
       state: job_state,

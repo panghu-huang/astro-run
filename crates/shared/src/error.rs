@@ -1,5 +1,4 @@
 // use octocrate::GithubError;
-use std::process::ExitStatus;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -9,8 +8,8 @@ pub enum Error {
   #[error("Error while running workflow: {0}")]
   InternalRuntimeError(String),
 
-  #[error("Failed with exit status: {0:?}")]
-  Failed(ExitStatus),
+  #[error("Failed with exit code: {0:?}")]
+  Failed(usize),
 
   #[error("IO error: {message}")]
   IOError {
@@ -54,8 +53,8 @@ impl Error {
     }
   }
 
-  pub fn failed(exit_status: ExitStatus) -> Self {
-    Self::Failed(exit_status)
+  pub fn failed(exit_code: usize) -> Self {
+    Self::Failed(exit_code)
   }
 
   pub fn unsupported_feature<T: ToString>(message: T) -> Self {

@@ -1,4 +1,4 @@
-use crate::{EnvironmentVariables, Id};
+use crate::{EnvironmentVariables, StepId};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -20,7 +20,7 @@ pub struct Volume {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Command {
-  pub id: (Id, Id, usize),
+  pub id: StepId,
   pub name: Option<String>,
   pub image: Option<String>,
   pub run: String,

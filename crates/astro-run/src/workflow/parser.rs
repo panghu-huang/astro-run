@@ -1,6 +1,6 @@
 use super::{job::Job, Step, Workflow};
 use crate::{UserCommandStep, UserStep, UserWorkflow};
-use astro_run_shared::{Error, Id, Result, WorkflowEvent};
+use astro_run_shared::{Error, Id, JobId, Result, StepId, WorkflowEvent, WorkflowId};
 use std::collections::HashMap;
 
 pub struct WorkflowParser {
@@ -40,7 +40,7 @@ impl WorkflowParser {
           })?;
 
           steps.push(Step {
-            id: (id.clone(), key.clone(), idx),
+            id: StepId::new(id.clone(), key.clone(), idx),
             name,
             image: image.or(job_image.clone()),
             run,
@@ -61,7 +61,7 @@ impl WorkflowParser {
       jobs.insert(
         key.clone(),
         Job {
-          id: (id.clone(), key.clone()),
+          id: JobId::new(id.clone(), key.clone()),
           name: job.name,
           steps,
           on: job.on,
@@ -72,7 +72,7 @@ impl WorkflowParser {
     }
 
     Ok(Workflow {
-      id,
+      id: WorkflowId::new(id),
       event: self.event,
       name: user_workflow.name,
       on: user_workflow.on,
@@ -120,7 +120,7 @@ jobs:
 
     let workflow = parser.parse().unwrap();
 
-    assert_eq!(workflow.id, "test-id");
+    assert_eq!(workflow.id, WorkflowId::new("test-id"));
     assert_eq!(workflow.name.unwrap(), "Test Workflow");
     assert_eq!(workflow.jobs.len(), 1);
 

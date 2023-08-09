@@ -1,5 +1,4 @@
-use super::{workflow_shared::WorkflowShared, ExecutionContext};
-use crate::shared_state::AstroRunSharedState;
+use crate::{shared_state::AstroRunSharedState, ExecutionContext};
 use astro_run_shared::{Error, Result, Runner};
 use std::sync::Arc;
 
@@ -37,7 +36,6 @@ impl ExecutionContextBuilder {
 
     let ctx = ExecutionContext {
       runner,
-      workflow_shared: WorkflowShared::default(),
       shared_state,
     };
 

@@ -2,23 +2,25 @@ mod builder;
 mod job;
 mod parser;
 
+pub use self::job::Job;
 use crate::{ExecutionContext, JobRunResult, WorkflowRunResult, WorkflowTriggerEvents};
-use astro_run_shared::{Id, WorkflowEvent, WorkflowState};
+use astro_run_shared::{Id, WorkflowEvent, WorkflowId, WorkflowState, WorkflowStateEvent};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::mpsc::{channel, Sender};
 
 pub type Step = astro_run_shared::Command;
 
+// Job key, JobRunResult
 type Result = (Id, JobRunResult);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Workflow {
-  pub id: Id,
+  pub id: WorkflowId,
   pub name: Option<String>,
   pub event: WorkflowEvent,
   pub on: Option<WorkflowTriggerEvents>,
-  pub jobs: HashMap<String, job::Job>,
+  pub jobs: HashMap<String, Job>,
 }
 
 impl Workflow {
@@ -26,9 +28,16 @@ impl Workflow {
     let started_at = chrono::Utc::now();
 
     let mut workflow_state = WorkflowState::InProgress;
+    // Dispatch run workflow event
+    ctx.on_run_workflow(self.clone());
+    ctx.on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
+      id: self.id.clone(),
+      state: workflow_state.clone(),
+    });
+
     let (sender, mut receiver) = channel::<Result>(10);
 
-    let mut waiting_jobs: Vec<(Id, job::Job)> = vec![];
+    let mut waiting_jobs: Vec<(Id, Job)> = vec![];
     let mut job_results: HashMap<String, JobRunResult> = HashMap::new();
 
     for (key, job) in self.jobs.iter() {
@@ -96,6 +105,11 @@ impl Workflow {
       "Duration: {:?}ms",
       ended_at.timestamp_millis() - started_at.timestamp_millis()
     );
+
+    ctx.on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
+      id: self.id.clone(),
+      state: workflow_state.clone(),
+    });
 
     Ok(WorkflowRunResult {
       state: workflow_state,

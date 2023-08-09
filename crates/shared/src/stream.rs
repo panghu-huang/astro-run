@@ -59,6 +59,7 @@ impl Stream for StreamReceiver {
   }
 }
 
+#[derive(Clone)]
 pub struct StreamSender {
   state: Arc<Mutex<SharedState>>,
 }
@@ -66,13 +67,6 @@ pub struct StreamSender {
 impl StreamSender {
   fn new(state: Arc<Mutex<SharedState>>) -> Self {
     Self { state }
-  }
-
-  pub fn receiver(&self) -> StreamReceiver {
-    StreamReceiver {
-      current_index: Mutex::new(0),
-      state: self.state.clone(),
-    }
   }
 
   pub fn log(&self, message: impl Into<String>) {

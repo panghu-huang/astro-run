@@ -1,8 +1,8 @@
 mod builder;
-mod workflow_shared;
+// mod workflow_shared;
 
-use self::{builder::ExecutionContextBuilder, workflow_shared::WorkflowShared};
-use crate::{AstroRunSharedState, StepRunResult};
+use self::builder::ExecutionContextBuilder;
+use crate::{AstroRunSharedState, Job, StepRunResult, Workflow};
 use astro_run_shared::{
   Command, Context, Error, RunResult, Runner, StreamExt, WorkflowLog, WorkflowState,
   WorkflowStateEvent,
@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct ExecutionContext {
-  pub workflow_shared: WorkflowShared,
+  // pub workflow_shared: WorkflowShared,
   runner: Arc<Box<dyn Runner>>,
   shared_state: AstroRunSharedState,
 }
@@ -22,15 +22,13 @@ impl ExecutionContext {
   }
 
   pub async fn run(&self, command: Command) -> astro_run_shared::Result<StepRunResult> {
-    let (workflow_id, job_key, step_number) = command.id.clone();
+    let step_id = command.id.clone();
 
     let plugin_manager = self.shared_state.plugins();
 
     let started_at = chrono::Utc::now();
     plugin_manager.on_state_change(WorkflowStateEvent::StepStateUpdated {
-      workflow_id: workflow_id.clone(),
-      job_id: job_key.clone(),
-      number: step_number,
+      id: step_id.clone(),
       state: WorkflowState::InProgress,
     });
 
@@ -40,18 +38,14 @@ impl ExecutionContext {
         let ended_at = chrono::Utc::now();
         let duration = ended_at - started_at;
         log::error!(
-          "Step {} of job {} in workflow {} failed with error {:?} in {} seconds",
-          step_number,
-          job_key,
-          workflow_id,
+          "Step {:?} failed with error {:?} in {} seconds",
+          step_id,
           err,
           duration.num_seconds()
         );
 
         plugin_manager.on_state_change(WorkflowStateEvent::StepStateUpdated {
-          workflow_id: workflow_id.clone(),
-          job_id: job_key.clone(),
-          number: step_number,
+          id: step_id.clone(),
           state: WorkflowState::Failed,
         });
 
@@ -66,9 +60,7 @@ impl ExecutionContext {
 
     while let Some(log) = receiver.next().await {
       let log = WorkflowLog {
-        workflow_id: workflow_id.clone(),
-        job_key: job_key.clone(),
-        step_number,
+        step_id: step_id.clone(),
         log_type: log.log_type,
         message: log.message,
         time: chrono::Utc::now(),
@@ -84,10 +76,8 @@ impl ExecutionContext {
     let ended_at = chrono::Utc::now();
     let duration = ended_at - started_at;
     log::info!(
-      "Step {} of job {} in workflow {} finished with result {:?} in {} seconds",
-      step_number,
-      job_key,
-      workflow_id,
+      "Step {:?} finished with result {:?} in {} seconds",
+      step_id,
       res,
       duration.num_seconds()
     );
@@ -114,5 +104,17 @@ impl ExecutionContext {
     };
 
     Ok(res)
+  }
+
+  pub fn on_run_workflow(&self, workflow: Workflow) {
+    self.shared_state.on_run_workflow(workflow);
+  }
+
+  pub fn on_run_job(&self, job: Job) {
+    self.shared_state.on_run_job(job);
+  }
+
+  pub fn on_state_change(&self, event: WorkflowStateEvent) {
+    self.shared_state.on_state_change(event);
   }
 }
