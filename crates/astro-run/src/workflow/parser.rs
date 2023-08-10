@@ -1,6 +1,8 @@
 use super::{job::Job, Step, Workflow};
-use crate::{UserCommandStep, UserStep, UserWorkflow};
-use astro_run_shared::{Error, Id, JobId, Result, StepId, WorkflowEvent, WorkflowId};
+use crate::{
+  Error, Id, JobId, Result, StepId, UserCommandStep, UserStep, UserWorkflow, WorkflowEvent,
+  WorkflowId,
+};
 use std::collections::HashMap;
 
 pub struct WorkflowParser {
@@ -17,17 +19,16 @@ impl WorkflowParser {
     let mut jobs = HashMap::new();
     for (key, job) in user_workflow.jobs {
       let mut steps = Vec::new();
-      let job_image = job.image;
+      let job_container = job.container;
       let job_working_dirs = job.working_dirs.unwrap_or_default();
       for (idx, step) in job.steps.iter().enumerate() {
         if let UserStep::Command(UserCommandStep {
           name,
-          image,
+          container,
           run,
           continue_on_error,
           environments,
           timeout,
-          security_opts,
           ..
         }) = step.clone()
         {
@@ -42,16 +43,13 @@ impl WorkflowParser {
           steps.push(Step {
             id: StepId::new(id.clone(), key.clone(), idx),
             name,
-            image: image.or(job_image.clone()),
+            container: container.or(job_container.clone()),
             run,
-            working_directories: job_working_dirs.clone(),
             continue_on_error: continue_on_error.unwrap_or(false),
             environments: environments.unwrap_or_default(),
             // TODO: support volumes and secrets
-            volumes: vec![],
             secrets: vec![],
             timeout,
-            security_opts: security_opts,
           });
         } else {
           return Err(Error::unsupported_feature("Only command step is supported"));
@@ -66,7 +64,7 @@ impl WorkflowParser {
           steps,
           on: job.on,
           depends_on: job.depends_on,
-          working_dirs: job_working_dirs,
+          working_directories: job_working_dirs,
         },
       );
     }
@@ -84,7 +82,7 @@ impl WorkflowParser {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use astro_run_shared::EnvironmentVariable;
+  use crate::EnvironmentVariable;
 
   #[test]
   fn test_parse() {
@@ -138,5 +136,33 @@ jobs:
       &EnvironmentVariable::String("test".to_string())
     );
     assert_eq!(step.run, "echo \"Hello World\"");
+  }
+
+  #[test]
+  fn test_invalid_time_format() {
+    let yaml = r#"
+jobs:
+  test:
+    name: Test Job
+    steps:
+      - timeout: 1ss
+        run: Hello World
+  "#;
+
+    let user_workflow: UserWorkflow = serde_yaml::from_str(yaml).unwrap();
+    let event = WorkflowEvent::default();
+
+    let parser = WorkflowParser {
+      id: "test-id".to_string(),
+      user_workflow,
+      event,
+    };
+
+    let workflow = parser.parse();
+
+    let excepted_error =
+      Error::workflow_config_error("Invalid timeout format. The format should like `60m` or `1h`.");
+
+    assert_eq!(workflow.unwrap_err(), excepted_error);
   }
 }

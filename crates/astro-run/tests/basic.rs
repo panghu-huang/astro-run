@@ -1,5 +1,7 @@
-use astro_run::{stream, AstroRun, AstroRunPlugin, PluginBuilder, Runner, Workflow};
-use astro_run_shared::{Context, JobId, RunResult, WorkflowState};
+use astro_run::{
+  stream, AstroRun, AstroRunPlugin, Context, Job, JobRunResult, PluginBuilder, RunResult, Runner,
+  Workflow, WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
+};
 use parking_lot::Mutex;
 
 struct TestRunner {}
@@ -11,12 +13,12 @@ impl TestRunner {
 }
 
 impl Runner for TestRunner {
-  fn run(&self, ctx: Context) -> astro_run_shared::RunResponse {
+  fn run(&self, ctx: Context) -> astro_run::RunResponse {
     let (tx, rx) = stream();
 
-    if let Some(image) = ctx.command.image {
-      match image.as_str() {
-        "throw-error" => return Err(astro_run_shared::Error::internal_runtime_error(0)),
+    if let Some(container) = ctx.command.container {
+      match container.name() {
+        "throw-error" => return Err(astro_run::Error::internal_runtime_error(0)),
         "failed" => {
           tx.error(ctx.command.run);
           tx.end(RunResult::Failed { exit_code: 1 });
@@ -25,7 +27,10 @@ impl Runner for TestRunner {
           tx.log(ctx.command.run);
           tx.end(RunResult::Cancelled);
         }
-        _ => {}
+        _ => {
+          tx.log(ctx.command.run);
+          tx.end(RunResult::Succeeded);
+        }
       }
     } else {
       tx.log(ctx.command.run);
@@ -34,6 +39,33 @@ impl Runner for TestRunner {
     }
 
     Ok(rx)
+  }
+
+  fn on_run_workflow(&self, workflow: Workflow) {
+    println!(
+      "Running workflow: {}",
+      workflow.name.unwrap_or("None".to_string())
+    );
+  }
+
+  fn on_run_job(&self, job: Job) {
+    println!("Running job: {}", job.name.unwrap_or("None".to_string()));
+  }
+
+  fn on_state_change(&self, event: WorkflowStateEvent) {
+    println!("State changed: {:?}", event);
+  }
+
+  fn on_job_completed(&self, result: JobRunResult) {
+    println!("Job completed: {:?}", result);
+  }
+
+  fn on_log(&self, log: WorkflowLog) {
+    println!("Log: {:?}", log);
+  }
+
+  fn on_workflow_completed(&self, result: WorkflowRunResult) {
+    println!("Workflow completed {:?}", result);
   }
 }
 
@@ -56,7 +88,9 @@ jobs:
   test:
     name: Test Job
     steps:
-      - run: Hello World
+      - timeout: 60m
+        continue-on-error: false
+        run: Hello World
   "#;
 
   let astro_run = AstroRun::builder()
@@ -65,23 +99,21 @@ jobs:
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run_shared::WorkflowEvent::default())
+    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build()
     .unwrap();
 
   let ctx = astro_run.execution_context();
 
-  let res = workflow.run(ctx).await.unwrap();
+  let res = workflow.run(ctx).await;
 
   assert_eq!(res.state, WorkflowState::Succeeded);
   let job_result = res.jobs.get("test").unwrap();
   assert_eq!(job_result.state, WorkflowState::Succeeded);
   assert_eq!(job_result.steps.len(), 1);
 
-  for step in &job_result.steps {
-    assert_eq!(step.state, WorkflowState::Succeeded);
-  }
+  assert_eq!(job_result.steps[0].state, WorkflowState::Succeeded);
 }
 
 #[tokio::test]
@@ -94,7 +126,9 @@ jobs:
       - run: Hello World1
       - name: Test Step
         run: Hello World2
-      - run: Hello World3
+      - container:
+          name: test
+        run: Hello World3
   "#;
 
   let astro_run = AstroRun::builder()
@@ -107,14 +141,14 @@ jobs:
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run_shared::WorkflowEvent::default())
+    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build()
     .unwrap();
 
   let ctx = astro_run.execution_context();
 
-  let res = workflow.run(ctx).await.unwrap();
+  let res = workflow.run(ctx).await;
 
   assert_eq!(res.state, WorkflowState::Succeeded);
   let job_result = res.jobs.get("test").unwrap();
@@ -124,6 +158,41 @@ jobs:
   for step in &job_result.steps {
     assert_eq!(step.state, WorkflowState::Succeeded);
   }
+}
+
+#[tokio::test]
+async fn test_throw_error() {
+  let workflow = r#"
+jobs:
+  test:
+    steps:
+      - container: throw-error
+        run: Hello World1
+      - run: Hello World2
+  "#;
+
+  let astro_run = AstroRun::builder()
+    .runner(Box::new(TestRunner::new()))
+    .plugin(assert_logs_plugin(vec!["Hello World1".to_string()]))
+    .build();
+
+  let workflow = Workflow::builder()
+    .event(astro_run::WorkflowEvent::default())
+    .config(workflow)
+    .build()
+    .unwrap();
+
+  let ctx = astro_run.execution_context();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Failed);
+  let job_result = res.jobs.get("test").unwrap();
+  assert_eq!(job_result.state, WorkflowState::Failed);
+  assert_eq!(job_result.steps.len(), 2);
+
+  assert_eq!(job_result.steps[0].state, WorkflowState::Failed);
+  assert_eq!(job_result.steps[1].state, WorkflowState::Skipped);
 }
 
 #[tokio::test]
@@ -151,14 +220,14 @@ async fn test_depends_on() {
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run_shared::WorkflowEvent::default())
+    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build()
     .unwrap();
 
   let ctx = astro_run.execution_context();
 
-  let res = workflow.run(ctx).await.unwrap();
+  let res = workflow.run(ctx).await;
 
   assert_eq!(res.state, WorkflowState::Succeeded);
   let job_result = res.jobs.get("test").unwrap();
@@ -176,7 +245,7 @@ async fn test_failed_step() {
 jobs:
   test:
     steps:
-      - image: failed
+      - container: failed
         run: Failed step
       - run: Skipped step
   "#;
@@ -187,14 +256,14 @@ jobs:
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run_shared::WorkflowEvent::default())
+    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build()
     .unwrap();
 
   let ctx = astro_run.execution_context();
 
-  let res = workflow.run(ctx).await.unwrap();
+  let res = workflow.run(ctx).await;
 
   assert_eq!(res.state, WorkflowState::Failed);
   let job_result = res.jobs.get("test").unwrap();
@@ -210,7 +279,7 @@ async fn test_continue_on_error() {
 jobs:
   test:
     steps:
-      - image: failed
+      - container: failed
         run: Failed step
       - continue-on-error: true
         run: Hello World
@@ -226,14 +295,14 @@ jobs:
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run_shared::WorkflowEvent::default())
+    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build()
     .unwrap();
 
   let ctx = astro_run.execution_context();
 
-  let res = workflow.run(ctx).await.unwrap();
+  let res = workflow.run(ctx).await;
 
   assert_eq!(res.state, WorkflowState::Failed);
   let job_result = res.jobs.get("test").unwrap();
@@ -250,7 +319,7 @@ async fn test_cancel_step() {
 jobs:
   test:
     steps:
-      - image: cancel
+      - container: cancel
         run: Cancel step
       - continue-on-error: true
         run: Skipped step
@@ -263,14 +332,14 @@ jobs:
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run_shared::WorkflowEvent::default())
+    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build()
     .unwrap();
 
   let ctx = astro_run.execution_context();
 
-  let res = workflow.run(ctx).await.unwrap();
+  let res = workflow.run(ctx).await;
 
   assert_eq!(res.state, WorkflowState::Cancelled);
   let job_result = res.jobs.get("test").unwrap();
@@ -304,26 +373,31 @@ jobs:
       .on_run_workflow(|workflow| {
         assert_eq!(workflow.name.unwrap(), "Test Workflow");
         assert_eq!(workflow.jobs.len(), 1);
-        assert_eq!(workflow.id.0, "id");
+        assert_eq!(workflow.id.inner(), "id");
       })
       .on_run_job(|job| {
-        let JobId(_, key) = job.id.clone();
-        assert_eq!(key, "test");
+        assert_eq!(job.id.job_key(), "test");
         assert_eq!(job.name.unwrap(), "Test Job");
+      })
+      .on_job_completed(|res| {
+        assert_eq!(res.state, WorkflowState::Succeeded);
+      })
+      .on_workflow_completed(|res| {
+        assert_eq!(res.state, WorkflowState::Succeeded);
       })
       .build(),
   );
 
   let workflow = Workflow::builder()
     .id("id")
-    .event(astro_run_shared::WorkflowEvent::default())
+    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build()
     .unwrap();
 
   let ctx = astro_run.execution_context();
 
-  workflow.run(ctx).await.unwrap();
+  workflow.run(ctx).await;
 }
 
 #[tokio::test]
@@ -349,12 +423,12 @@ jobs:
   astro_run.unregister_plugin("test");
 
   let workflow = Workflow::builder()
-    .event(astro_run_shared::WorkflowEvent::default())
+    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build()
     .unwrap();
 
   let ctx = astro_run.execution_context();
 
-  workflow.run(ctx).await.unwrap();
+  workflow.run(ctx).await;
 }

@@ -1,7 +1,6 @@
 use super::{Log, RunResult};
 use parking_lot::Mutex;
 use std::{sync::Arc, task::Waker};
-
 use tokio_stream::Stream;
 
 struct SharedState {

@@ -1,6 +1,8 @@
 use super::Step;
-use crate::{ExecutionContext, JobRunResult, StepRunResult, WorkflowTriggerEvents};
-use astro_run_shared::{JobId, WorkflowState, WorkflowStateEvent};
+use crate::{
+  ExecutionContext, JobId, JobRunResult, StepRunResult, WorkflowState, WorkflowStateEvent,
+  WorkflowTriggerEvents,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -11,11 +13,11 @@ pub struct Job {
   pub on: Option<WorkflowTriggerEvents>,
   /// For workflow run
   pub depends_on: Option<Vec<String>>,
-  pub working_dirs: Vec<String>,
+  pub working_directories: Vec<String>,
 }
 
 impl Job {
-  pub async fn run(&self, ctx: ExecutionContext) -> astro_run_shared::Result<JobRunResult> {
+  pub async fn run(&self, ctx: ExecutionContext) -> JobRunResult {
     let started_at = chrono::Utc::now();
     let mut job_state = WorkflowState::InProgress;
 
@@ -38,16 +40,17 @@ impl Job {
       if skipped {
         // TODO: log skipped step & call plugin manager
         steps.push(StepRunResult {
+          id: step.id.clone(),
           state: WorkflowState::Skipped,
           exit_code: None,
           started_at: None,
-          ended_at: None,
+          completed_at: None,
         });
         continue;
       }
 
       // TODO: inject environment variables
-      let result = ctx.run(step).await?;
+      let result = ctx.run(step).await;
 
       match result.state {
         WorkflowState::Failed => {
@@ -66,18 +69,23 @@ impl Job {
       job_state = WorkflowState::Succeeded;
     }
 
-    let ended_at = chrono::Utc::now();
+    let completed_at = chrono::Utc::now();
 
     ctx.on_state_change(WorkflowStateEvent::JobStateUpdated {
       id: self.id.clone(),
       state: job_state.clone(),
     });
 
-    Ok(JobRunResult {
+    let result = JobRunResult {
+      id: self.id.clone(),
       state: job_state,
       started_at: Some(started_at),
-      ended_at: Some(ended_at),
+      completed_at: Some(completed_at),
       steps,
-    })
+    };
+
+    ctx.on_job_completed(result.clone());
+
+    result
   }
 }

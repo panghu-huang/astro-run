@@ -1,17 +1,21 @@
-use crate::{Job, Workflow};
+use crate::{Job, JobRunResult, Workflow, WorkflowLog, WorkflowRunResult, WorkflowStateEvent};
 use parking_lot::Mutex;
 use std::sync::Arc;
-
-use astro_run_shared::{WorkflowLog, WorkflowStateEvent};
 
 type OnStateChange = dyn Fn(WorkflowStateEvent) -> () + Send + Sync;
 type OnLog = dyn Fn(WorkflowLog) -> () + Send + Sync;
 type OnRunWorkflow = dyn Fn(Workflow) -> () + Send + Sync;
 type OnRunJob = dyn Fn(Job) -> () + Send + Sync;
+type OnWorkflowComplete = dyn Fn(WorkflowRunResult) -> () + Send + Sync;
+type OnJobComplete = dyn Fn(JobRunResult) -> () + Send + Sync;
 
 pub trait Plugin: Send {
   fn on_state_change(&self, event: WorkflowStateEvent) -> ();
   fn on_log(&self, log: WorkflowLog) -> ();
+  fn on_run_workflow(&self, workflow: Workflow) -> ();
+  fn on_run_job(&self, job: Job) -> ();
+  fn on_workflow_completed(&self, result: WorkflowRunResult) -> ();
+  fn on_job_completed(&self, result: JobRunResult) -> ();
 }
 
 pub struct PluginBuilder {
@@ -20,6 +24,8 @@ pub struct PluginBuilder {
   on_log: Option<Box<OnLog>>,
   on_run_workflow: Option<Box<OnRunWorkflow>>,
   on_run_job: Option<Box<OnRunJob>>,
+  on_workflow_completed: Option<Box<OnWorkflowComplete>>,
+  on_job_completed: Option<Box<OnJobComplete>>,
 }
 
 impl PluginBuilder {
@@ -30,6 +36,8 @@ impl PluginBuilder {
       on_log: None,
       on_run_workflow: None,
       on_run_job: None,
+      on_workflow_completed: None,
+      on_job_completed: None,
     }
   }
 
@@ -65,6 +73,22 @@ impl PluginBuilder {
     self
   }
 
+  pub fn on_workflow_completed<T>(mut self, on_workflow_completed: T) -> Self
+  where
+    T: Fn(WorkflowRunResult) -> () + 'static + Send + Sync,
+  {
+    self.on_workflow_completed = Some(Box::new(on_workflow_completed));
+    self
+  }
+
+  pub fn on_job_completed<T>(mut self, on_job_completed: T) -> Self
+  where
+    T: Fn(JobRunResult) -> () + 'static + Send + Sync,
+  {
+    self.on_job_completed = Some(Box::new(on_job_completed));
+    self
+  }
+
   pub fn build(self) -> AstroRunPlugin {
     AstroRunPlugin {
       name: self.name,
@@ -72,6 +96,8 @@ impl PluginBuilder {
       on_log: self.on_log,
       on_run_workflow: self.on_run_workflow,
       on_run_job: self.on_run_job,
+      on_workflow_completed: self.on_workflow_completed,
+      on_job_completed: self.on_job_completed,
     }
   }
 }
@@ -82,11 +108,51 @@ pub struct AstroRunPlugin {
   on_log: Option<Box<OnLog>>,
   on_run_workflow: Option<Box<OnRunWorkflow>>,
   on_run_job: Option<Box<OnRunJob>>,
+  on_workflow_completed: Option<Box<OnWorkflowComplete>>,
+  on_job_completed: Option<Box<OnJobComplete>>,
 }
 
 impl AstroRunPlugin {
   pub fn builder(name: &'static str) -> PluginBuilder {
     PluginBuilder::new(name)
+  }
+}
+
+impl Plugin for AstroRunPlugin {
+  fn on_state_change(&self, event: WorkflowStateEvent) {
+    if let Some(on_state_change) = &self.on_state_change {
+      on_state_change(event);
+    }
+  }
+
+  fn on_log(&self, log: WorkflowLog) {
+    if let Some(on_log) = &self.on_log {
+      on_log(log);
+    }
+  }
+
+  fn on_run_workflow(&self, workflow: Workflow) {
+    if let Some(on_run_workflow) = &self.on_run_workflow {
+      on_run_workflow(workflow);
+    }
+  }
+
+  fn on_run_job(&self, job: Job) {
+    if let Some(on_run_job) = &self.on_run_job {
+      on_run_job(job);
+    }
+  }
+
+  fn on_workflow_completed(&self, result: WorkflowRunResult) {
+    if let Some(on_workflow_completed) = &self.on_workflow_completed {
+      on_workflow_completed(result);
+    }
+  }
+
+  fn on_job_completed(&self, result: JobRunResult) {
+    if let Some(on_job_completed) = &self.on_job_completed {
+      on_job_completed(result);
+    }
   }
 }
 
@@ -117,36 +183,42 @@ impl PluginManager {
   pub fn on_state_change(&self, event: WorkflowStateEvent) {
     let plugins = self.plugins.lock();
     for plugin in plugins.iter() {
-      if let Some(on_state_change) = &plugin.on_state_change {
-        on_state_change(event.clone());
-      }
+      plugin.on_state_change(event.clone());
     }
   }
 
   pub fn on_log(&self, log: WorkflowLog) {
     let plugins = self.plugins.lock();
     for plugin in plugins.iter() {
-      if let Some(on_log) = &plugin.on_log {
-        on_log(log.clone());
-      }
+      plugin.on_log(log.clone());
     }
   }
 
   pub fn on_run_workflow(&self, workflow: Workflow) {
     let plugins = self.plugins.lock();
     for plugin in plugins.iter() {
-      if let Some(on_run_workflow) = &plugin.on_run_workflow {
-        on_run_workflow(workflow.clone());
-      }
+      plugin.on_run_workflow(workflow.clone());
     }
   }
 
   pub fn on_run_job(&self, job: Job) {
     let plugins = self.plugins.lock();
     for plugin in plugins.iter() {
-      if let Some(on_run_job) = &plugin.on_run_job {
-        on_run_job(job.clone());
-      }
+      plugin.on_run_job(job.clone());
+    }
+  }
+
+  pub fn on_workflow_completed(&self, result: WorkflowRunResult) {
+    let plugins = self.plugins.lock();
+    for plugin in plugins.iter() {
+      plugin.on_workflow_completed(result.clone());
+    }
+  }
+
+  pub fn on_job_completed(&self, result: JobRunResult) {
+    let plugins = self.plugins.lock();
+    for plugin in plugins.iter() {
+      plugin.on_job_completed(result.clone());
     }
   }
 }
@@ -154,7 +226,7 @@ impl PluginManager {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use astro_run_shared::{WorkflowId, WorkflowState, WorkflowStateEvent};
+  use crate::{WorkflowId, WorkflowState, WorkflowStateEvent};
 
   #[test]
   fn plugin_manager_register() {

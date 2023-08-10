@@ -1,10 +1,9 @@
 mod builder;
-// mod workflow_shared;
 
 use self::builder::ExecutionContextBuilder;
-use crate::{AstroRunSharedState, Job, StepRunResult, Workflow};
-use astro_run_shared::{
-  Command, Context, Error, RunResult, Runner, StreamExt, WorkflowLog, WorkflowState,
+use crate::{
+  AstroRunSharedState, Command, Context, Error, Job, JobRunResult, RunResult, Runner,
+  StepRunResult, StreamExt, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState,
   WorkflowStateEvent,
 };
 use std::sync::Arc;
@@ -21,7 +20,7 @@ impl ExecutionContext {
     ExecutionContextBuilder::new()
   }
 
-  pub async fn run(&self, command: Command) -> astro_run_shared::Result<StepRunResult> {
+  pub async fn run(&self, command: Command) -> StepRunResult {
     let step_id = command.id.clone();
 
     let plugin_manager = self.shared_state.plugins();
@@ -35,8 +34,8 @@ impl ExecutionContext {
     let mut receiver = match self.runner.run(Context { command }) {
       Ok(receiver) => receiver,
       Err(err) => {
-        let ended_at = chrono::Utc::now();
-        let duration = ended_at - started_at;
+        let completed_at = chrono::Utc::now();
+        let duration = completed_at - started_at;
         log::error!(
           "Step {:?} failed with error {:?} in {} seconds",
           step_id,
@@ -49,12 +48,13 @@ impl ExecutionContext {
           state: WorkflowState::Failed,
         });
 
-        return Ok(StepRunResult {
+        return StepRunResult {
+          id: step_id,
           state: WorkflowState::Failed,
           exit_code: Some(1),
           started_at: Some(started_at),
-          ended_at: Some(ended_at),
-        });
+          completed_at: Some(completed_at),
+        };
       }
     };
 
@@ -66,15 +66,20 @@ impl ExecutionContext {
         time: chrono::Utc::now(),
       };
 
-      plugin_manager.on_log(log);
+      plugin_manager.on_log(log.clone());
+      self.runner.on_log(log);
     }
 
-    let res = receiver.result().ok_or(Error::internal_runtime_error(
-      "Missing result from runner. This is a bug in the runner implementation.",
-    ))?;
+    let res = receiver
+      .result()
+      // NOTE: This should never happen
+      .ok_or(Error::internal_runtime_error(
+        "Missing result from runner. This is a bug in the runner implementation.",
+      ))
+      .unwrap();
 
-    let ended_at = chrono::Utc::now();
-    let duration = ended_at - started_at;
+    let completed_at = chrono::Utc::now();
+    let duration = completed_at - started_at;
     log::info!(
       "Step {:?} finished with result {:?} in {} seconds",
       step_id,
@@ -84,37 +89,53 @@ impl ExecutionContext {
 
     let res = match res {
       RunResult::Succeeded => StepRunResult {
+        id: step_id,
         state: WorkflowState::Succeeded,
         exit_code: None,
         started_at: Some(started_at),
-        ended_at: Some(ended_at),
+        completed_at: Some(completed_at),
       },
       RunResult::Failed { exit_code } => StepRunResult {
+        id: step_id,
         state: WorkflowState::Failed,
         exit_code: Some(exit_code),
         started_at: Some(started_at),
-        ended_at: Some(ended_at),
+        completed_at: Some(completed_at),
       },
       RunResult::Cancelled => StepRunResult {
+        id: step_id,
         state: WorkflowState::Cancelled,
         exit_code: None,
         started_at: Some(started_at),
-        ended_at: Some(ended_at),
+        completed_at: Some(completed_at),
       },
     };
 
-    Ok(res)
+    res
   }
 
   pub fn on_run_workflow(&self, workflow: Workflow) {
-    self.shared_state.on_run_workflow(workflow);
+    self.shared_state.on_run_workflow(workflow.clone());
+    self.runner.on_run_workflow(workflow);
   }
 
   pub fn on_run_job(&self, job: Job) {
-    self.shared_state.on_run_job(job);
+    self.shared_state.on_run_job(job.clone());
+    self.runner.on_run_job(job);
   }
 
   pub fn on_state_change(&self, event: WorkflowStateEvent) {
-    self.shared_state.on_state_change(event);
+    self.shared_state.on_state_change(event.clone());
+    self.runner.on_state_change(event);
+  }
+
+  pub fn on_job_completed(&self, result: JobRunResult) {
+    self.shared_state.on_job_completed(result.clone());
+    self.runner.on_job_completed(result);
+  }
+
+  pub fn on_workflow_completed(&self, result: WorkflowRunResult) {
+    self.shared_state.on_workflow_completed(result.clone());
+    self.runner.on_workflow_completed(result);
   }
 }

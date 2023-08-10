@@ -16,7 +16,10 @@ name = "astro_run"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-astro-run-shared = { version = "0.1.0-dev.1", path = "../shared" }
+humantime = "2.1.0"
+serde_yaml = "0.9.17"
+
+# Workspace dependencies
 parking_lot = { workspace = true }
 tokio = { workspace = true, features = [
   "sync",
@@ -27,9 +30,10 @@ tokio = { workspace = true, features = [
   "rt-multi-thread",
   "time",
 ] }
-chrono = { workspace = true }
 serde = { workspace = true }
-serde_yaml = "0.9.17"
 uuid = { workspace = true }
 log = { workspace = true }
-humantime = "2.1.0"
+thiserror = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+tokio-stream = { workspace = true }
+octocrate = { workspace = true }

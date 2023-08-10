@@ -1,6 +1,5 @@
 use super::{parser::WorkflowParser, Workflow};
-use crate::UserWorkflow;
-use astro_run_shared::{Error, Id, Result, WorkflowEvent};
+use crate::{Error, Id, Result, UserWorkflow, WorkflowEvent};
 
 pub struct WorkflowBuilder {
   id: Option<Id>,

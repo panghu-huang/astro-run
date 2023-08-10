@@ -1,4 +1,6 @@
-use crate::{AstroRunPlugin, Job, PluginManager, Workflow, WorkflowStateEvent};
+use crate::{
+  AstroRunPlugin, Job, JobRunResult, PluginManager, Workflow, WorkflowRunResult, WorkflowStateEvent,
+};
 use parking_lot::Mutex;
 use std::sync::Arc;
 
@@ -45,5 +47,13 @@ impl AstroRunSharedState {
 
   pub fn on_run_job(&self, job: Job) {
     self.0.lock().plugins.on_run_job(job);
+  }
+
+  pub fn on_workflow_completed(&self, result: WorkflowRunResult) {
+    self.0.lock().plugins.on_workflow_completed(result);
+  }
+
+  pub fn on_job_completed(&self, result: JobRunResult) {
+    self.0.lock().plugins.on_job_completed(result);
   }
 }

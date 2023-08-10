@@ -1,20 +1,32 @@
-use astro_run_shared::{EnvironmentVariables, Error, Id, Result};
+use crate::{EnvironmentVariables, Error, Id, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ContainerOptions {
+  pub name: String,
+  pub volumes: Option<Vec<String>>,
+  #[serde(rename = "security-opts")]
+  pub security_opts: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum Container {
+  Options(ContainerOptions),
+  Name(String),
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct UserCommandStep {
   pub name: Option<String>,
-  pub image: Option<String>,
+  pub container: Option<Container>,
   pub run: String,
   #[serde(rename = "continue-on-error")]
   pub continue_on_error: Option<bool>,
   pub environments: Option<EnvironmentVariables>,
   pub secrets: Option<Vec<String>>,
-  pub volumes: Option<Vec<String>>,
   pub timeout: Option<String>,
-  #[serde(rename = "security-opts")]
-  pub security_opts: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -40,7 +52,7 @@ pub enum UserStep {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UserJob {
   pub name: Option<String>,
-  pub image: Option<String>,
+  pub container: Option<Container>,
   pub on: Option<WorkflowTriggerEvents>,
   /// Working directory for all steps in this job
   #[serde(rename = "working-directories")]
@@ -130,6 +142,15 @@ impl UserWorkflow {
   }
 }
 
+impl Container {
+  pub fn name(&self) -> &str {
+    match self {
+      Self::Options(docker) => &docker.name,
+      Self::Name(name) => name,
+    }
+  }
+}
+
 impl TryFrom<&str> for UserWorkflow {
   type Error = Error;
 
@@ -154,7 +175,7 @@ impl TryFrom<String> for UserWorkflow {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use astro_run_shared::EnvironmentVariable;
+  use crate::EnvironmentVariable;
 
   #[test]
   fn test_parse() {
@@ -267,6 +288,23 @@ jobs:
       res.unwrap_err(),
       Error::workflow_config_error("Job job1 depends on job job2, but job job2 is not defined")
     );
+  }
+
+  #[test]
+  fn test_empty_depend() {
+    let yaml = r#"
+    jobs:
+      job1:
+        depends-on: []
+        steps:
+          - run: echo "Hello World"
+      job2:
+        depends-on: [job1]
+        steps:
+          - run: echo "Hello World"
+    "#;
+
+    UserWorkflow::try_from(yaml).unwrap();
   }
 
   #[test]

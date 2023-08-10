@@ -1,5 +1,4 @@
-use crate::{shared_state::AstroRunSharedState, AstroRunPlugin, ExecutionContext};
-use astro_run_shared::Runner;
+use crate::{shared_state::AstroRunSharedState, AstroRunPlugin, ExecutionContext, Runner};
 use std::sync::Arc;
 
 pub struct AstroRun {

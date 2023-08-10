@@ -3,13 +3,15 @@ mod job;
 mod parser;
 
 pub use self::job::Job;
-use crate::{ExecutionContext, JobRunResult, WorkflowRunResult, WorkflowTriggerEvents};
-use astro_run_shared::{Id, WorkflowEvent, WorkflowId, WorkflowState, WorkflowStateEvent};
+use crate::{
+  ExecutionContext, Id, JobRunResult, WorkflowEvent, WorkflowId, WorkflowRunResult, WorkflowState,
+  WorkflowStateEvent, WorkflowTriggerEvents,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::mpsc::{channel, Sender};
 
-pub type Step = astro_run_shared::Command;
+pub type Step = crate::Command;
 
 // Job key, JobRunResult
 type Result = (Id, JobRunResult);
@@ -24,7 +26,7 @@ pub struct Workflow {
 }
 
 impl Workflow {
-  pub async fn run(&self, ctx: ExecutionContext) -> astro_run_shared::Result<WorkflowRunResult> {
+  pub async fn run(&self, ctx: ExecutionContext) -> WorkflowRunResult {
     let started_at = chrono::Utc::now();
 
     let mut workflow_state = WorkflowState::InProgress;
@@ -99,11 +101,11 @@ impl Workflow {
       }
     }
 
-    let ended_at = chrono::Utc::now();
+    let completed_at = chrono::Utc::now();
 
     log::info!(
       "Duration: {:?}ms",
-      ended_at.timestamp_millis() - started_at.timestamp_millis()
+      completed_at.timestamp_millis() - started_at.timestamp_millis()
     );
 
     ctx.on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
@@ -111,48 +113,28 @@ impl Workflow {
       state: workflow_state.clone(),
     });
 
-    Ok(WorkflowRunResult {
+    let result = WorkflowRunResult {
+      id: self.id.clone(),
       state: workflow_state,
       started_at: Some(started_at),
-      ended_at: Some(ended_at),
+      completed_at: Some(completed_at),
       jobs: job_results,
-    })
+    };
+
+    ctx.on_workflow_completed(result.clone());
+
+    result
   }
 
   fn run_job(&self, key: Id, job: job::Job, context: ExecutionContext, sender: Sender<Result>) {
     let _res = tokio::spawn(async move {
-      match job.run(context).await {
-        Ok(result) => {
-          sender.send((key.clone(), result)).await.map_err(|_| {
-            astro_run_shared::Error::internal_runtime_error(format!(
-              "Failed to send result for job {}",
-              key
-            ))
-          })?;
-        }
-        Err(err) => {
-          log::error!("Failed to run job {}: {:?}", key, err);
-          sender
-            .send((
-              key.clone(),
-              JobRunResult {
-                state: WorkflowState::Failed,
-                started_at: None,
-                ended_at: None,
-                steps: vec![],
-              },
-            ))
-            .await
-            .map_err(|_| {
-              astro_run_shared::Error::internal_runtime_error(format!(
-                "Failed to send result for job {}",
-                key
-              ))
-            })?;
-        }
-      }
+      let result = job.run(context).await;
 
-      Ok::<(), astro_run_shared::Error>(())
+      sender.send((key.clone(), result)).await.map_err(|_| {
+        crate::Error::internal_runtime_error(format!("Failed to send result for job {}", key))
+      })?;
+
+      Ok::<(), crate::Error>(())
     });
   }
 
