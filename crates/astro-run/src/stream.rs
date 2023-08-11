@@ -94,6 +94,10 @@ impl StreamSender {
       waker.wake();
     }
   }
+
+  pub fn is_ended(&self) -> bool {
+    self.state.lock().result.is_some()
+  }
 }
 
 pub fn stream() -> (StreamSender, StreamReceiver) {

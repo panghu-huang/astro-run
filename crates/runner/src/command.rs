@@ -1,123 +1,56 @@
-use astro_run_shared::{Error, Log, Result};
-use parking_lot::Mutex;
-use std::{
-  path::PathBuf,
-  process::{ExitStatus, Stdio},
-  sync::Arc,
-  task::Waker,
-};
+use astro_run::{Error, Result, RunResult, StreamSender};
+use serde::{Deserialize, Serialize};
+use std::{path::PathBuf, process::Stdio};
 use tokio::{
   io::{AsyncBufReadExt, BufReader},
   process::Command as Cmd,
 };
-use tokio_stream::Stream;
 
-struct State {
-  logs: Vec<Log>,
-  exit_status: Option<ExitStatus>,
-  waker: Option<Waker>,
-}
-
-pub struct Receiver {
-  current_index: Mutex<usize>,
-  state: Arc<Mutex<State>>,
-}
-
-impl Stream for Receiver {
-  type Item = Log;
-
-  fn poll_next(
-    self: std::pin::Pin<&mut Self>,
-    cx: &mut std::task::Context<'_>,
-  ) -> std::task::Poll<Option<Self::Item>> {
-    let mut state = self.state.lock();
-    state.waker = Some(cx.waker().clone());
-
-    let logs = state.logs.clone();
-    let total = logs.len();
-    let current_index = self.current_index.lock().clone();
-
-    if current_index < total {
-      let log = logs[current_index].clone();
-      *self.current_index.lock() += 1;
-
-      cx.waker().wake_by_ref();
-
-      return std::task::Poll::Ready(Some(log));
-    }
-
-    if state.exit_status.is_some() {
-      return std::task::Poll::Ready(None);
-    }
-
-    std::task::Poll::Pending
-  }
-}
-
-impl Receiver {
-  pub fn exit_status(&self) -> Option<ExitStatus> {
-    self.state.lock().exit_status
-  }
-}
-
+/// A command to be executed by the runner.
+///
+/// And also can be send via Network.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Command {
-  command: Cmd,
+  pub command: String,
+  pub current_dir: Option<PathBuf>,
+  pub envs: Vec<(String, String)>,
+  pub args: Vec<String>,
 }
 
 impl Command {
   pub fn new(cmd: impl Into<String>) -> Self {
-    if cfg!(target_os = "windows") {
-      Command::powershell(cmd)
-    } else {
-      Command::sh(cmd)
+    Self {
+      command: cmd.into(),
+      current_dir: None,
+      envs: vec![],
+      args: vec![],
     }
   }
 
-  pub fn powershell(cmd: impl Into<String>) -> Self {
-    let cmd: String = cmd.into();
-    let mut command = Cmd::new("powershell.exe");
-
-    command
-      .arg("-NoProfile")
-      .arg("-NonInteractive")
-      .arg("-Command")
-      .arg(cmd);
-
-    Command { command }
-  }
-
-  pub fn sh(cmd: impl Into<String>) -> Self {
-    let cmd: String = cmd.into();
-    let mut command = Cmd::new("sh");
-
-    command.arg("-c").arg(cmd);
-
-    Command { command }
-  }
-
   pub fn env(&mut self, key: impl Into<String>, value: impl Into<String>) -> &mut Self {
-    self.command.env(key.into(), value.into());
+    self.envs.push((key.into(), value.into()));
 
     self
   }
 
   pub fn dir(&mut self, dir: &PathBuf) -> &mut Self {
-    self.command.current_dir(dir);
+    self.current_dir = Some(dir.clone());
 
     self
   }
 
   pub fn arg<S>(&mut self, arg: S) -> &mut Self
   where
-    S: AsRef<std::ffi::OsStr>,
+    S: Into<String>,
   {
-    self.command.arg(arg);
+    self.args.push(arg.into());
 
     self
   }
 
   pub async fn exec(&mut self) -> Result<String> {
-    let output = self.command.output().await.map_err(|err| {
+    let mut command = self.build_command();
+    let output = command.output().await.map_err(|err| {
       Error::internal_runtime_error(format!("Failed to spawn child process: {}", err))
     })?;
 
@@ -133,9 +66,9 @@ impl Command {
     Err(Error::internal_runtime_error(stderr))
   }
 
-  pub fn run(&mut self) -> Result<Receiver> {
-    let mut child = self
-      .command
+  pub async fn run(&mut self, sender: StreamSender) -> Result<()> {
+    let mut command = self.build_command();
+    let mut child = command
       .stdout(Stdio::piped())
       .stderr(Stdio::piped())
       .spawn()
@@ -143,113 +76,168 @@ impl Command {
         Error::internal_runtime_error(format!("Failed to spawn child process: {}", err))
       })?;
 
-    let state = Arc::new(Mutex::new(State {
-      logs: vec![],
-      exit_status: None,
-      waker: None,
-    }));
+    let out = child.stdout.take().ok_or(Error::internal_runtime_error(
+      "Failed to get stdout from child process".to_string(),
+    ))?;
+    let err = child.stderr.take().ok_or(Error::internal_runtime_error(
+      "Failed to get stderr from child process".to_string(),
+    ))?;
 
-    let receiver = Receiver {
-      current_index: Mutex::new(0),
-      state: state.clone(),
-    };
+    let out = BufReader::new(out);
+    let err = BufReader::new(err);
 
-    let _res = tokio::task::spawn(async move {
-      let out = child.stdout.take().ok_or(Error::internal_runtime_error(
-        "Failed to get stdout from child process".to_string(),
-      ))?;
-      let err = child.stderr.take().ok_or(Error::internal_runtime_error(
-        "Failed to get stderr from child process".to_string(),
-      ))?;
+    let mut lines = out.lines();
+    let mut errors = err.lines();
 
-      let out = BufReader::new(out);
-      let err = BufReader::new(err);
-
-      let mut lines = out.lines();
-      let mut errors = err.lines();
-
-      // Add a log to the state
-      let add_log = |log: Log| {
-        let mut state = state.lock();
-        state.logs.push(log);
-
-        if let Some(waker) = state.waker.take() {
-          waker.wake();
-        }
-      };
-
-      loop {
-        tokio::select! {
-          line = lines.next_line() => {
-            match line {
-              Ok(Some(line)) => {
-                let log = Log::log(line);
-                add_log(log);
-              }
-              Ok(None) => {
-                  break;
-              }
-              Err(err) => {
-                add_log(Log::error(err.to_string()));
+    loop {
+      tokio::select! {
+        line = lines.next_line() => {
+          match line {
+            Ok(Some(line)) => {
+              sender.log(line);
+            }
+            Ok(None) => {
                 break;
-              }
+            }
+            Err(err) => {
+              sender.error(err.to_string());
+              break;
             }
           }
-          error = errors.next_line() => {
-            match error {
-              Ok(Some(error)) => {
-                add_log(Log::error(error));
-              }
-              Ok(None) => {
-                break;
-              }
-              Err(err) => {
-                add_log(Log::error(err.to_string()));
-                break;
-              }
+        }
+        error = errors.next_line() => {
+          match error {
+            Ok(Some(error)) => {
+              sender.error(error);
+            }
+            Ok(None) => {
+              break;
+            }
+            Err(err) => {
+              sender.error(err.to_string());
+              break;
             }
           }
         }
       }
+    }
 
-      let status = child.wait().await.map_err(|err| {
-        Error::internal_runtime_error(format!("Failed to wait for child process: {}", err))
-      })?;
+    let status = child.wait().await.map_err(|err| {
+      Error::internal_runtime_error(format!("Failed to wait for child process: {}", err))
+    })?;
 
-      let mut state = state.lock();
-      state.exit_status = Some(status);
-      if let Some(waker) = state.waker.take() {
-        waker.wake();
-      }
+    let res = status
+      .code()
+      .map(|code| {
+        if code == 0 {
+          RunResult::Succeeded
+        } else {
+          RunResult::Failed { exit_code: code }
+        }
+      })
+      .unwrap_or_else(|| RunResult::Failed { exit_code: 1 });
 
-      Ok(()) as Result<()>
-    });
+    sender.end(res);
 
-    Ok(receiver)
+    Ok(())
+  }
+
+  fn build_command(&self) -> Cmd {
+    let mut command;
+
+    if cfg!(target_os = "windows") {
+      command = Cmd::new("powershell.exe");
+
+      command
+        .arg("-NoProfile")
+        .arg("-NonInteractive")
+        .arg("-Command")
+        .arg(self.command.clone());
+    } else {
+      command = Cmd::new("sh");
+
+      command.arg("-c").arg(self.command.clone());
+    }
+
+    if let Some(dir) = &self.current_dir {
+      command.current_dir(dir);
+    }
+
+    for (key, value) in &self.envs {
+      command.env(key, value);
+    }
+
+    for arg in &self.args {
+      command.arg(arg);
+    }
+
+    command
   }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
+  use astro_run::stream;
   use tokio_stream::StreamExt;
 
   #[tokio::test]
   async fn test_command() {
     let mut cmd = Command::new("echo hello");
-    let mut receiver = cmd.run().unwrap();
+    let (sender, mut receiver) = stream();
 
     let mut logs = vec![];
 
-    while let Some(log) = receiver.next().await {
-      logs.push(log);
-    }
+    tokio::join!(
+      async {
+        while let Some(log) = receiver.next().await {
+          logs.push(log);
+        }
+      },
+      async {
+        cmd.run(sender).await.unwrap();
+      }
+    );
 
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].message, "hello");
 
-    let exit_status = receiver.exit_status();
+    assert_eq!(receiver.result().unwrap(), RunResult::Succeeded);
+  }
 
-    assert!(exit_status.unwrap().success());
+  #[tokio::test]
+  async fn test_command_with_env() {
+    let command = if cfg!(target_os = "windows") {
+      "echo $env:HELLO"
+    } else {
+      "echo ${HELLO}"
+    };
+    let mut cmd = Command::new(command);
+    cmd.env("HELLO", "world");
+    let (sender, mut receiver) = stream();
+
+    let mut logs = vec![];
+
+    tokio::join!(
+      async {
+        while let Some(log) = receiver.next().await {
+          logs.push(log);
+        }
+      },
+      async {
+        cmd.run(sender).await.unwrap();
+      }
+    );
+
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].message, "world");
+  }
+
+  #[tokio::test]
+  async fn test_exec_command() {
+    let mut cmd = Command::new("echo hello");
+    let stdout = cmd.exec().await.unwrap();
+
+    assert_eq!(stdout, "hello");
   }
 }

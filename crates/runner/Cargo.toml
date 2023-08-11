@@ -1,5 +1,5 @@
 [package]
-name = "runner"
+name = "astro-runner"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 tokio-stream = { workspace = true }
-astro-run-shared = { path = "../shared" }
+astro-run = { path = "../astro-run" }
 tokio = { workspace = true, features = [
   "sync",
   "macros",
@@ -18,3 +18,5 @@ tokio = { workspace = true, features = [
   "time",
 ] }
 parking_lot = { workspace = true }
+serde = { workspace = true }
+log = { workspace = true }

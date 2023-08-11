@@ -71,10 +71,10 @@ impl WorkflowEventPayload for WorkflowEvent {
 impl Default for WorkflowAPIEvent {
   fn default() -> Self {
     Self {
-      repo_owner: "".to_string(),
-      repo_name: "".to_string(),
-      ref_name: "".to_string(),
-      sha: "".to_string(),
+      repo_owner: "panghu-huang".to_string(),
+      repo_name: "astro-run".to_string(),
+      ref_name: "main".to_string(),
+      sha: "123456".to_string(),
       pr_number: None,
     }
   }

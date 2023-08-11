@@ -1,0 +1,2 @@
+[alias]
+astro-run-cov = "tarpaulin --all-features --timeout 120 --out Xml -p astro-run -- --nocapture"
