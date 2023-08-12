@@ -46,8 +46,8 @@ impl Workflow {
       let key = key.clone();
       let job = job.clone();
 
-      if let Some(depends_on) = &job.depends_on {
-        for depends_on_key in depends_on {
+      if !job.depends_on.is_empty() {
+        for depends_on_key in &job.depends_on {
           if !self.jobs.contains_key(depends_on_key) {
             log::error!(
               "Job {} depends on job {} which does not exist",
@@ -85,9 +85,9 @@ impl Workflow {
       }
 
       for (job_id, job) in waiting_jobs.iter() {
-        if let Some(depends_on) = &job.depends_on {
+        if !job.depends_on.is_empty() {
           let mut all_finished = true;
-          for depends_on_key in depends_on {
+          for depends_on_key in &job.depends_on {
             if !job_results.contains_key(depends_on_key) {
               all_finished = false;
               break;

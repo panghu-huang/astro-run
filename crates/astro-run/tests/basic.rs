@@ -17,7 +17,7 @@ impl Runner for TestRunner {
     let (tx, rx) = stream();
 
     if let Some(container) = ctx.command.container {
-      match container.name() {
+      match container.name.as_str() {
         "throw-error" => return Err(astro_run::Error::internal_runtime_error(0)),
         "failed" => {
           tx.error(ctx.command.run);
@@ -94,7 +94,7 @@ jobs:
   "#;
 
   let astro_run = AstroRun::builder()
-    .runner(Box::new(TestRunner::new()))
+    .runner(TestRunner::new())
     .plugin(assert_logs_plugin(vec!["Hello World".to_string()]))
     .build();
 
@@ -132,7 +132,7 @@ jobs:
   "#;
 
   let astro_run = AstroRun::builder()
-    .runner(Box::new(TestRunner::new()))
+    .runner(TestRunner::new())
     .plugin(assert_logs_plugin(vec![
       "Hello World1".to_string(),
       "Hello World2".to_string(),
@@ -172,7 +172,7 @@ jobs:
   "#;
 
   let astro_run = AstroRun::builder()
-    .runner(Box::new(TestRunner::new()))
+    .runner(TestRunner::new())
     .plugin(assert_logs_plugin(vec!["Hello World1".to_string()]))
     .build();
 
@@ -212,7 +212,7 @@ async fn test_depends_on() {
     "#;
 
   let astro_run = AstroRun::builder()
-    .runner(Box::new(TestRunner::new()))
+    .runner(TestRunner::new())
     .plugin(assert_logs_plugin(vec![
       "Hello World1".to_string(),
       "Hello World2".to_string(),
@@ -251,7 +251,7 @@ jobs:
   "#;
 
   let astro_run = AstroRun::builder()
-    .runner(Box::new(TestRunner::new()))
+    .runner(TestRunner::new())
     .plugin(assert_logs_plugin(vec!["Failed step".to_string()]))
     .build();
 
@@ -287,7 +287,7 @@ jobs:
   "#;
 
   let astro_run = AstroRun::builder()
-    .runner(Box::new(TestRunner::new()))
+    .runner(TestRunner::new())
     .plugin(assert_logs_plugin(vec![
       "Failed step".to_string(),
       "Hello World".to_string(),
@@ -327,7 +327,7 @@ jobs:
   "#;
 
   let astro_run = AstroRun::builder()
-    .runner(Box::new(TestRunner::new()))
+    .runner(TestRunner::new())
     .plugin(assert_logs_plugin(vec!["Cancel step".to_string()]))
     .build();
 
@@ -361,9 +361,7 @@ jobs:
       - run: Hello World
   "#;
 
-  let astro_run = AstroRun::builder()
-    .runner(Box::new(TestRunner::new()))
-    .build();
+  let astro_run = AstroRun::builder().runner(TestRunner::new()).build();
 
   astro_run.register_plugin(
     AstroRunPlugin::builder("test")
@@ -410,9 +408,7 @@ jobs:
       - run: Hello World
   "#;
 
-  let astro_run = AstroRun::builder()
-    .runner(Box::new(TestRunner::new()))
-    .build();
+  let astro_run = AstroRun::builder().runner(TestRunner::new()).build();
 
   astro_run.register_plugin(
     AstroRunPlugin::builder("test")

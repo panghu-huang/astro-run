@@ -46,8 +46,11 @@ impl AstroRunBuilder {
     }
   }
 
-  pub fn runner(mut self, runner: Box<dyn Runner>) -> Self {
-    self.runner = Some(runner);
+  pub fn runner<T>(mut self, runner: T) -> Self
+  where
+    T: Runner + 'static,
+  {
+    self.runner = Some(Box::new(runner));
     self
   }
 

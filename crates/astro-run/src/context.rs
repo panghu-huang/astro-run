@@ -1,4 +1,4 @@
-use crate::{Container, EnvironmentVariables, StepId};
+use crate::{ContainerOptions, EnvironmentVariables, StepId};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -22,7 +22,7 @@ pub struct Volume {
 pub struct Command {
   pub id: StepId,
   pub name: Option<String>,
-  pub container: Option<Container>,
+  pub container: Option<ContainerOptions>,
   pub run: String,
   pub continue_on_error: bool,
   pub environments: EnvironmentVariables,

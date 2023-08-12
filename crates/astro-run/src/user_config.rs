@@ -149,6 +149,17 @@ impl Container {
       Self::Name(name) => name,
     }
   }
+
+  pub fn normalize(&self) -> ContainerOptions {
+    match self {
+      Self::Options(docker) => docker.clone(),
+      Self::Name(name) => ContainerOptions {
+        name: name.clone(),
+        volumes: None,
+        security_opts: None,
+      },
+    }
+  }
 }
 
 impl TryFrom<&str> for UserWorkflow {

@@ -40,7 +40,7 @@ impl Executor {
       .command
       .container
       .clone()
-      .map(|c| c.name().to_string())
+      .map(|c| c.name)
       .unwrap_or("ubuntu".to_string());
 
     // Generate docker command

@@ -41,7 +41,7 @@ jobs:
   let runner = DockerRunner::builder().build().unwrap();
 
   let astro_run = AstroRun::builder()
-    .runner(Box::new(runner))
+    .runner(runner)
     .plugin(assert_logs_plugin(vec![
       "Content is Hello World".to_string()
     ]))

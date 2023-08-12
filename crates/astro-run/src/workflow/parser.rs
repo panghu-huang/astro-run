@@ -43,7 +43,7 @@ impl WorkflowParser {
           steps.push(Step {
             id: StepId::new(id.clone(), key.clone(), idx),
             name,
-            container: container.or(job_container.clone()),
+            container: container.or(job_container.clone()).map(|c| c.normalize()),
             run,
             continue_on_error: continue_on_error.unwrap_or(false),
             environments: environments.unwrap_or_default(),
@@ -63,7 +63,7 @@ impl WorkflowParser {
           name: job.name,
           steps,
           on: job.on,
-          depends_on: job.depends_on,
+          depends_on: job.depends_on.unwrap_or_default(),
           working_directories: job_working_dirs,
         },
       );

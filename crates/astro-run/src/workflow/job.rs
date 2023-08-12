@@ -12,7 +12,7 @@ pub struct Job {
   pub steps: Vec<Step>,
   pub on: Option<WorkflowTriggerEvents>,
   /// For workflow run
-  pub depends_on: Option<Vec<String>>,
+  pub depends_on: Vec<String>,
   pub working_directories: Vec<String>,
 }
 

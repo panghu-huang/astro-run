@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+package astro;
+import "google/protobuf/timestamp.proto";
+
+message Step {
+  string id = 1;
+}
+
+message Job {
+  string id = 1;
+  optional string name = 2;
+  repeated Step steps = 3;
+  repeated string depends_on = 4;
+  repeated string working_directories = 5;
+}
+
+message WorkflowAPIEvent {
+  string event = 1;
+  string repo_owner = 2;
+  string repo_name = 3;
+  optional int32 pr_number = 4;
+  string sha = 5;
+  string ref_name = 6;
+}
+
+message Workflow {
+  string id = 1;
+  optional string name = 2;
+  WorkflowAPIEvent event = 3;
+  map<string, Job> jobs = 4;
+}
+
+enum WorkflowState {
+  Pending = 0;
+  Queued = 1;
+  InProgress = 2;
+  Succeeded = 3;
+  Failed = 4;
+  Cancelled = 5;
+  Skipped = 6;
+}
+
+message StepRunResult {
+  string id = 1;
+  WorkflowState state = 2;
+  optional int32 exit_code = 3;
+  optional google.protobuf.Timestamp started_at = 4;
+  optional google.protobuf.Timestamp completed_at = 5;
+}
+
+message JobRunResult {
+  string id = 1;
+  WorkflowState state = 2;
+  optional google.protobuf.Timestamp started_at = 3;
+  optional google.protobuf.Timestamp completed_at = 4;
+  repeated StepRunResult steps = 5;
+}
+
+message WorkflowRunResult {
+  string id = 1;
+  WorkflowState state = 2;
+  optional google.protobuf.Timestamp started_at = 3;
+  optional google.protobuf.Timestamp completed_at = 4;
+  map<string, JobRunResult> jobs = 5;
+}
+
+message Container {
+  string name = 1;
+}
+
+message Command {
+  string id = 1;
+  optional string name = 2;
+  optional Container container = 3;
+  string run = 4;
+  bool continue_on_error = 5;
+}
+
+message Context {
+  Command command = 1;
+}
+
+message Event {
+  string event_name = 1;
+  oneof payload {
+    Context run = 2;
+    Workflow run_workflow_event = 3;
+    Job run_job_event = 4;
+    WorkflowRunResult workflow_completed_event = 5;
+    JobRunResult job_completed_event = 6;
+    string error = 7;
+  }
+}
+
+message SubscribeEventsRequest {
+  string id = 1;
+  string version = 2;
+  optional string token = 3;
+}
+
+message ReportLogRequest {
+  string run_id = 1;
+  string log = 2;
+  string log_type = 3;
+}
+
+message ReportLogResponse {}
+
+message ReportRunCompletedRequest {
+  string run_id = 1;
+  oneof result {
+    int32 succeeded = 2;
+    int32 failed = 3;
+    int32 cancelled = 4;
+  }
+}
+
+message ReportRunCompletedResponse {}
+
+service AstroService {
+  rpc SubscribeEvents(SubscribeEventsRequest) returns (stream Event) {}
+  rpc ReportLog(ReportLogRequest) returns (ReportLogResponse) {}
+  rpc ReportRunCompleted(ReportRunCompletedRequest) returns (ReportRunCompletedResponse) {}
+}
