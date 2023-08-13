@@ -4,7 +4,7 @@ use crate::{
   metadata::{Metadata, PathBufTryToString},
   utils,
 };
-use astro_run::{Context, Result, StreamSender, WorkflowEvent, WorkflowEventPayload};
+use astro_run::{Context, Result, StreamSender, WorkflowAPIEvent};
 use std::path::PathBuf;
 use tokio::fs;
 
@@ -20,10 +20,9 @@ impl Executor {
   pub async fn execute(
     &self,
     sender: StreamSender,
-    event: WorkflowEvent,
+    event: WorkflowAPIEvent,
     ctx: Context,
   ) -> Result<()> {
-    let event = event.payload()?;
     // Runner working directory
     let metadata = Metadata::builder()
       .repo_owner(event.repo_owner)

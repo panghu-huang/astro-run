@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 
 enum Command {
-  ReportLog(pb::ReportLogRequest),
+  ReportLog(pb::WorkflowLog),
   ReportRunCompleted(pb::ReportRunCompletedRequest),
 }
 
@@ -69,10 +69,29 @@ impl AstroRunRunner {
               self.plugins.on_workflow_completed(result.clone());
               self.runner.on_workflow_completed(result);
             }
+            EventPayload::RunWorkflowEvent(workflow) => {
+              let workflow: astro_run::Workflow = workflow.try_into()?;
+              self.plugins.on_run_workflow(workflow.clone());
+              self.runner.on_run_workflow(workflow);
+            }
+            EventPayload::RunJobEvent(job) => {
+              let job: astro_run::Job = job.try_into()?;
+              self.plugins.on_run_job(job.clone());
+              self.runner.on_run_job(job);
+            }
             EventPayload::Error(error) => {
               log::error!("Received error event: {:?}", error);
             }
-            _ => {}
+            EventPayload::LogEvent(log) => {
+              let log: astro_run::WorkflowLog = log.try_into()?;
+              self.plugins.on_log(log.clone());
+              self.runner.on_log(log);
+            }
+            EventPayload::WorkflowStateEvent(event) => {
+              let event: astro_run::WorkflowStateEvent = event.try_into()?;
+              self.plugins.on_state_change(event.clone());
+              self.runner.on_state_change(event);
+            }
           }
         },
         Some(command) = rx.recv() => {
@@ -105,14 +124,16 @@ impl AstroRunRunner {
     let runner = self.runner.clone();
 
     tokio::task::spawn(async move {
-      let run_id = ctx.command.id.to_string();
+      let step_id = ctx.command.id.clone();
       let mut receiver = runner.run(ctx)?;
       while let Some(log) = receiver.next().await {
-        let request = pb::ReportLogRequest {
-          run_id: run_id.clone(),
-          log: log.message,
-          log_type: log.log_type.to_string(),
-        };
+        let request = pb::WorkflowLog::try_from(astro_run::WorkflowLog {
+          step_id: step_id.clone(),
+          message: log.message,
+          log_type: log.log_type,
+          time: chrono::Utc::now(),
+        })
+        .unwrap();
         if let Err(err) = tx.send(Command::ReportLog(request)).await {
           log::error!("Send command error {:?}", err);
         }
@@ -123,7 +144,7 @@ impl AstroRunRunner {
       })?;
 
       let request = pb::ReportRunCompletedRequest {
-        run_id: run_id.clone(),
+        run_id: step_id.to_string(),
         result: Some(result.into()),
       };
 

@@ -1,13 +1,13 @@
 use crate::executor::Executor;
 use astro_run::{
-  stream, Context, Error, Result, RunResponse, RunResult, Runner, WorkflowEvent,
+  stream, Context, Error, Result, RunResponse, RunResult, Runner, WorkflowAPIEvent,
   WorkflowEventPayload, WorkflowId,
 };
 use parking_lot::Mutex;
 use std::{collections::HashMap, env, fs, path::PathBuf, sync::Arc};
 
 struct RunnerState {
-  workflow_events: HashMap<WorkflowId, WorkflowEvent>,
+  workflow_events: HashMap<WorkflowId, WorkflowAPIEvent>,
 }
 
 pub struct DockerRunner {

@@ -7,6 +7,7 @@ pub trait WorkflowEventPayload {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WorkflowAPIEvent {
+  pub event: String,
   pub repo_owner: String,
   pub repo_name: String,
   pub pr_number: Option<u64>,
@@ -33,6 +34,7 @@ impl WorkflowEventPayload for WorkflowAPIEvent {
 impl WorkflowEventPayload for GithubWebhookPushEvent {
   fn payload(self) -> crate::Result<WorkflowAPIEvent> {
     let api_event = WorkflowAPIEvent {
+      event: "push".to_string(),
       repo_owner: self.repository.owner.login,
       repo_name: self.repository.name,
       ref_name: self.ref_name,
@@ -47,6 +49,7 @@ impl WorkflowEventPayload for GithubWebhookPushEvent {
 impl WorkflowEventPayload for GithubWebhookPullRequestEvent {
   fn payload(self) -> crate::Result<WorkflowAPIEvent> {
     let api_event = WorkflowAPIEvent {
+      event: "pull_request".to_string(),
       repo_owner: self.repository.owner.login,
       repo_name: self.repository.name,
       ref_name: self.pull_request.base.ref_name,
@@ -71,6 +74,7 @@ impl WorkflowEventPayload for WorkflowEvent {
 impl Default for WorkflowAPIEvent {
   fn default() -> Self {
     Self {
+      event: "push".to_string(),
       repo_owner: "panghu-huang".to_string(),
       repo_name: "astro-run".to_string(),
       ref_name: "main".to_string(),

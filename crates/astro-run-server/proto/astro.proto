@@ -3,23 +3,37 @@ syntax = "proto3";
 package astro;
 import "google/protobuf/timestamp.proto";
 
-message Step {
+message EnvironmentVariable {
+  oneof value {
+    string string = 1;
+    float number = 2;
+    bool boolean = 3;
+  }
+}
+
+message Command {
   string id = 1;
+  optional string name = 2;
+  optional Container container = 3;
+  string run = 4;
+  bool continue_on_error = 5;
+  map<string, EnvironmentVariable> environments = 6;
+  uint64 timeout = 7;
 }
 
 message Job {
   string id = 1;
   optional string name = 2;
-  repeated Step steps = 3;
+  repeated Command steps = 3;
   repeated string depends_on = 4;
   repeated string working_directories = 5;
 }
 
-message WorkflowAPIEvent {
+message WorkflowEvent {
   string event = 1;
   string repo_owner = 2;
   string repo_name = 3;
-  optional int32 pr_number = 4;
+  optional uint64 pr_number = 4;
   string sha = 5;
   string ref_name = 6;
 }
@@ -27,7 +41,7 @@ message WorkflowAPIEvent {
 message Workflow {
   string id = 1;
   optional string name = 2;
-  WorkflowAPIEvent event = 3;
+  WorkflowEvent event = 3;
   map<string, Job> jobs = 4;
 }
 
@@ -65,16 +79,21 @@ message WorkflowRunResult {
   map<string, JobRunResult> jobs = 5;
 }
 
-message Container {
-  string name = 1;
+message WorkflowLog {
+  string step_id = 1;
+  string log_type = 2;
+  string message = 3;
+  optional google.protobuf.Timestamp time = 4;
 }
 
-message Command {
-  string id = 1;
-  optional string name = 2;
-  optional Container container = 3;
-  string run = 4;
-  bool continue_on_error = 5;
+message WorkflowStateEvent {
+  string type = 1;
+  string id = 2;
+  WorkflowState state = 3;
+}
+
+message Container {
+  string name = 1;
 }
 
 message Context {
@@ -90,7 +109,9 @@ message Event {
     Job run_job_event = 4;
     WorkflowRunResult workflow_completed_event = 5;
     JobRunResult job_completed_event = 6;
-    string error = 7;
+    WorkflowStateEvent workflow_state_event = 7;
+    WorkflowLog log_event = 8;
+    string error = 9;
   }
 }
 
@@ -98,12 +119,6 @@ message SubscribeEventsRequest {
   string id = 1;
   string version = 2;
   optional string token = 3;
-}
-
-message ReportLogRequest {
-  string run_id = 1;
-  string log = 2;
-  string log_type = 3;
 }
 
 message ReportLogResponse {}
@@ -121,6 +136,6 @@ message ReportRunCompletedResponse {}
 
 service AstroService {
   rpc SubscribeEvents(SubscribeEventsRequest) returns (stream Event) {}
-  rpc ReportLog(ReportLogRequest) returns (ReportLogResponse) {}
+  rpc ReportLog(WorkflowLog) returns (ReportLogResponse) {}
   rpc ReportRunCompleted(ReportRunCompletedRequest) returns (ReportRunCompletedResponse) {}
 }

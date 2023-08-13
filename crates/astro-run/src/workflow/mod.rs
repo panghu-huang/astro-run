@@ -4,8 +4,8 @@ mod parser;
 
 pub use self::job::Job;
 use crate::{
-  ExecutionContext, Id, JobRunResult, WorkflowEvent, WorkflowId, WorkflowRunResult, WorkflowState,
-  WorkflowStateEvent, WorkflowTriggerEvents,
+  ExecutionContext, Id, JobRunResult, WorkflowAPIEvent, WorkflowId, WorkflowRunResult,
+  WorkflowState, WorkflowStateEvent, WorkflowTriggerEvents,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -20,7 +20,7 @@ type Result = (Id, JobRunResult);
 pub struct Workflow {
   pub id: WorkflowId,
   pub name: Option<String>,
-  pub event: WorkflowEvent,
+  pub event: WorkflowAPIEvent,
   pub on: Option<WorkflowTriggerEvents>,
   pub jobs: HashMap<String, Job>,
 }

@@ -72,3 +72,30 @@ impl Default for WorkflowLog {
     }
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_workflow_log_type() {
+    assert_eq!(
+      WorkflowLogType::Error,
+      WorkflowLogType::from("error".to_string())
+    );
+    assert_eq!(
+      WorkflowLogType::Log,
+      WorkflowLogType::from("log".to_string())
+    );
+    assert_eq!(
+      WorkflowLogType::Log,
+      WorkflowLogType::from("unknown".to_string())
+    );
+  }
+
+  #[test]
+  fn test_workflow_log_type_to_string() {
+    assert_eq!("error", WorkflowLogType::Error.to_string());
+    assert_eq!("log", WorkflowLogType::Log.to_string());
+  }
+}

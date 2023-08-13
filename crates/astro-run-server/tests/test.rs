@@ -54,7 +54,7 @@ impl Runner for TestRunner {
 fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
   let index = Mutex::new(0);
 
-  PluginBuilder::new("test-plugin")
+  PluginBuilder::new("assert-logs-plugin")
     .on_log(move |log| {
       let mut i = index.lock();
       assert_eq!(log.message, excepted_logs[*i]);
@@ -127,6 +127,10 @@ async fn test_run() -> Result<()> {
       .build()
       .await
       .unwrap();
+
+    astro_run_runner.register_plugin(AstroRunPlugin::builder("test").build());
+
+    astro_run_runner.unregister_plugin("test");
 
     astro_run_runner.start().await.unwrap();
   });

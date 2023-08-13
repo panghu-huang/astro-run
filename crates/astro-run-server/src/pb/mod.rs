@@ -1,11 +1,13 @@
 #![cfg(not(tarpaulin_include))]
 #![allow(dead_code, non_snake_case)]
 mod astro;
+mod events;
 mod results;
-
-use std::time::Duration;
+mod utils;
+mod workflows;
 
 pub use astro::*;
+use std::{collections::HashMap, time::Duration};
 
 impl Into<astro_run::WorkflowState> for WorkflowState {
   fn into(self) -> astro_run::WorkflowState {
@@ -41,6 +43,38 @@ impl TryFrom<astro_run::ContainerOptions> for Container {
   }
 }
 
+impl TryInto<astro_run::EnvironmentVariable> for environment_variable::Value {
+  type Error = astro_run::Error;
+
+  fn try_into(self) -> Result<astro_run::EnvironmentVariable, Self::Error> {
+    let env = match self {
+      environment_variable::Value::String(value) => astro_run::EnvironmentVariable::String(value),
+      environment_variable::Value::Number(value) => {
+        astro_run::EnvironmentVariable::Number(value as f64)
+      }
+      environment_variable::Value::Boolean(value) => astro_run::EnvironmentVariable::Boolean(value),
+    };
+
+    Ok(env)
+  }
+}
+
+impl TryFrom<astro_run::EnvironmentVariable> for environment_variable::Value {
+  type Error = astro_run::Error;
+
+  fn try_from(value: astro_run::EnvironmentVariable) -> Result<Self, Self::Error> {
+    let env = match value {
+      astro_run::EnvironmentVariable::String(value) => environment_variable::Value::String(value),
+      astro_run::EnvironmentVariable::Number(value) => {
+        environment_variable::Value::Number(value as f32)
+      }
+      astro_run::EnvironmentVariable::Boolean(value) => environment_variable::Value::Boolean(value),
+    };
+
+    Ok(env)
+  }
+}
+
 impl TryInto<astro_run::Command> for Command {
   type Error = astro_run::Error;
 
@@ -62,12 +96,21 @@ impl TryFrom<astro_run::Command> for Command {
   type Error = astro_run::Error;
 
   fn try_from(value: astro_run::Command) -> Result<Self, Self::Error> {
+    let mut environments = HashMap::new();
+
+    for (key, value) in value.environments {
+      let value = environment_variable::Value::try_from(value)?;
+      environments.insert(key, EnvironmentVariable { value: Some(value) });
+    }
+
     Ok(Command {
       id: value.id.to_string(),
       name: value.name,
       container: value.container.map(|c| c.try_into()).transpose()?,
       run: value.run,
       continue_on_error: value.continue_on_error,
+      environments,
+      timeout: value.timeout.as_secs(),
     })
   }
 }
@@ -99,27 +142,108 @@ impl TryFrom<astro_run::Context> for Context {
   }
 }
 
-impl From<astro_run::RunResult> for report_run_completed_request::Result {
-  fn from(value: astro_run::RunResult) -> Self {
-    match value {
-      astro_run::RunResult::Cancelled => report_run_completed_request::Result::Cancelled(0),
-      astro_run::RunResult::Succeeded => report_run_completed_request::Result::Succeeded(0),
-      astro_run::RunResult::Failed { exit_code } => {
-        report_run_completed_request::Result::Failed(exit_code)
-      }
-    }
+impl TryInto<astro_run::WorkflowLog> for WorkflowLog {
+  type Error = astro_run::Error;
+
+  fn try_into(self) -> Result<astro_run::WorkflowLog, Self::Error> {
+    let time = utils::convert_timestamp_to_datetime(&self.time)?;
+
+    Ok(astro_run::WorkflowLog {
+      step_id: astro_run::StepId::try_from(self.step_id.as_str())?,
+      message: self.message,
+      log_type: astro_run::WorkflowLogType::from(self.log_type),
+      time: time.ok_or(astro_run::Error::internal_runtime_error(
+        "Failed to convert timestamp to datetime",
+      ))?,
+    })
   }
 }
 
-impl Into<astro_run::RunResult> for report_run_completed_request::Result {
-  fn into(self) -> astro_run::RunResult {
-    match self {
-      report_run_completed_request::Result::Cancelled(_) => astro_run::RunResult::Cancelled,
-      report_run_completed_request::Result::Failed(exit_code) => {
-        astro_run::RunResult::Failed { exit_code }
+impl TryFrom<astro_run::WorkflowLog> for WorkflowLog {
+  type Error = astro_run::Error;
+
+  fn try_from(value: astro_run::WorkflowLog) -> Result<Self, Self::Error> {
+    let time = utils::convert_datetime_to_timestamp(&Some(value.time))?;
+
+    Ok(WorkflowLog {
+      step_id: value.step_id.to_string(),
+      message: value.message,
+      log_type: value.log_type.to_string(),
+      time,
+    })
+  }
+}
+
+impl TryInto<astro_run::WorkflowStateEvent> for WorkflowStateEvent {
+  type Error = astro_run::Error;
+
+  fn try_into(self) -> Result<astro_run::WorkflowStateEvent, Self::Error> {
+    let state: astro_run::WorkflowState = WorkflowState::from_i32(self.state)
+      .ok_or(astro_run::Error::internal_runtime_error(format!(
+        "Invalid WorkflowState value: {}",
+        self.state
+      )))?
+      .into();
+    let event = match self.r#type.as_str() {
+      "workflow" => {
+        let id = astro_run::WorkflowId::try_from(self.id.as_str())?;
+        astro_run::WorkflowStateEvent::WorkflowStateUpdated { id, state }
       }
-      report_run_completed_request::Result::Succeeded(_) => astro_run::RunResult::Succeeded,
-    }
+      "job" => {
+        let id = astro_run::JobId::try_from(self.id.as_str())?;
+        astro_run::WorkflowStateEvent::JobStateUpdated { id, state }
+      }
+      "step" => {
+        let id = astro_run::StepId::try_from(self.id.as_str())?;
+        astro_run::WorkflowStateEvent::StepStateUpdated { id, state }
+      }
+      _ => {
+        return Err(astro_run::Error::internal_runtime_error(format!(
+          "Invalid WorkflowStateEvent type: {}",
+          self.r#type
+        )))
+      }
+    };
+
+    Ok(event)
+  }
+}
+
+impl TryFrom<astro_run::WorkflowStateEvent> for WorkflowStateEvent {
+  type Error = astro_run::Error;
+
+  fn try_from(value: astro_run::WorkflowStateEvent) -> Result<Self, Self::Error> {
+    let res = match value {
+      astro_run::WorkflowStateEvent::WorkflowStateUpdated { id, state } => {
+        let id = id.to_string();
+        let state = state as i32;
+        WorkflowStateEvent {
+          r#type: "workflow".to_string(),
+          id,
+          state,
+        }
+      }
+      astro_run::WorkflowStateEvent::JobStateUpdated { id, state } => {
+        let id = id.to_string();
+        let state = state as i32;
+        WorkflowStateEvent {
+          r#type: "job".to_string(),
+          id,
+          state,
+        }
+      }
+      astro_run::WorkflowStateEvent::StepStateUpdated { id, state } => {
+        let id = id.to_string();
+        let state = state as i32;
+        WorkflowStateEvent {
+          r#type: "step".to_string(),
+          id,
+          state,
+        }
+      }
+    };
+
+    Ok(res)
   }
 }
 

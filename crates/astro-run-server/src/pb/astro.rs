@@ -1,8 +1,42 @@
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Step {
+pub struct EnvironmentVariable {
+    #[prost(oneof = "environment_variable::Value", tags = "1, 2, 3")]
+    pub value: ::core::option::Option<environment_variable::Value>,
+}
+/// Nested message and enum types in `EnvironmentVariable`.
+pub mod environment_variable {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Value {
+        #[prost(string, tag = "1")]
+        String(::prost::alloc::string::String),
+        #[prost(float, tag = "2")]
+        Number(f32),
+        #[prost(bool, tag = "3")]
+        Boolean(bool),
+    }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Command {
     #[prost(string, tag = "1")]
     pub id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "2")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "3")]
+    pub container: ::core::option::Option<Container>,
+    #[prost(string, tag = "4")]
+    pub run: ::prost::alloc::string::String,
+    #[prost(bool, tag = "5")]
+    pub continue_on_error: bool,
+    #[prost(map = "string, message", tag = "6")]
+    pub environments: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        EnvironmentVariable,
+    >,
+    #[prost(uint64, tag = "7")]
+    pub timeout: u64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -12,7 +46,7 @@ pub struct Job {
     #[prost(string, optional, tag = "2")]
     pub name: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, repeated, tag = "3")]
-    pub steps: ::prost::alloc::vec::Vec<Step>,
+    pub steps: ::prost::alloc::vec::Vec<Command>,
     #[prost(string, repeated, tag = "4")]
     pub depends_on: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag = "5")]
@@ -20,15 +54,15 @@ pub struct Job {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct WorkflowApiEvent {
+pub struct WorkflowEvent {
     #[prost(string, tag = "1")]
     pub event: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub repo_owner: ::prost::alloc::string::String,
     #[prost(string, tag = "3")]
     pub repo_name: ::prost::alloc::string::String,
-    #[prost(int32, optional, tag = "4")]
-    pub pr_number: ::core::option::Option<i32>,
+    #[prost(uint64, optional, tag = "4")]
+    pub pr_number: ::core::option::Option<u64>,
     #[prost(string, tag = "5")]
     pub sha: ::prost::alloc::string::String,
     #[prost(string, tag = "6")]
@@ -42,7 +76,7 @@ pub struct Workflow {
     #[prost(string, optional, tag = "2")]
     pub name: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "3")]
-    pub event: ::core::option::Option<WorkflowApiEvent>,
+    pub event: ::core::option::Option<WorkflowEvent>,
     #[prost(map = "string, message", tag = "4")]
     pub jobs: ::std::collections::HashMap<::prost::alloc::string::String, Job>,
 }
@@ -90,23 +124,31 @@ pub struct WorkflowRunResult {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Container {
+pub struct WorkflowLog {
     #[prost(string, tag = "1")]
-    pub name: ::prost::alloc::string::String,
+    pub step_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub log_type: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub message: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "4")]
+    pub time: ::core::option::Option<::prost_types::Timestamp>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Command {
+pub struct WorkflowStateEvent {
     #[prost(string, tag = "1")]
+    pub r#type: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
     pub id: ::prost::alloc::string::String,
-    #[prost(string, optional, tag = "2")]
-    pub name: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, optional, tag = "3")]
-    pub container: ::core::option::Option<Container>,
-    #[prost(string, tag = "4")]
-    pub run: ::prost::alloc::string::String,
-    #[prost(bool, tag = "5")]
-    pub continue_on_error: bool,
+    #[prost(enumeration = "WorkflowState", tag = "3")]
+    pub state: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Container {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -121,7 +163,7 @@ pub struct Context {
 pub struct Event {
     #[prost(string, tag = "1")]
     pub event_name: ::prost::alloc::string::String,
-    #[prost(oneof = "event::Payload", tags = "2, 3, 4, 5, 6, 7")]
+    #[prost(oneof = "event::Payload", tags = "2, 3, 4, 5, 6, 7, 8, 9")]
     pub payload: ::core::option::Option<event::Payload>,
 }
 /// Nested message and enum types in `Event`.
@@ -139,7 +181,11 @@ pub mod event {
         WorkflowCompletedEvent(super::WorkflowRunResult),
         #[prost(message, tag = "6")]
         JobCompletedEvent(super::JobRunResult),
-        #[prost(string, tag = "7")]
+        #[prost(message, tag = "7")]
+        WorkflowStateEvent(super::WorkflowStateEvent),
+        #[prost(message, tag = "8")]
+        LogEvent(super::WorkflowLog),
+        #[prost(string, tag = "9")]
         Error(::prost::alloc::string::String),
     }
 }
@@ -152,16 +198,6 @@ pub struct SubscribeEventsRequest {
     pub version: ::prost::alloc::string::String,
     #[prost(string, optional, tag = "3")]
     pub token: ::core::option::Option<::prost::alloc::string::String>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ReportLogRequest {
-    #[prost(string, tag = "1")]
-    pub run_id: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
-    pub log: ::prost::alloc::string::String,
-    #[prost(string, tag = "3")]
-    pub log_type: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -343,7 +379,7 @@ pub mod astro_service_client {
         }
         pub async fn report_log(
             &mut self,
-            request: impl tonic::IntoRequest<super::ReportLogRequest>,
+            request: impl tonic::IntoRequest<super::WorkflowLog>,
         ) -> std::result::Result<
             tonic::Response<super::ReportLogResponse>,
             tonic::Status,
@@ -415,7 +451,7 @@ pub mod astro_service_server {
         >;
         async fn report_log(
             &self,
-            request: tonic::Request<super::ReportLogRequest>,
+            request: tonic::Request<super::WorkflowLog>,
         ) -> std::result::Result<
             tonic::Response<super::ReportLogResponse>,
             tonic::Status,
@@ -558,9 +594,7 @@ pub mod astro_service_server {
                 "/astro.AstroService/ReportLog" => {
                     #[allow(non_camel_case_types)]
                     struct ReportLogSvc<T: AstroService>(pub Arc<T>);
-                    impl<
-                        T: AstroService,
-                    > tonic::server::UnaryService<super::ReportLogRequest>
+                    impl<T: AstroService> tonic::server::UnaryService<super::WorkflowLog>
                     for ReportLogSvc<T> {
                         type Response = super::ReportLogResponse;
                         type Future = BoxFuture<
@@ -569,7 +603,7 @@ pub mod astro_service_server {
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::ReportLogRequest>,
+                            request: tonic::Request<super::WorkflowLog>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move { (*inner).report_log(request).await };

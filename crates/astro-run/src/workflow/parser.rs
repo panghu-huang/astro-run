@@ -1,7 +1,7 @@
 use super::{job::Job, Step, Workflow};
 use crate::{
   Error, Id, JobId, Result, StepId, UserCommandStep, UserStep, UserWorkflow, WorkflowEvent,
-  WorkflowId,
+  WorkflowEventPayload, WorkflowId,
 };
 use std::collections::HashMap;
 
@@ -14,6 +14,7 @@ pub struct WorkflowParser {
 impl WorkflowParser {
   pub fn parse(self) -> Result<Workflow> {
     let id = self.id;
+    let event = self.event.payload()?;
     let user_workflow = self.user_workflow;
 
     let mut jobs = HashMap::new();
@@ -71,7 +72,7 @@ impl WorkflowParser {
 
     Ok(Workflow {
       id: WorkflowId::new(id),
-      event: self.event,
+      event,
       name: user_workflow.name,
       on: user_workflow.on,
       jobs,

@@ -64,11 +64,11 @@ impl AstroService for AstroRunServer {
 
   async fn report_log(
     &self,
-    request: Request<pb::ReportLogRequest>,
+    request: Request<pb::WorkflowLog>,
   ) -> Result<Response<pb::ReportLogResponse>, Status> {
     let inner = request.into_inner();
 
-    let id = inner.run_id.clone();
+    let id = inner.step_id.clone();
     let state = self.state.lock();
     let client = state
       .running
@@ -76,8 +76,8 @@ impl AstroService for AstroRunServer {
       .ok_or_else(|| Status::not_found(format!("No running job with id {}", id)))?;
 
     match WorkflowLogType::from(inner.log_type) {
-      WorkflowLogType::Log => client.sender.log(inner.log),
-      WorkflowLogType::Error => client.sender.error(inner.log),
+      WorkflowLogType::Log => client.sender.log(inner.message),
+      WorkflowLogType::Error => client.sender.error(inner.message),
     }
 
     Ok(Response::new(pb::ReportLogResponse {}))
@@ -158,37 +158,27 @@ impl Runner for AstroRunServer {
   }
 
   fn on_job_completed(&self, result: astro_run::JobRunResult) {
-    let event = match pb::Event::try_from(result) {
-      Ok(event) => event,
-      Err(err) => {
-        log::error!("Failed to convert JobRunResult to Event: {}", err);
-        return;
-      }
-    };
-
-    let clients = self.state.lock().clients.clone();
-    for client in clients {
-      if let Err(err) = client.sender.try_send(Ok(event.clone())) {
-        log::error!("Failed to send event to client: {}", err);
-      }
-    }
+    self.send_event_to_clients(result);
   }
 
   fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) {
-    let event = match pb::Event::try_from(result) {
-      Ok(event) => event,
-      Err(err) => {
-        log::error!("Failed to convert WorkflowRunResult to Event: {}", err);
-        return;
-      }
-    };
-    let clients = self.state.lock().clients.clone();
+    self.send_event_to_clients(result);
+  }
 
-    for client in clients {
-      if let Err(err) = client.sender.try_send(Ok(event.clone())) {
-        log::error!("Failed to send event to client: {}", err);
-      }
-    }
+  fn on_run_job(&self, job: astro_run::Job) {
+    self.send_event_to_clients(job);
+  }
+
+  fn on_run_workflow(&self, workflow: astro_run::Workflow) {
+    self.send_event_to_clients(workflow);
+  }
+
+  fn on_log(&self, log: astro_run::WorkflowLog) {
+    self.send_event_to_clients(log);
+  }
+
+  fn on_state_change(&self, event: astro_run::WorkflowStateEvent) {
+    self.send_event_to_clients(event);
   }
 }
 
@@ -214,5 +204,25 @@ impl AstroRunServer {
       })?;
 
     Ok(())
+  }
+
+  fn send_event_to_clients<T>(&self, event: T)
+  where
+    pb::Event: TryFrom<T>,
+  {
+    let event = match pb::Event::try_from(event) {
+      Ok(event) => event,
+      Err(_) => {
+        log::error!("Failed to convert event to pb::Event");
+        return;
+      }
+    };
+    let clients = self.state.lock().clients.clone();
+
+    for client in clients {
+      if let Err(err) = client.sender.try_send(Ok(event.clone())) {
+        log::error!("Failed to send event to client: {}", err);
+      }
+    }
   }
 }
