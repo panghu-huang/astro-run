@@ -4,3 +4,5 @@ mod server;
 
 pub use runner::*;
 pub use server::*;
+
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

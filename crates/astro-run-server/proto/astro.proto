@@ -78,7 +78,8 @@ message Command {
 }
 
 message Context {
-  Command command = 1;
+  string id = 1;
+  Command command = 2;
 }
 
 message Event {

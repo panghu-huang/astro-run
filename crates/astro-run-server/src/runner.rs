@@ -1,5 +1,5 @@
 use crate::pb::{self, astro_service_client::AstroServiceClient, event::Payload as EventPayload};
-use astro_run::{Context, Error, Result, Runner};
+use astro_run::{AstroRunPlugin, Context, Error, PluginManager, Result, Runner};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
@@ -9,15 +9,16 @@ enum Command {
   ReportRunCompleted(pb::ReportRunCompletedRequest),
 }
 
-pub struct AstroProtoRunner {
+pub struct AstroRunRunner {
   id: String,
   client: AstroServiceClient<tonic::transport::Channel>,
   runner: Arc<Box<dyn Runner>>,
+  plugins: PluginManager,
 }
 
-impl AstroProtoRunner {
-  pub fn builder() -> AstroProtoRunnerBuilder {
-    AstroProtoRunnerBuilder::new()
+impl AstroRunRunner {
+  pub fn builder() -> AstroRunRunnerBuilder {
+    AstroRunRunnerBuilder::new()
   }
 
   pub async fn start(&mut self) -> Result<()> {
@@ -28,11 +29,12 @@ impl AstroProtoRunner {
       .subscribe_events(pb::SubscribeEventsRequest {
         id: self.id.clone(),
         token: None,
-        // TODO: version
-        version: "0.0.1".to_string(),
+        version: crate::VERSION.to_string(),
       })
       .await
-      .map_err(|e| Error::internal_runtime_error(format!("Failed to subscribe events: {}", e)))?;
+      .map_err(|e| {
+        Error::internal_runtime_error(format!("Failed to subscribe events: {}", e.to_string()))
+      })?;
 
     let mut stream = stream.into_inner();
 
@@ -40,25 +42,32 @@ impl AstroProtoRunner {
       tokio::select! {
         event = stream.next() => {
           let event = match event {
-            Some(Ok(event)) => event.payload.unwrap(),
+            Some(Ok(pb::Event {
+              payload: Some(payload),
+              ..
+             })) => payload,
             None => {
               break;
             }
             _ => {
+              log::error!("Received invalid event {:?}", event);
               continue;
             }
           };
-          println!("Received event: {:?}", event);
 
           match event {
             EventPayload::Run(ctx) => {
               self.run(tx.clone(), ctx.try_into()?);
             }
             EventPayload::JobCompletedEvent(result) => {
-              self.runner.on_job_completed(result.try_into()?);
+              let result: astro_run::JobRunResult = result.try_into()?;
+              self.plugins.on_job_completed(result.clone());
+              self.runner.on_job_completed(result);
             }
             EventPayload::WorkflowCompletedEvent(result) => {
-              self.runner.on_workflow_completed(result.try_into()?);
+              let result: astro_run::WorkflowRunResult = result.try_into()?;
+              self.plugins.on_workflow_completed(result.clone());
+              self.runner.on_workflow_completed(result);
             }
             EventPayload::Error(error) => {
               log::error!("Received error event: {:?}", error);
@@ -125,20 +134,30 @@ impl AstroProtoRunner {
       Ok::<(), astro_run::Error>(())
     });
   }
+
+  pub fn register_plugin(&self, plugin: AstroRunPlugin) {
+    self.plugins.register(plugin);
+  }
+
+  pub fn unregister_plugin(&self, plugin: &'static str) {
+    self.plugins.unregister(plugin);
+  }
 }
 
-pub struct AstroProtoRunnerBuilder {
+pub struct AstroRunRunnerBuilder {
   runner: Option<Box<dyn Runner>>,
   id: Option<String>,
   url: Option<String>,
+  plugins: PluginManager,
 }
 
-impl AstroProtoRunnerBuilder {
+impl AstroRunRunnerBuilder {
   pub fn new() -> Self {
-    AstroProtoRunnerBuilder {
+    AstroRunRunnerBuilder {
       runner: None,
       id: None,
       url: None,
+      plugins: PluginManager::new(),
     }
   }
 
@@ -160,7 +179,13 @@ impl AstroProtoRunnerBuilder {
     self
   }
 
-  pub async fn build(self) -> Result<AstroProtoRunner> {
+  pub fn plugin(self, plugin: AstroRunPlugin) -> Self {
+    self.plugins.register(plugin);
+
+    self
+  }
+
+  pub async fn build(self) -> Result<AstroRunRunner> {
     let id = self
       .id
       .ok_or_else(|| Error::internal_runtime_error("Missing id".to_string()))?;
@@ -175,10 +200,11 @@ impl AstroProtoRunnerBuilder {
       .await
       .map_err(|e| Error::internal_runtime_error(format!("Failed to connect: {}", e)))?;
 
-    Ok(AstroProtoRunner {
+    Ok(AstroRunRunner {
       id,
       client,
       runner: Arc::new(runner),
+      plugins: self.plugins,
     })
   }
 }

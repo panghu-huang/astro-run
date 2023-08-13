@@ -354,4 +354,51 @@ jobs:
       Error::workflow_config_error("Job `job1` must have at least one step")
     );
   }
+
+  #[test]
+  fn test_container_name() {
+    let yaml = r#"
+jobs:
+  job1:
+    name: Test Job
+    container: test
+    steps:
+      - run: echo "Hello World"
+"#;
+
+    let workflow = UserWorkflow::try_from(yaml).unwrap();
+    let job = workflow.jobs.get("job1").unwrap();
+    let container = job.container.as_ref().unwrap();
+    assert_eq!(container.name(), "test");
+  }
+
+  #[test]
+  fn test_container_options() {
+    let yaml = r#"
+jobs:
+  job1:
+    name: Test Job
+    container: 
+      name: test
+      volumes:
+        - volume-key
+      security-opts:
+        - seccomp=unconfined
+    steps:
+      - run: echo "Hello World"
+"#;
+
+    let workflow = UserWorkflow::try_from(yaml).unwrap();
+    let job = workflow.jobs.get("job1").unwrap();
+    let container = job.container.as_ref().unwrap();
+    assert_eq!(container.name(), "test");
+
+    let normalized = container.normalize();
+    assert_eq!(normalized.name, "test");
+    assert_eq!(normalized.volumes, Some(vec!["volume-key".to_string()]));
+    assert_eq!(
+      normalized.security_opts,
+      Some(vec!["seccomp=unconfined".to_string()])
+    );
+  }
 }

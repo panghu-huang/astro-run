@@ -1,24 +1,11 @@
+#![cfg(not(tarpaulin_include))]
 #![allow(dead_code, non_snake_case)]
 mod astro;
 mod results;
 
-use std::{str::FromStr, time::Duration};
+use std::time::Duration;
 
 pub use astro::*;
-
-fn convert_timestamp_to_datetime(
-  timestamp: &Option<prost_types::Timestamp>,
-) -> Result<Option<chrono::DateTime<chrono::Utc>>, astro_run::Error> {
-  let res = match timestamp {
-    Some(t) => Some(
-      chrono::DateTime::from_str(&t.to_string())
-        .map_err(|_| astro_run::Error::internal_runtime_error("Invalid timestamp"))?,
-    ),
-    None => None,
-  };
-
-  Ok(res)
-}
 
 impl Into<astro_run::WorkflowState> for WorkflowState {
   fn into(self) -> astro_run::WorkflowState {
@@ -90,6 +77,7 @@ impl TryInto<astro_run::Context> for Context {
 
   fn try_into(self) -> Result<astro_run::Context, Self::Error> {
     Ok(astro_run::Context {
+      id: self.id,
       command: self
         .command
         .ok_or(astro_run::Error::internal_runtime_error(
@@ -105,6 +93,7 @@ impl TryFrom<astro_run::Context> for Context {
 
   fn try_from(value: astro_run::Context) -> Result<Self, Self::Error> {
     Ok(Context {
+      id: value.id,
       command: Some(value.command.try_into()?),
     })
   }
@@ -131,5 +120,48 @@ impl Into<astro_run::RunResult> for report_run_completed_request::Result {
       }
       report_run_completed_request::Result::Succeeded(_) => astro_run::RunResult::Succeeded,
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_into_workflow_state() {
+    let state = WorkflowState::Pending;
+    let astro_state: astro_run::WorkflowState = state.into();
+
+    assert_eq!(astro_state, astro_run::WorkflowState::Pending);
+
+    let state = WorkflowState::Queued;
+    let astro_state: astro_run::WorkflowState = state.into();
+
+    assert_eq!(astro_state, astro_run::WorkflowState::Queued);
+
+    let state = WorkflowState::InProgress;
+    let astro_state: astro_run::WorkflowState = state.into();
+
+    assert_eq!(astro_state, astro_run::WorkflowState::InProgress);
+
+    let state = WorkflowState::Succeeded;
+    let astro_state: astro_run::WorkflowState = state.into();
+
+    assert_eq!(astro_state, astro_run::WorkflowState::Succeeded);
+
+    let state = WorkflowState::Failed;
+    let astro_state: astro_run::WorkflowState = state.into();
+
+    assert_eq!(astro_state, astro_run::WorkflowState::Failed);
+
+    let state = WorkflowState::Cancelled;
+    let astro_state: astro_run::WorkflowState = state.into();
+
+    assert_eq!(astro_state, astro_run::WorkflowState::Cancelled);
+
+    let state = WorkflowState::Skipped;
+    let astro_state: astro_run::WorkflowState = state.into();
+
+    assert_eq!(astro_state, astro_run::WorkflowState::Skipped);
   }
 }

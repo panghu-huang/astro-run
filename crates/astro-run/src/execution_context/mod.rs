@@ -31,7 +31,10 @@ impl ExecutionContext {
       state: WorkflowState::InProgress,
     });
 
-    let mut receiver = match self.runner.run(Context { command }) {
+    let mut receiver = match self.runner.run(Context {
+      id: step_id.to_string(),
+      command,
+    }) {
       Ok(receiver) => receiver,
       Err(err) => {
         let completed_at = chrono::Utc::now();

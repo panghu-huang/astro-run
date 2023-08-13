@@ -111,7 +111,9 @@ pub struct Command {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Context {
-    #[prost(message, optional, tag = "1")]
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
     pub command: ::core::option::Option<Command>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

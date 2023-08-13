@@ -7,18 +7,32 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{transport::Server, Request, Response, Status};
 
 #[derive(Clone)]
-struct AstroProtoState {
-  running: HashMap<String, StreamSender>,
-  clients: HashMap<String, mpsc::Sender<Result<pb::Event, Status>>>,
+struct Client {
+  id: String,
+  sender: mpsc::Sender<Result<pb::Event, Status>>,
+  runs: u32,
 }
 
 #[derive(Clone)]
-pub struct AstroProtoServer {
-  state: Arc<Mutex<AstroProtoState>>,
+struct RunningClient {
+  /// Runner ID
+  id: String,
+  sender: StreamSender,
+}
+
+struct SharedState {
+  /// Run ID -> Client
+  running: HashMap<String, RunningClient>,
+  clients: Vec<Client>,
+}
+
+#[derive(Clone)]
+pub struct AstroRunServer {
+  state: Arc<Mutex<SharedState>>,
 }
 
 #[tonic::async_trait]
-impl AstroService for AstroProtoServer {
+impl AstroService for AstroRunServer {
   type SubscribeEventsStream = ReceiverStream<Result<pb::Event, Status>>;
 
   async fn subscribe_events(
@@ -26,13 +40,22 @@ impl AstroService for AstroProtoServer {
     request: Request<pb::SubscribeEventsRequest>,
   ) -> Result<Response<Self::SubscribeEventsStream>, Status> {
     let req = request.into_inner();
+    if req.version != crate::VERSION {
+      return Err(Status::invalid_argument(format!(
+        "Version mismatch: {} != {}",
+        req.version,
+        crate::VERSION
+      )));
+    }
 
     let (tx, rx) = mpsc::channel(100);
 
     let mut state = self.state.lock();
-
-    // Print the pointer to the state to make sure we're using the same state
-    state.clients.insert(req.id.clone(), tx);
+    state.clients.push(Client {
+      id: req.id.clone(),
+      sender: tx,
+      runs: 0,
+    });
 
     let stream = ReceiverStream::new(rx);
 
@@ -47,14 +70,14 @@ impl AstroService for AstroProtoServer {
 
     let id = inner.run_id.clone();
     let state = self.state.lock();
-    let sender = state
+    let client = state
       .running
       .get(&id)
       .ok_or_else(|| Status::not_found(format!("No running job with id {}", id)))?;
 
     match WorkflowLogType::from(inner.log_type) {
-      WorkflowLogType::Log => sender.log(inner.log),
-      WorkflowLogType::Error => sender.error(inner.log),
+      WorkflowLogType::Log => client.sender.log(inner.log),
+      WorkflowLogType::Error => client.sender.error(inner.log),
     }
 
     Ok(Response::new(pb::ReportLogResponse {}))
@@ -67,52 +90,74 @@ impl AstroService for AstroProtoServer {
     let inner = request.into_inner();
 
     let id = inner.run_id.clone();
-    let state = self.state.lock();
-    let sender = state
-      .running
+    let running = self.state.lock().running.clone();
+    let client = running
       .get(&id)
+      .clone()
       .ok_or_else(|| Status::not_found(format!("No running job with id {}", id)))?;
 
     let result = inner
       .result
       .ok_or_else(|| Status::invalid_argument("No result provided"))?;
 
-    sender.end(result.into());
+    client.sender.end(result.into());
+
+    let mut state = self.state.lock();
+    state.running.remove(&id);
+    state
+      .clients
+      .iter_mut()
+      .find(|c| c.id == client.id)
+      .ok_or(Status::internal("No client found"))?
+      .runs -= 1;
 
     Ok(Response::new(pb::ReportRunCompletedResponse {}))
   }
 }
 
-impl Runner for AstroProtoServer {
+impl Runner for AstroRunServer {
   fn run(&self, ctx: Context) -> RunResponse {
     let (sender, receiver) = stream();
     let id = ctx.command.id.to_string();
+
+    let clients = self.state.lock().clients.clone();
+
+    // Pick a min runs client
+    let client = clients
+      .iter()
+      .min_by_key(|client| client.runs)
+      .ok_or_else(|| Error::internal_runtime_error("No clients available".to_string()))?;
+
     let mut state = self.state.lock();
+    state
+      .clients
+      .iter_mut()
+      .find(|c| c.id == client.id)
+      .ok_or(Error::internal_runtime_error(format!(
+        "No client found with id {}",
+        client.id
+      )))?
+      .runs += 1;
 
-    state.running.insert(id.clone(), sender);
+    state.running.insert(
+      id.clone(),
+      RunningClient {
+        id: client.id.clone(),
+        sender,
+      },
+    );
 
-    let clients = state.clients.clone();
+    let event =
+      pb::Event::try_from(ctx).map_err(|err| Error::internal_runtime_error(err.to_string()))?;
 
-    // TODO: This is a hack to get the first client. We need to figure out how to get the client
-    let key = clients
-      .keys()
-      .next()
-      .ok_or_else(|| Error::internal_runtime_error("No clients connected".to_string()))?
-      .clone();
-    if let Some(client) = clients.get(&key) {
-      let event =
-        pb::Event::try_from(ctx).map_err(|err| Error::internal_runtime_error(err.to_string()))?;
-
-      if let Err(err) = client.try_send(Ok(event)) {
-        log::error!("Failed to send event to client: {}", err);
-      }
+    if let Err(err) = client.sender.try_send(Ok(event)) {
+      log::error!("Failed to send event to client: {}", err);
     }
 
     Ok(receiver)
   }
 
   fn on_job_completed(&self, result: astro_run::JobRunResult) {
-    println!("Job completed: {:?}", result);
     let event = match pb::Event::try_from(result) {
       Ok(event) => event,
       Err(err) => {
@@ -121,42 +166,38 @@ impl Runner for AstroProtoServer {
       }
     };
 
-    let state = self.state.lock();
-    println!("Sending event to {} clients", state.clients.len());
-    for client in state.clients.values() {
-      if let Err(err) = client.try_send(Ok(event.clone())) {
-        println!("Failed to send event to client: {}", err);
+    let clients = self.state.lock().clients.clone();
+    for client in clients {
+      if let Err(err) = client.sender.try_send(Ok(event.clone())) {
         log::error!("Failed to send event to client: {}", err);
       }
     }
   }
 
   fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) {
-    println!("Workflow completed {:?}", result);
     let event = match pb::Event::try_from(result) {
       Ok(event) => event,
       Err(err) => {
-        log::error!("Failed to convert JobRunResult to Event: {}", err);
+        log::error!("Failed to convert WorkflowRunResult to Event: {}", err);
         return;
       }
     };
-    let state = self.state.lock();
+    let clients = self.state.lock().clients.clone();
 
-    println!("Sending event to {} clients", state.clients.len());
-    for client in state.clients.values() {
-      if let Err(err) = client.try_send(Ok(event.clone())) {
+    for client in clients {
+      if let Err(err) = client.sender.try_send(Ok(event.clone())) {
         log::error!("Failed to send event to client: {}", err);
       }
     }
   }
 }
 
-impl AstroProtoServer {
+impl AstroRunServer {
   pub fn new() -> Self {
     Self {
-      state: Arc::new(Mutex::new(AstroProtoState {
+      state: Arc::new(Mutex::new(SharedState {
         running: HashMap::new(),
-        clients: HashMap::new(),
+        clients: vec![],
       })),
     }
   }
@@ -164,7 +205,9 @@ impl AstroProtoServer {
   pub async fn serve(self, url: impl Into<&str>) -> astro_run::Result<()> {
     Server::builder()
       .add_service(pb::astro_service_server::AstroServiceServer::new(self))
-      .serve(url.into().parse().unwrap())
+      .serve(url.into().parse().map_err(|err| {
+        astro_run::Error::internal_runtime_error(format!("Failed to parse url: {}", err))
+      })?)
       .await
       .map_err(|err| {
         astro_run::Error::internal_runtime_error(format!("Failed to start server: {}", err))

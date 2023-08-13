@@ -32,6 +32,7 @@ pub struct Command {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Context {
+  pub id: String,
   pub command: Command,
   // cancel signal
 }
