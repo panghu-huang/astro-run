@@ -1,13 +1,13 @@
-#![cfg(not(tarpaulin_include))]
-#![allow(dead_code, non_snake_case)]
-mod astro;
-mod events;
+mod pb;
+mod remote_runner_events;
 mod results;
+mod server_events;
 mod utils;
 mod workflows;
 
-pub use astro::*;
+pub use pb::*;
 use std::{collections::HashMap, time::Duration};
+pub use tonic;
 
 impl Into<astro_run::WorkflowState> for WorkflowState {
   fn into(self) -> astro_run::WorkflowState {

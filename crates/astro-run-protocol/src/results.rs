@@ -1,26 +1,22 @@
 use super::{utils::*, *};
 use std::collections::HashMap;
 
-impl From<astro_run::RunResult> for report_run_completed_request::Result {
+impl From<astro_run::RunResult> for run_result::Result {
   fn from(value: astro_run::RunResult) -> Self {
     match value {
-      astro_run::RunResult::Cancelled => report_run_completed_request::Result::Cancelled(0),
-      astro_run::RunResult::Succeeded => report_run_completed_request::Result::Succeeded(0),
-      astro_run::RunResult::Failed { exit_code } => {
-        report_run_completed_request::Result::Failed(exit_code)
-      }
+      astro_run::RunResult::Cancelled => run_result::Result::Cancelled(()),
+      astro_run::RunResult::Succeeded => run_result::Result::Succeeded(()),
+      astro_run::RunResult::Failed { exit_code } => run_result::Result::Failed(exit_code),
     }
   }
 }
 
-impl Into<astro_run::RunResult> for report_run_completed_request::Result {
+impl Into<astro_run::RunResult> for run_result::Result {
   fn into(self) -> astro_run::RunResult {
     match self {
-      report_run_completed_request::Result::Cancelled(_) => astro_run::RunResult::Cancelled,
-      report_run_completed_request::Result::Failed(exit_code) => {
-        astro_run::RunResult::Failed { exit_code }
-      }
-      report_run_completed_request::Result::Succeeded(_) => astro_run::RunResult::Succeeded,
+      run_result::Result::Cancelled(_) => astro_run::RunResult::Cancelled,
+      run_result::Result::Failed(exit_code) => astro_run::RunResult::Failed { exit_code },
+      run_result::Result::Succeeded(_) => astro_run::RunResult::Succeeded,
     }
   }
 }

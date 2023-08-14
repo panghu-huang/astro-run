@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package astro_run_server;
+
+import "astro_run.proto";
+
+message Event {
+  string event_name = 1;
+  oneof payload {
+    astro_run.Context run = 2;
+    astro_run.Workflow run_workflow_event = 3;
+    astro_run.Job run_job_event = 4;
+    astro_run.WorkflowRunResult workflow_completed_event = 5;
+    astro_run.JobRunResult job_completed_event = 6;
+    astro_run.WorkflowStateEvent workflow_state_event = 7;
+    astro_run.WorkflowLog log_event = 8;
+    string error = 9;
+  }
+}
+
+message SubscribeEventsRequest {
+  string id = 1;
+  string version = 2;
+  optional string token = 3;
+}
+
+message ReportLogResponse {}
+
+message ReportRunCompletedRequest {
+  string id = 1;
+  astro_run.RunResult result = 2;
+}
+
+message ReportRunCompletedResponse {}
+
+service AstroRunService {
+  rpc SubscribeEvents(SubscribeEventsRequest) returns (stream Event) {}
+  rpc ReportLog(astro_run.WorkflowLog) returns (ReportLogResponse) {}
+  rpc ReportRunCompleted(ReportRunCompletedRequest) returns (ReportRunCompletedResponse) {}
+}

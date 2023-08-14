@@ -73,6 +73,12 @@ impl Default for WorkflowLog {
   }
 }
 
+impl WorkflowLog {
+  pub fn is_error(&self) -> bool {
+    self.log_type == WorkflowLogType::Error
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

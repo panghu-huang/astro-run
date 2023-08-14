@@ -1,5 +1,5 @@
-use crate::pb::{self, astro_service_server::AstroService};
 use astro_run::{stream, Context, Error, RunResponse, Runner, StreamSender, WorkflowLogType};
+use astro_run_protocol::{astro_run_server, tonic, AstroRunService, AstroRunServiceServer};
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
@@ -9,7 +9,7 @@ use tonic::{transport::Server, Request, Response, Status};
 #[derive(Clone)]
 struct Client {
   id: String,
-  sender: mpsc::Sender<Result<pb::Event, Status>>,
+  sender: mpsc::Sender<Result<astro_run_server::Event, Status>>,
   runs: u32,
 }
 
@@ -32,12 +32,12 @@ pub struct AstroRunServer {
 }
 
 #[tonic::async_trait]
-impl AstroService for AstroRunServer {
-  type SubscribeEventsStream = ReceiverStream<Result<pb::Event, Status>>;
+impl AstroRunService for AstroRunServer {
+  type SubscribeEventsStream = ReceiverStream<Result<astro_run_server::Event, Status>>;
 
   async fn subscribe_events(
     &self,
-    request: Request<pb::SubscribeEventsRequest>,
+    request: Request<astro_run_server::SubscribeEventsRequest>,
   ) -> Result<Response<Self::SubscribeEventsStream>, Status> {
     let req = request.into_inner();
     if req.version != crate::VERSION {
@@ -64,8 +64,8 @@ impl AstroService for AstroRunServer {
 
   async fn report_log(
     &self,
-    request: Request<pb::WorkflowLog>,
-  ) -> Result<Response<pb::ReportLogResponse>, Status> {
+    request: Request<astro_run_protocol::WorkflowLog>,
+  ) -> Result<Response<astro_run_server::ReportLogResponse>, Status> {
     let inner = request.into_inner();
 
     let id = inner.step_id.clone();
@@ -80,16 +80,16 @@ impl AstroService for AstroRunServer {
       WorkflowLogType::Error => client.sender.error(inner.message),
     }
 
-    Ok(Response::new(pb::ReportLogResponse {}))
+    Ok(Response::new(astro_run_server::ReportLogResponse {}))
   }
 
   async fn report_run_completed(
     &self,
-    request: Request<pb::ReportRunCompletedRequest>,
-  ) -> Result<Response<pb::ReportRunCompletedResponse>, Status> {
+    request: Request<astro_run_server::ReportRunCompletedRequest>,
+  ) -> Result<Response<astro_run_server::ReportRunCompletedResponse>, Status> {
     let inner = request.into_inner();
 
-    let id = inner.run_id.clone();
+    let id = inner.id.clone();
     let running = self.state.lock().running.clone();
     let client = running
       .get(&id)
@@ -100,7 +100,12 @@ impl AstroService for AstroRunServer {
       .result
       .ok_or_else(|| Status::invalid_argument("No result provided"))?;
 
-    client.sender.end(result.into());
+    client.sender.end(
+      result
+        .result
+        .ok_or_else(|| Status::invalid_argument("No result provided in result"))?
+        .into(),
+    );
 
     let mut state = self.state.lock();
     state.running.remove(&id);
@@ -111,7 +116,9 @@ impl AstroService for AstroRunServer {
       .ok_or(Status::internal("No client found"))?
       .runs -= 1;
 
-    Ok(Response::new(pb::ReportRunCompletedResponse {}))
+    Ok(Response::new(
+      astro_run_server::ReportRunCompletedResponse {},
+    ))
   }
 }
 
@@ -147,8 +154,8 @@ impl Runner for AstroRunServer {
       },
     );
 
-    let event =
-      pb::Event::try_from(ctx).map_err(|err| Error::internal_runtime_error(err.to_string()))?;
+    let event = astro_run_server::Event::try_from(ctx)
+      .map_err(|err| Error::internal_runtime_error(err.to_string()))?;
 
     if let Err(err) = client.sender.try_send(Ok(event)) {
       log::error!("Failed to send event to client: {}", err);
@@ -194,7 +201,7 @@ impl AstroRunServer {
 
   pub async fn serve(self, url: impl Into<&str>) -> astro_run::Result<()> {
     Server::builder()
-      .add_service(pb::astro_service_server::AstroServiceServer::new(self))
+      .add_service(AstroRunServiceServer::new(self))
       .serve(url.into().parse().map_err(|err| {
         astro_run::Error::internal_runtime_error(format!("Failed to parse url: {}", err))
       })?)
@@ -208,12 +215,12 @@ impl AstroRunServer {
 
   fn send_event_to_clients<T>(&self, event: T)
   where
-    pb::Event: TryFrom<T>,
+    astro_run_server::Event: TryFrom<T>,
   {
-    let event = match pb::Event::try_from(event) {
+    let event = match astro_run_server::Event::try_from(event) {
       Ok(event) => event,
       Err(_) => {
-        log::error!("Failed to convert event to pb::Event");
+        log::error!("Failed to convert event to astro_run_protocol::astro_run_server::Event");
         return;
       }
     };

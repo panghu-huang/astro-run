@@ -1,17 +1,20 @@
-use crate::pb::{self, astro_service_client::AstroServiceClient, event::Payload as EventPayload};
 use astro_run::{AstroRunPlugin, Context, Error, PluginManager, Result, Runner};
+use astro_run_protocol::{
+  astro_run_server::{self, event::Payload as EventPayload},
+  tonic, AstroRunServiceClient,
+};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 
 enum Command {
-  ReportLog(pb::WorkflowLog),
-  ReportRunCompleted(pb::ReportRunCompletedRequest),
+  ReportLog(astro_run_protocol::WorkflowLog),
+  ReportRunCompleted(astro_run_server::ReportRunCompletedRequest),
 }
 
 pub struct AstroRunRunner {
   id: String,
-  client: AstroServiceClient<tonic::transport::Channel>,
+  client: AstroRunServiceClient<tonic::transport::Channel>,
   runner: Arc<Box<dyn Runner>>,
   plugins: PluginManager,
 }
@@ -26,7 +29,7 @@ impl AstroRunRunner {
 
     let stream = self
       .client
-      .subscribe_events(pb::SubscribeEventsRequest {
+      .subscribe_events(astro_run_server::SubscribeEventsRequest {
         id: self.id.clone(),
         token: None,
         version: crate::VERSION.to_string(),
@@ -42,7 +45,7 @@ impl AstroRunRunner {
       tokio::select! {
         event = stream.next() => {
           let event = match event {
-            Some(Ok(pb::Event {
+            Some(Ok(astro_run_server::Event {
               payload: Some(payload),
               ..
              })) => payload,
@@ -127,7 +130,7 @@ impl AstroRunRunner {
       let step_id = ctx.command.id.clone();
       let mut receiver = runner.run(ctx)?;
       while let Some(log) = receiver.next().await {
-        let request = pb::WorkflowLog::try_from(astro_run::WorkflowLog {
+        let request = astro_run_protocol::WorkflowLog::try_from(astro_run::WorkflowLog {
           step_id: step_id.clone(),
           message: log.message,
           log_type: log.log_type,
@@ -143,9 +146,11 @@ impl AstroRunRunner {
         Error::internal_runtime_error("Failed to get result from runner".to_string())
       })?;
 
-      let request = pb::ReportRunCompletedRequest {
-        run_id: step_id.to_string(),
-        result: Some(result.into()),
+      let request = astro_run_server::ReportRunCompletedRequest {
+        id: step_id.to_string(),
+        result: Some(astro_run_protocol::RunResult {
+          result: Some(result.into()),
+        }),
       };
 
       if let Err(err) = tx.send(Command::ReportRunCompleted(request)).await {
@@ -217,7 +222,7 @@ impl AstroRunRunnerBuilder {
       .runner
       .ok_or_else(|| Error::internal_runtime_error("Missing runner".to_string()))?;
 
-    let client = AstroServiceClient::connect(url)
+    let client = AstroRunServiceClient::connect(url)
       .await
       .map_err(|e| Error::internal_runtime_error(format!("Failed to connect: {}", e)))?;
 

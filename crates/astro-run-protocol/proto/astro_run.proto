@@ -1,7 +1,9 @@
 syntax = "proto3";
 
-package astro;
+package astro_run;
+
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
 
 message EnvironmentVariable {
   oneof value {
@@ -101,41 +103,10 @@ message Context {
   Command command = 2;
 }
 
-message Event {
-  string event_name = 1;
-  oneof payload {
-    Context run = 2;
-    Workflow run_workflow_event = 3;
-    Job run_job_event = 4;
-    WorkflowRunResult workflow_completed_event = 5;
-    JobRunResult job_completed_event = 6;
-    WorkflowStateEvent workflow_state_event = 7;
-    WorkflowLog log_event = 8;
-    string error = 9;
-  }
-}
-
-message SubscribeEventsRequest {
-  string id = 1;
-  string version = 2;
-  optional string token = 3;
-}
-
-message ReportLogResponse {}
-
-message ReportRunCompletedRequest {
-  string run_id = 1;
+message RunResult {
   oneof result {
-    int32 succeeded = 2;
+    google.protobuf.Empty succeeded = 2;
     int32 failed = 3;
-    int32 cancelled = 4;
+    google.protobuf.Empty cancelled = 4;
   }
-}
-
-message ReportRunCompletedResponse {}
-
-service AstroService {
-  rpc SubscribeEvents(SubscribeEventsRequest) returns (stream Event) {}
-  rpc ReportLog(WorkflowLog) returns (ReportLogResponse) {}
-  rpc ReportRunCompleted(ReportRunCompletedRequest) returns (ReportRunCompletedResponse) {}
 }

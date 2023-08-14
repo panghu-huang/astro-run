@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package astro_run_remote_runner;
+
+import "astro_run.proto";
+
+message Event {
+  string event_name = 1;
+  oneof payload {
+    astro_run.Workflow run_workflow_event = 2;
+    astro_run.Job run_job_event = 3;
+    astro_run.WorkflowRunResult workflow_completed_event = 4;
+    astro_run.JobRunResult job_completed_event = 5;
+    astro_run.WorkflowStateEvent workflow_state_event = 6;
+    astro_run.WorkflowLog log_event = 7;
+  }
+}
+
+message RunResponse {
+  string id = 1;
+  oneof payload {
+    astro_run.RunResult result = 2;
+    astro_run.WorkflowLog log = 3;
+  }
+}
+
+message SendEventResponse {}
+
+service AstroRunRemoteRunner {
+  rpc Run(astro_run.Context) returns (stream RunResponse) {}
+  rpc SendEvent(Event) returns (SendEventResponse) {}
+}

@@ -1,3 +1,4 @@
+use super::astro_run_server::{event, Event};
 use super::*;
 
 impl TryFrom<astro_run::JobRunResult> for Event {
@@ -96,7 +97,7 @@ impl TryFrom<astro_run::WorkflowStateEvent> for Event {
     let event = value.try_into()?;
 
     Ok(Event {
-      event_name: "workflow_state".to_string(),
+      event_name: "workflow_state_change".to_string(),
       payload: Some(event::Payload::WorkflowStateEvent(event)),
     })
   }
