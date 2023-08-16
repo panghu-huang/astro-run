@@ -1,7 +1,6 @@
 use super::Step;
 use crate::{
   ExecutionContext, JobId, JobRunResult, StepRunResult, WorkflowState, WorkflowStateEvent,
-  WorkflowTriggerEvents,
 };
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +9,6 @@ pub struct Job {
   pub id: JobId,
   pub name: Option<String>,
   pub steps: Vec<Step>,
-  pub on: Option<WorkflowTriggerEvents>,
   /// For workflow run
   pub depends_on: Vec<String>,
   pub working_directories: Vec<String>,

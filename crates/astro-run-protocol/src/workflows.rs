@@ -7,7 +7,6 @@ impl TryInto<astro_run::Job> for Job {
     Ok(astro_run::Job {
       id: astro_run::JobId::try_from(self.id.as_str())?,
       name: self.name,
-      on: None,
       steps: self
         .steps
         .into_iter()
@@ -37,8 +36,8 @@ impl TryFrom<astro_run::Job> for Job {
   }
 }
 
-impl From<astro_run::WorkflowAPIEvent> for WorkflowEvent {
-  fn from(value: astro_run::WorkflowAPIEvent) -> Self {
+impl From<astro_run::WorkflowEvent> for WorkflowEvent {
+  fn from(value: astro_run::WorkflowEvent) -> Self {
     Self {
       event: value.event,
       repo_owner: value.repo_owner,
@@ -50,9 +49,9 @@ impl From<astro_run::WorkflowAPIEvent> for WorkflowEvent {
   }
 }
 
-impl Into<astro_run::WorkflowAPIEvent> for WorkflowEvent {
-  fn into(self) -> astro_run::WorkflowAPIEvent {
-    astro_run::WorkflowAPIEvent {
+impl Into<astro_run::WorkflowEvent> for WorkflowEvent {
+  fn into(self) -> astro_run::WorkflowEvent {
+    astro_run::WorkflowEvent {
       event: self.event,
       repo_owner: self.repo_owner,
       repo_name: self.repo_name,
@@ -75,13 +74,7 @@ impl TryInto<astro_run::Workflow> for Workflow {
         .into_iter()
         .map(|(id, job)| Ok::<(String, astro_run::Job), Self::Error>((id, job.try_into()?)))
         .collect::<Result<_, _>>()?,
-      on: None,
-      event: self
-        .event
-        .map(|e| e.into())
-        .ok_or(astro_run::Error::internal_runtime_error(
-          "Workflow event is missing",
-        ))?,
+      event: self.event.map(|e| e.into()),
     })
   }
 }
@@ -98,7 +91,7 @@ impl TryFrom<astro_run::Workflow> for Workflow {
         .into_iter()
         .map(|(id, job)| Ok::<(String, Job), Self::Error>((id, job.try_into()?)))
         .collect::<Result<_, _>>()?,
-      event: Some(value.event.into()),
+      event: value.event.map(|s| s.into()),
     })
   }
 }

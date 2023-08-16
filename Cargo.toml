@@ -16,7 +16,6 @@ log = "0.4.17"
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.25.0" }
 dotenv = "0.15.0"
-octocrate = "0.1.2"
 parking_lot = "0.12.1"
 thiserror = "1.0.44"
 tokio-stream = "0.1.14"

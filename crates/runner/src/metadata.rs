@@ -38,8 +38,7 @@ impl Metadata {
 
 pub struct MetadataBuilder {
   pub runner_working_directory: Option<PathBuf>,
-  pub repo_owner: Option<String>,
-  pub repo_name: Option<String>,
+  pub repository: Option<(String, String)>,
   pub step_id: Option<StepId>,
 }
 
@@ -47,8 +46,7 @@ impl MetadataBuilder {
   pub fn new() -> Self {
     Self {
       runner_working_directory: None,
-      repo_owner: None,
-      repo_name: None,
+      repository: None,
       step_id: None,
     }
   }
@@ -58,13 +56,8 @@ impl MetadataBuilder {
     self
   }
 
-  pub fn repo_owner(mut self, repo_owner: String) -> Self {
-    self.repo_owner = Some(repo_owner);
-    self
-  }
-
-  pub fn repo_name(mut self, repo_name: String) -> Self {
-    self.repo_name = Some(repo_name);
+  pub fn repository(mut self, owner: String, name: String) -> Self {
+    self.repository = Some((owner, name));
     self
   }
 
@@ -75,11 +68,13 @@ impl MetadataBuilder {
 
   pub fn build(self) -> Metadata {
     let runner_working_directory = self.runner_working_directory.unwrap();
-    let repo_owner = self.repo_owner.unwrap();
-    let repo_name = self.repo_name.unwrap();
     let step_id = self.step_id.unwrap();
 
-    let repo_working_directory = runner_working_directory.join(&repo_owner).join(&repo_name);
+    let mut repo_working_directory = runner_working_directory;
+
+    if let Some((owner, name)) = self.repository {
+      repo_working_directory = repo_working_directory.join(owner).join(name);
+    }
 
     let cache_directory = repo_working_directory.join("caches");
 
@@ -100,7 +95,7 @@ impl MetadataBuilder {
 
     let entrypoint_path = step_host_working_directory.join("entrypoint.sh");
     let docker_name = format!("{}-{}-{}", workflow_id, job_key, step_number);
-    let docker_working_directory = format!("/home/work/{}", &repo_name);
+    let docker_working_directory = String::from("/home/runner/work");
 
     Metadata {
       docker_name,
@@ -120,9 +115,8 @@ mod tests {
   #[test]
   fn test_directories_builder() {
     let directories = MetadataBuilder::new()
-      .runner_working_directory(PathBuf::from("/home/work/runner"))
-      .repo_owner("panghu-huang".to_string())
-      .repo_name("astro-run".to_string())
+      .runner_working_directory(PathBuf::from("/home/runner/work"))
+      .repository("panghu-huang".to_string(), "astro-run".to_string())
       .step_id(StepId::new(
         "workflow-id".to_string(),
         "job-key".to_string(),
@@ -132,21 +126,21 @@ mod tests {
 
     assert_eq!(
       directories.step_host_working_directory,
-      PathBuf::from("/home/work/runner/panghu-huang/astro-run/workflow-id/job-key/1")
+      PathBuf::from("/home/runner/work/panghu-huang/astro-run/workflow-id/job-key/1")
     );
     assert_eq!(
       directories.job_data_directory,
-      PathBuf::from("/home/work/runner/panghu-huang/astro-run/workflow-id/job-key/data")
+      PathBuf::from("/home/runner/work/panghu-huang/astro-run/workflow-id/job-key/data")
     );
     assert_eq!(
       directories.cache_directory,
-      PathBuf::from("/home/work/runner/panghu-huang/astro-run/caches")
+      PathBuf::from("/home/runner/work/panghu-huang/astro-run/caches")
     );
     assert_eq!(
       directories.entrypoint_path,
-      PathBuf::from("/home/work/runner/panghu-huang/astro-run/workflow-id/job-key/1/entrypoint.sh")
+      PathBuf::from("/home/runner/work/panghu-huang/astro-run/workflow-id/job-key/1/entrypoint.sh")
     );
     assert_eq!(directories.docker_name, "workflow-id-job-key-1");
-    assert_eq!(directories.docker_working_directory, "/home/work/astro-run");
+    assert_eq!(directories.docker_working_directory, "/home/runner/work");
   }
 }

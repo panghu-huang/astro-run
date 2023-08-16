@@ -35,16 +35,13 @@ impl WorkflowBuilder {
     let config = self
       .config
       .ok_or(Error::init_error("Workflow config is required".to_string()))?;
-    let event = self
-      .event
-      .ok_or(Error::init_error("Workflow event is required".to_string()))?;
 
     let user_workflow = UserWorkflow::try_from(config)?;
     let id = self.id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
     let parser = WorkflowParser {
       id,
-      event,
+      event: self.event,
       user_workflow,
     };
 

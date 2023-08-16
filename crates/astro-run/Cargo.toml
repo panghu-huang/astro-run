@@ -36,4 +36,3 @@ log = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 tokio-stream = { workspace = true }
-octocrate = { workspace = true }

@@ -74,7 +74,10 @@ async fn test_run() -> Result<()> {
     });
 
     let astro_run = AstroRun::builder()
-      .plugin(assert_logs_plugin(vec!["Hello World".to_string()]))
+      .plugin(assert_logs_plugin(vec![
+        "Hello World".to_string(),
+        "Hello World1".to_string(),
+      ]))
       .runner(server)
       .plugin(
         AstroRunPlugin::builder("abort-thread")
@@ -96,7 +99,18 @@ async fn test_run() -> Result<()> {
         steps:
           - timeout: 60m
             continue-on-error: false
+            container:
+              name: alpine
+              volumes:
+                - from:to
+              security_opts:
+                - seccomp=unconfined
+            environments:
+              NAME: VALUE
+            secrets:
+              - secret-name
             run: Hello World
+          - run: Hello World1
       "#;
 
     let workflow = Workflow::builder()
@@ -121,7 +135,10 @@ async fn test_run() -> Result<()> {
 
     let mut astro_run_runner = AstroRunRunner::builder()
       .runner(runner)
-      .plugin(assert_logs_plugin(vec!["Hello World".to_string()]))
+      .plugin(assert_logs_plugin(vec![
+        "Hello World".to_string(),
+        "Hello World1".to_string(),
+      ]))
       .url("http://127.0.0.1:5001")
       .id("test-runner")
       .build()

@@ -88,8 +88,52 @@ jobs:
   test:
     name: Test Job
     steps:
-      - timeout: 60m
+      - run: Hello World
+  "#;
+
+  let astro_run = AstroRun::builder()
+    .runner(TestRunner::new())
+    .plugin(assert_logs_plugin(vec!["Hello World".to_string()]))
+    .build();
+
+  let workflow = Workflow::builder()
+    .event(astro_run::WorkflowEvent::default())
+    .config(workflow)
+    .build()
+    .unwrap();
+
+  let ctx = astro_run.execution_context();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Succeeded);
+  let job_result = res.jobs.get("test").unwrap();
+  assert_eq!(job_result.state, WorkflowState::Succeeded);
+  assert_eq!(job_result.steps.len(), 1);
+
+  assert_eq!(job_result.steps[0].state, WorkflowState::Succeeded);
+}
+
+#[tokio::test]
+async fn test_run_full_features() {
+  let workflow = r#"
+jobs:
+  test:
+    name: Test Job
+    steps:
+      - name: Step
         continue-on-error: false
+        container:
+          name: test
+          volumes:
+            - from:to
+          security_opts:
+            - label
+        environments:
+          name: value
+        secrets:
+          - secret-key
+        timeout: 60m
         run: Hello World
   "#;
 

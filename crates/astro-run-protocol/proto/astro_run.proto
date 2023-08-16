@@ -20,7 +20,8 @@ message Command {
   string run = 4;
   bool continue_on_error = 5;
   map<string, EnvironmentVariable> environments = 6;
-  uint64 timeout = 7;
+  repeated string secrets = 7;
+  uint64 timeout = 8;
 }
 
 message Job {
@@ -96,6 +97,8 @@ message WorkflowStateEvent {
 
 message Container {
   string name = 1;
+  repeated string volumes = 2;
+  repeated string security_opts = 3;
 }
 
 message Context {

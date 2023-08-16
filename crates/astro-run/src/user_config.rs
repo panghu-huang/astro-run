@@ -38,7 +38,6 @@ pub struct UserActionStep {
   pub continue_on_error: Option<bool>,
   pub environments: Option<EnvironmentVariables>,
   pub secrets: Option<Vec<String>>,
-  pub volumes: Option<Vec<String>>,
   pub timeout: Option<String>,
 }
 
@@ -53,7 +52,6 @@ pub enum UserStep {
 pub struct UserJob {
   pub name: Option<String>,
   pub container: Option<Container>,
-  pub on: Option<WorkflowTriggerEvents>,
   /// Working directory for all steps in this job
   #[serde(rename = "working-directories")]
   pub working_dirs: Option<Vec<String>>,
@@ -65,35 +63,7 @@ pub struct UserJob {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UserWorkflow {
   pub name: Option<String>,
-  pub on: Option<WorkflowTriggerEvents>,
   pub jobs: HashMap<Id, UserJob>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct WorkflowPushEvent {
-  pub branches: Option<Vec<String>>,
-  pub tags: Option<Vec<String>>,
-  pub paths: Option<Vec<String>>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct WorkflowPullRequestEvent {
-  pub types: Option<Vec<String>>,
-  pub branches: Option<Vec<String>>,
-  pub paths: Option<Vec<String>>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct WorkflowLabelEvent {
-  pub types: Option<Vec<String>>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub struct WorkflowTriggerEvents {
-  pub push: Option<WorkflowPushEvent>,
-  pub pull_request: Option<WorkflowPullRequestEvent>,
-  pub label: Option<WorkflowLabelEvent>,
 }
 
 impl UserWorkflow {
@@ -155,8 +125,8 @@ impl Container {
       Self::Options(docker) => docker.clone(),
       Self::Name(name) => ContainerOptions {
         name: name.clone(),
-        volumes: None,
         security_opts: None,
+        volumes: None,
       },
     }
   }
@@ -192,10 +162,6 @@ mod tests {
   fn test_parse() {
     let yaml = r#"
 name: Test Workflow
-on: 
-  push:
-    branches:
-      - master
 
 jobs:
   test-job:
@@ -218,19 +184,6 @@ jobs:
     let workflow = UserWorkflow::try_from(yaml).unwrap();
 
     assert_eq!(workflow.name, Some("Test Workflow".to_string()));
-
-    assert_eq!(
-      workflow.on,
-      Some(WorkflowTriggerEvents {
-        push: Some(WorkflowPushEvent {
-          branches: Some(vec!["master".to_string()]),
-          tags: None,
-          paths: None,
-        }),
-        pull_request: None,
-        label: None,
-      })
-    );
 
     let job = workflow.jobs.get("test-job").unwrap();
     assert_eq!(job.name, Some("Test Job".to_string()));
@@ -380,8 +333,6 @@ jobs:
     name: Test Job
     container: 
       name: test
-      volumes:
-        - volume-key
       security-opts:
         - seccomp=unconfined
     steps:
@@ -395,7 +346,6 @@ jobs:
 
     let normalized = container.normalize();
     assert_eq!(normalized.name, "test");
-    assert_eq!(normalized.volumes, Some(vec!["volume-key".to_string()]));
     assert_eq!(
       normalized.security_opts,
       Some(vec!["seccomp=unconfined".to_string()])

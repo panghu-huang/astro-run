@@ -1,5 +1,3 @@
-// use octocrate::GithubError;
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
   #[error("Failed to parse user config: {0}")]
@@ -13,12 +11,6 @@ pub enum Error {
 
   #[error("IO error: {0}")]
   IOError(#[from] std::io::Error),
-
-  #[error("Github API error: {message}")]
-  GithubError {
-    // source: GithubError,
-    message: String,
-  },
 
   #[error("Failed to initialize workflow: {0}")]
   InitError(String),
@@ -38,13 +30,6 @@ impl Error {
 
   pub fn io_error(source: std::io::Error) -> Self {
     Self::IOError(source)
-  }
-
-  pub fn github_error<T: ToString>(message: T) -> Self {
-    Self::GithubError {
-      // source,
-      message: message.to_string(),
-    }
   }
 
   pub fn failed(exit_code: usize) -> Self {
@@ -68,7 +53,6 @@ impl PartialEq for Error {
       (Self::InternalRuntimeError(a), Self::InternalRuntimeError(b)) => a == b,
       (Self::Failed(a), Self::Failed(b)) => a == b,
       (Self::IOError(a), Self::IOError(b)) => a.kind() == b.kind(),
-      (Self::GithubError { message: a, .. }, Self::GithubError { message: b, .. }) => a == b,
       (Self::UnsupportedFeature(a), Self::UnsupportedFeature(b)) => a == b,
       _ => false,
     }
@@ -93,7 +77,6 @@ mod tests {
       Error::io_error(std::io::Error::new(std::io::ErrorKind::Other, "hello"),),
       Error::io_error(std::io::Error::new(std::io::ErrorKind::Other, "hello"))
     );
-    assert_eq!(Error::github_error("hello"), Error::github_error("hello"));
     assert_eq!(
       Error::unsupported_feature("hello"),
       Error::unsupported_feature("hello")
@@ -118,12 +101,11 @@ mod tests {
         "world"
       ),)
     );
-    assert_ne!(Error::github_error("hello"), Error::github_error("world"));
     assert_ne!(
       Error::unsupported_feature("hello"),
       Error::unsupported_feature("world")
     );
     assert_ne!(Error::failed(1), Error::failed(2));
-    assert_ne!(Error::failed(1), Error::github_error("hello"));
+    assert_ne!(Error::failed(1), Error::internal_runtime_error("hello"));
   }
 }

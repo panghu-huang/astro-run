@@ -1,13 +1,12 @@
 use crate::executor::Executor;
 use astro_run::{
-  stream, Context, Error, Result, RunResponse, RunResult, Runner, WorkflowAPIEvent,
-  WorkflowEventPayload, WorkflowId,
+  stream, Context, Error, Result, RunResponse, RunResult, Runner, WorkflowEvent, WorkflowId,
 };
 use parking_lot::Mutex;
 use std::{collections::HashMap, env, fs, path::PathBuf, sync::Arc};
 
 struct RunnerState {
-  workflow_events: HashMap<WorkflowId, WorkflowAPIEvent>,
+  workflow_events: HashMap<WorkflowId, WorkflowEvent>,
 }
 
 pub struct DockerRunner {
@@ -24,7 +23,10 @@ impl DockerRunner {
 impl Runner for DockerRunner {
   fn on_run_workflow(&self, workflow: astro_run::Workflow) {
     let mut state = self.state.lock();
-    state.workflow_events.insert(workflow.id, workflow.event);
+
+    if let Some(event) = workflow.event {
+      state.workflow_events.insert(workflow.id, event);
+    }
   }
 
   fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) {
@@ -44,8 +46,7 @@ impl Runner for DockerRunner {
       .lock()
       .workflow_events
       .get(&ctx.command.id.workflow_id())
-      .cloned()
-      .ok_or_else(|| Error::internal_runtime_error("DockerRunner: workflow event not found"))?;
+      .cloned();
 
     tokio::spawn(async move {
       if let Err(err) = executor.execute(sender.clone(), event, ctx).await {
@@ -63,20 +64,15 @@ impl Runner for DockerRunner {
 impl DockerRunner {
   fn cleanup_workflow_working_directory(&self, result: astro_run::WorkflowRunResult) -> Result<()> {
     log::info!("DockerRunner: workflow completed: {:?}", result);
-    let event = self
-      .state
-      .lock()
-      .workflow_events
-      .get(&result.id)
-      .cloned()
-      .ok_or_else(|| Error::internal_runtime_error("DockerRunner: workflow event not found"))?;
-    let event = event.payload()?;
+    let event = self.state.lock().workflow_events.get(&result.id).cloned();
 
-    let directory = self
-      .working_directory
-      .join(&event.repo_owner)
-      .join(&event.repo_name)
-      .join(&result.id.inner());
+    let mut directory = self.working_directory.clone();
+
+    if let Some(event) = event {
+      directory = directory.join(&event.repo_owner).join(&event.repo_name);
+    }
+    
+    directory = directory.join(&result.id.inner());
 
     fs::remove_dir_all(directory)?;
 

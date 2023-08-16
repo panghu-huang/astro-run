@@ -39,7 +39,11 @@ impl TryFrom<astro_run::ContainerOptions> for Container {
   type Error = astro_run::Error;
 
   fn try_from(value: astro_run::ContainerOptions) -> Result<Self, Self::Error> {
-    Ok(Container { name: value.name })
+    Ok(Container {
+      name: value.name,
+      volumes: value.volumes.unwrap_or_default(),
+      security_opts: value.security_opts.unwrap_or_default(),
+    })
   }
 }
 
@@ -110,6 +114,7 @@ impl TryFrom<astro_run::Command> for Command {
       run: value.run,
       continue_on_error: value.continue_on_error,
       environments,
+      secrets: value.secrets,
       timeout: value.timeout.as_secs(),
     })
   }

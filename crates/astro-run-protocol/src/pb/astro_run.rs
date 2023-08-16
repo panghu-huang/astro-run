@@ -35,7 +35,9 @@ pub struct Command {
         ::prost::alloc::string::String,
         EnvironmentVariable,
     >,
-    #[prost(uint64, tag = "7")]
+    #[prost(string, repeated, tag = "7")]
+    pub secrets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(uint64, tag = "8")]
     pub timeout: u64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -149,6 +151,10 @@ pub struct WorkflowStateEvent {
 pub struct Container {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "2")]
+    pub volumes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag = "3")]
+    pub security_opts: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

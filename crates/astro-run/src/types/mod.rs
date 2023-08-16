@@ -16,18 +16,6 @@ pub use workflow_state_event::*;
 
 use serde::{Deserialize, Serialize};
 
-// #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-// pub struct Secret {
-//   pub key: String,
-//   pub value: String,
-// }
-
-// #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-// pub struct Volume {
-//   pub from: String,
-//   pub to: String,
-// }
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkflowLogType {

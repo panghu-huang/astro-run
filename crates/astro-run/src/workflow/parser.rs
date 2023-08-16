@@ -1,20 +1,19 @@
 use super::{job::Job, Step, Workflow};
 use crate::{
   Error, Id, JobId, Result, StepId, UserCommandStep, UserStep, UserWorkflow, WorkflowEvent,
-  WorkflowEventPayload, WorkflowId,
+  WorkflowId,
 };
 use std::collections::HashMap;
 
 pub struct WorkflowParser {
   pub id: Id,
   pub user_workflow: UserWorkflow,
-  pub event: WorkflowEvent,
+  pub event: Option<WorkflowEvent>,
 }
 
 impl WorkflowParser {
   pub fn parse(self) -> Result<Workflow> {
     let id = self.id;
-    let event = self.event.payload()?;
     let user_workflow = self.user_workflow;
 
     let mut jobs = HashMap::new();
@@ -30,6 +29,7 @@ impl WorkflowParser {
           continue_on_error,
           environments,
           timeout,
+          secrets,
           ..
         }) = step.clone()
         {
@@ -48,8 +48,7 @@ impl WorkflowParser {
             run,
             continue_on_error: continue_on_error.unwrap_or(false),
             environments: environments.unwrap_or_default(),
-            // TODO: support volumes and secrets
-            secrets: vec![],
+            secrets: secrets.unwrap_or_default(),
             timeout,
           });
         } else {
@@ -63,7 +62,6 @@ impl WorkflowParser {
           id: JobId::new(id.clone(), key.clone()),
           name: job.name,
           steps,
-          on: job.on,
           depends_on: job.depends_on.unwrap_or_default(),
           working_directories: job_working_dirs,
         },
@@ -72,9 +70,8 @@ impl WorkflowParser {
 
     Ok(Workflow {
       id: WorkflowId::new(id),
-      event,
+      event: self.event,
       name: user_workflow.name,
-      on: user_workflow.on,
       jobs,
     })
   }
@@ -114,7 +111,7 @@ jobs:
     let parser = WorkflowParser {
       id: "test-id".to_string(),
       user_workflow,
-      event,
+      event: Some(event),
     };
 
     let workflow = parser.parse().unwrap();
@@ -151,12 +148,11 @@ jobs:
   "#;
 
     let user_workflow: UserWorkflow = serde_yaml::from_str(yaml).unwrap();
-    let event = WorkflowEvent::default();
 
     let parser = WorkflowParser {
       id: "test-id".to_string(),
       user_workflow,
-      event,
+      event: None,
     };
 
     let workflow = parser.parse();
