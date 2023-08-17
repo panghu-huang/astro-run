@@ -1,6 +1,7 @@
 use astro_run::{
-  stream, AstroRun, AstroRunPlugin, Context, Job, JobRunResult, PluginBuilder, Result, RunResult,
-  Runner, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
+  stream, AstroRun, AstroRunPlugin, Context, EnvironmentVariable, Job, JobRunResult, PluginBuilder,
+  Result, RunResult, Runner, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState,
+  WorkflowStateEvent,
 };
 use astro_run_server::{AstroRunRunner, AstroRunServer};
 use parking_lot::Mutex;
@@ -31,7 +32,28 @@ impl Runner for TestRunner {
   }
 
   fn on_run_job(&self, job: Job) {
-    println!("Running job: {}", job.name.unwrap_or("None".to_string()));
+    assert_eq!(job.name.unwrap(), "Test Job");
+    let step = job.steps[0].clone();
+    assert_eq!(step.run, "Hello World");
+    assert_eq!(step.continue_on_error, false);
+    assert_eq!(step.timeout, std::time::Duration::from_secs(60 * 60));
+    let container = step.container.unwrap();
+    assert_eq!(container.name, "alpine");
+    assert_eq!(container.volumes.unwrap()[0], "from:to");
+    assert_eq!(container.security_opts.unwrap()[0], "seccomp=unconfined");
+    assert_eq!(
+      step.environments.get("STRING").unwrap().clone(),
+      EnvironmentVariable::from("VALUE")
+    );
+    assert_eq!(
+      step.environments.get("NUMBER").unwrap().clone(),
+      EnvironmentVariable::from(1.0)
+    );
+    assert_eq!(
+      step.environments.get("BOOLEAN").unwrap().clone(),
+      EnvironmentVariable::from(true)
+    );
+    assert_eq!(step.secrets[0], "secret-name");
   }
 
   fn on_state_change(&self, event: WorkflowStateEvent) {
@@ -103,10 +125,12 @@ async fn test_run() -> Result<()> {
               name: alpine
               volumes:
                 - from:to
-              security_opts:
+              security-opts:
                 - seccomp=unconfined
             environments:
-              NAME: VALUE
+              STRING: VALUE
+              NUMBER: 1.0
+              BOOLEAN: true
             secrets:
               - secret-name
             run: Hello World

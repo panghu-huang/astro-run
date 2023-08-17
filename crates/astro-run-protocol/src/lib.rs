@@ -29,8 +29,8 @@ impl TryInto<astro_run::ContainerOptions> for Container {
   fn try_into(self) -> Result<astro_run::ContainerOptions, Self::Error> {
     Ok(astro_run::ContainerOptions {
       name: self.name,
-      volumes: Some(vec![]),
-      security_opts: Some(vec![]),
+      volumes: Some(self.volumes),
+      security_opts: Some(self.security_opts),
     })
   }
 }
@@ -83,14 +83,25 @@ impl TryInto<astro_run::Command> for Command {
   type Error = astro_run::Error;
 
   fn try_into(self) -> Result<astro_run::Command, Self::Error> {
+    let mut environments: astro_run::EnvironmentVariables = HashMap::new();
+    for (key, env) in self.environments {
+      let value = env
+        .value
+        .ok_or(astro_run::Error::internal_runtime_error(
+          "Environment variable value is missing",
+        ))?
+        .try_into()?;
+      environments.insert(key, value);
+    }
+
     Ok(astro_run::Command {
       id: astro_run::StepId::try_from(self.id.as_str())?,
       name: self.name,
       container: self.container.map(|c| c.try_into()).transpose()?,
       run: self.run,
       continue_on_error: self.continue_on_error,
-      environments: astro_run::EnvironmentVariables::default(),
-      secrets: vec![],
+      environments,
+      secrets: self.secrets,
       timeout: Duration::from_secs(60 * 60),
     })
   }

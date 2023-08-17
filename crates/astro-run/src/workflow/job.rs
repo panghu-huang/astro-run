@@ -47,7 +47,6 @@ impl Job {
         continue;
       }
 
-      // TODO: inject environment variables
       let result = ctx.run(step).await;
 
       match result.state {

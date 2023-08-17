@@ -333,6 +333,8 @@ jobs:
     name: Test Job
     container: 
       name: test
+      volumes:
+        - /home/runner/work
       security-opts:
         - seccomp=unconfined
     steps:
@@ -349,6 +351,10 @@ jobs:
     assert_eq!(
       normalized.security_opts,
       Some(vec!["seccomp=unconfined".to_string()])
+    );
+    assert_eq!(
+      normalized.volumes,
+      Some(vec!["/home/runner/work".to_string()])
     );
   }
 }
