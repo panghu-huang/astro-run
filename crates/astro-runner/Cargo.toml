@@ -1,13 +1,19 @@
 [package]
 name = "astro-runner"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description.workspace = true
+keywords.workspace = true
+authors.workspace = true
+license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tokio-stream = { workspace = true }
-astro-run = { path = "../astro-run" }
+astro-run = { path = "../astro-run", version = "0.1.0-dev.3" }
 tokio = { workspace = true, features = [
   "sync",
   "macros",

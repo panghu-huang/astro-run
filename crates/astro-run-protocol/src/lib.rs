@@ -1,6 +1,8 @@
 mod pb;
+#[cfg(feature = "astro-run-remote-runner")]
 mod remote_runner_events;
 mod results;
+#[cfg(feature = "astro-run-server")]
 mod server_events;
 mod utils;
 mod workflows;

@@ -1,6 +1,6 @@
 [package]
 name = "astro-run"
-version = "0.1.0-dev.2"
+version = "0.1.0-dev.3"
 description = "A highly customizable workflow orchestrator"
 edition.workspace = true
 keywords.workspace = true
@@ -8,6 +8,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
+readme.workspace = true
 
 [lib]
 path = "src/lib.rs"
