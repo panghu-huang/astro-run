@@ -71,7 +71,7 @@ jobs:
     let workflow = Workflow::builder()
         .event(astro_run::WorkflowEvent::default())
         .config(workflow)
-        .build()
+        .build(&astro_run)
         .unwrap();
 
     // Create a new execution context

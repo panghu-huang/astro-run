@@ -92,4 +92,19 @@ mod tests {
     assert_eq!("error", WorkflowLogType::Error.to_string());
     assert_eq!("log", WorkflowLogType::Log.to_string());
   }
+
+  #[test]
+  fn test_workflow_log_is_error() {
+    let log = WorkflowLog {
+      log_type: WorkflowLogType::Error,
+      ..Default::default()
+    };
+    assert!(log.is_error());
+
+    let log = WorkflowLog {
+      log_type: WorkflowLogType::Log,
+      ..Default::default()
+    };
+    assert!(!log.is_error());
+  }
 }

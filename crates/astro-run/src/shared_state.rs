@@ -1,5 +1,6 @@
 use crate::{
-  AstroRunPlugin, Job, JobRunResult, PluginManager, Workflow, WorkflowRunResult, WorkflowStateEvent,
+  Actions, AstroRunPlugin, Job, JobRunResult, PluginManager, Workflow, WorkflowRunResult,
+  WorkflowStateEvent,
 };
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -7,12 +8,14 @@ use std::sync::Arc;
 #[derive(Clone)]
 struct SharedState {
   plugins: PluginManager,
+  actions: Actions,
 }
 
 impl SharedState {
   pub fn new() -> Self {
     SharedState {
       plugins: PluginManager::new(),
+      actions: Actions::new(),
     }
   }
 }
@@ -35,6 +38,21 @@ impl AstroRunSharedState {
 
   pub fn plugins(&self) -> PluginManager {
     self.0.lock().plugins.clone()
+  }
+
+  pub fn register_action<T>(&self, name: impl Into<String>, action: T)
+  where
+    T: crate::actions::Action + 'static,
+  {
+    self.0.lock().actions.register(name, action);
+  }
+
+  pub fn unregister_action(&self, name: &str) {
+    self.0.lock().actions.unregister(name);
+  }
+
+  pub fn actions(&self) -> Actions {
+    self.0.lock().actions.clone()
   }
 
   pub fn on_state_change(&self, event: WorkflowStateEvent) {

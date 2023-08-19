@@ -17,7 +17,7 @@ pub enum Container {
   Name(String),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct UserCommandStep {
   pub name: Option<String>,
   pub container: Option<Container>,
@@ -29,7 +29,7 @@ pub struct UserCommandStep {
   pub timeout: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct UserActionStep {
   pub name: Option<String>,
   pub uses: String,

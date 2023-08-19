@@ -1,9 +1,12 @@
-use crate::{shared_state::AstroRunSharedState, AstroRunPlugin, ExecutionContext, Runner};
+use crate::{
+  shared_state::AstroRunSharedState, Actions, AstroRunPlugin, ExecutionContext, PluginManager,
+  Runner,
+};
 use std::sync::Arc;
 
 pub struct AstroRun {
   runner: Arc<Box<dyn Runner>>,
-  shared_state: AstroRunSharedState,
+  pub(crate) shared_state: AstroRunSharedState,
 }
 
 impl AstroRun {
@@ -21,6 +24,29 @@ impl AstroRun {
     self.shared_state.unregister_plugin(plugin_name);
 
     self
+  }
+
+  pub fn register_action<T>(&self, name: impl Into<String>, action: T) -> &Self
+  where
+    T: crate::actions::Action + 'static,
+  {
+    self.shared_state.register_action(name, action);
+
+    self
+  }
+
+  pub fn unregister_action(&self, name: &str) -> &Self {
+    self.shared_state.unregister_action(name);
+
+    self
+  }
+
+  pub fn plugins(&self) -> PluginManager {
+    self.shared_state.plugins()
+  }
+
+  pub fn actions(&self) -> Actions {
+    self.shared_state.actions()
   }
 
   pub fn execution_context(&self) -> ExecutionContext {

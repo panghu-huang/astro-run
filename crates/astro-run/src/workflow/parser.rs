@@ -1,7 +1,7 @@
 use super::{job::Job, Step, Workflow};
 use crate::{
-  Error, Id, JobId, Result, StepId, UserCommandStep, UserStep, UserWorkflow, WorkflowEvent,
-  WorkflowId,
+  Actions, Error, Id, JobId, Result, StepId, UserCommandStep, UserStep, UserWorkflow,
+  WorkflowEvent, WorkflowId,
 };
 use std::collections::HashMap;
 
@@ -9,19 +9,56 @@ pub struct WorkflowParser {
   pub id: Id,
   pub user_workflow: UserWorkflow,
   pub event: Option<WorkflowEvent>,
+  pub actions: Actions,
 }
 
 impl WorkflowParser {
+  fn normalize_user_steps(&self, user_steps: Vec<UserStep>) -> crate::Result<Vec<UserStep>> {
+    let mut pre_steps = vec![];
+    let mut steps = vec![];
+    let mut post_steps = vec![];
+
+    for step in user_steps {
+      if let UserStep::Action(user_action_step) = &step {
+        let action_steps = self.actions.normalize(user_action_step.clone())?;
+        if let Some(pre) = action_steps.pre {
+          pre_steps.push(pre);
+        }
+
+        if let Some(post) = action_steps.post {
+          post_steps.insert(0, post)
+        }
+
+        steps.push(action_steps.run);
+        continue;
+      }
+
+      steps.push(step.clone());
+    }
+
+    let steps: Vec<UserStep> = vec![]
+      .into_iter()
+      .chain(pre_steps.into_iter())
+      .chain(steps.into_iter())
+      .chain(post_steps.into_iter())
+      .collect();
+
+    Ok(steps)
+  }
+
   pub fn parse(self) -> Result<Workflow> {
-    let id = self.id;
-    let user_workflow = self.user_workflow;
+    let id = self.id.clone();
+    let user_workflow = self.user_workflow.clone();
 
     let mut jobs = HashMap::new();
     for (key, job) in user_workflow.jobs {
       let mut steps = Vec::new();
       let job_container = job.container;
       let job_working_dirs = job.working_dirs.unwrap_or_default();
-      for (idx, step) in job.steps.iter().enumerate() {
+
+      let job_steps = self.normalize_user_steps(job.steps)?;
+
+      for (idx, step) in job_steps.iter().enumerate() {
         if let UserStep::Command(UserCommandStep {
           name,
           container,
@@ -80,7 +117,8 @@ impl WorkflowParser {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::EnvironmentVariable;
+  use crate::{Action, ActionSteps, EnvironmentVariable, Result, UserActionStep};
+  use serde::{Deserialize, Serialize};
 
   #[test]
   fn test_parse() {
@@ -112,6 +150,7 @@ jobs:
       id: "test-id".to_string(),
       user_workflow,
       event: Some(event),
+      actions: Actions::new(),
     };
 
     let workflow = parser.parse().unwrap();
@@ -153,6 +192,7 @@ jobs:
       id: "test-id".to_string(),
       user_workflow,
       event: None,
+      actions: Actions::new(),
     };
 
     let workflow = parser.parse();
@@ -161,5 +201,76 @@ jobs:
       Error::workflow_config_error("Invalid timeout format. The format should like `60m` or `1h`.");
 
     assert_eq!(workflow.unwrap_err(), excepted_error);
+  }
+
+  #[test]
+  fn test_custom_action() {
+    let workflow = r#"
+name: Test Workflow
+jobs:
+  test:
+    steps:
+      - uses: caches
+        with:
+          path: /tmp
+          key: test
+      - run: Hello World
+  "#;
+
+    struct CacheAction {}
+
+    #[derive(Serialize, Deserialize)]
+    struct CacheOptions {
+      path: String,
+      key: String,
+    }
+
+    impl Action for CacheAction {
+      fn normalize(&self, step: UserActionStep) -> Result<ActionSteps> {
+        let options: CacheOptions = serde_yaml::from_value(step.with.unwrap()).unwrap();
+        Ok(ActionSteps {
+          pre: None,
+          run: UserStep::Command(UserCommandStep {
+            name: Some("Restore cache".to_string()),
+            run: format!("restore cache {} {}", options.path, options.key),
+            ..Default::default()
+          }),
+          post: Some(UserStep::Command(UserCommandStep {
+            name: Some("Save cache".to_string()),
+            run: format!("save cache {} {}", options.path, options.key),
+            ..Default::default()
+          })),
+        })
+      }
+    }
+
+    let actions = Actions::new();
+
+    actions.register("caches", CacheAction {});
+
+    let parser = WorkflowParser {
+      id: "test-id".to_string(),
+      user_workflow: serde_yaml::from_str(workflow).unwrap(),
+      event: None,
+      actions,
+    };
+
+    let workflow = parser.parse().unwrap();
+
+    let steps = workflow.jobs.get("test").unwrap().steps.clone();
+
+    assert_eq!(steps.len(), 3);
+
+    let step = steps.get(0).unwrap();
+    assert_eq!(step.name, Some("Restore cache".to_string()));
+    assert_eq!(step.run, "restore cache /tmp test".to_string());
+
+    let step = steps.get(1).unwrap();
+    assert_eq!(step.name, None);
+    assert_eq!(step.run, "Hello World".to_string());
+
+    let step = steps.get(2).unwrap();
+    assert_eq!(step.name, Some("Save cache".to_string()));
+    assert_eq!(step.run, "save cache /tmp test".to_string());
   }
 }

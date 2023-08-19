@@ -78,13 +78,16 @@ async fn main() -> Result<()> {
 
     let workflow = r#"
     jobs:
-        test:
-            name: Test Job
-            steps:
-                - run: Hello World1
+      test:
+        name: Test Job
+        steps:
+          - run: Hello World1
     "#;
 
-    let workflow = Workflow::builder().config(workflow).build().unwrap();
+    let workflow = Workflow::builder()
+      .config(workflow)
+      .build(&astro_run)
+      .unwrap();
 
     // Create a new execution context
     let ctx = astro_run.execution_context();

@@ -40,7 +40,10 @@ async fn main() {
 
     let astro_run = AstroRun::builder().runner(runner).build();
 
-    let workflow = Workflow::builder().config(workflow).build().unwrap();
+    let workflow = Workflow::builder()
+      .config(workflow)
+      .build(&astro_run)
+      .unwrap();
 
     let ctx = astro_run.execution_context();
 

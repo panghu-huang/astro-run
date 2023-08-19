@@ -3,13 +3,13 @@ use serde::{Deserialize, Serialize};
 
 pub type Id = String;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Hash, Eq, Default)]
 pub struct WorkflowId(Id);
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Hash, Eq, Default)]
 pub struct JobId(Id, Id);
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Hash, Eq, Default)]
 pub struct StepId(Id, Id, usize);
 
 impl WorkflowId {
@@ -55,24 +55,6 @@ impl StepId {
 
   pub fn step_number(&self) -> usize {
     self.2
-  }
-}
-
-impl Default for WorkflowId {
-  fn default() -> Self {
-    WorkflowId("".to_string())
-  }
-}
-
-impl Default for JobId {
-  fn default() -> Self {
-    JobId("".to_string(), "".to_string())
-  }
-}
-
-impl Default for StepId {
-  fn default() -> Self {
-    StepId("".to_string(), "".to_string(), 0)
   }
 }
 
