@@ -1,7 +1,7 @@
 use astro_run::{
   stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Job, JobRunResult, PluginBuilder,
-  RunResult, Runner, UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowLog,
-  WorkflowRunResult, WorkflowState, WorkflowStateEvent,
+  RunResult, Runner, Step, StepRunResult, UserActionStep, UserCommandStep, UserStep, Workflow,
+  WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
 use parking_lot::Mutex;
 
@@ -53,8 +53,16 @@ impl Runner for TestRunner {
     println!("Running job: {}", job.name.unwrap_or("None".to_string()));
   }
 
+  fn on_run_step(&self, step: Step) {
+    println!("Running step: {:?}", step);
+  }
+
   fn on_state_change(&self, event: WorkflowStateEvent) {
     println!("State changed: {:?}", event);
+  }
+
+  fn on_step_completed(&self, result: StepRunResult) {
+    println!("Step completed: {:?}", result);
   }
 
   fn on_job_completed(&self, result: JobRunResult) {

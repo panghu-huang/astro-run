@@ -26,6 +26,7 @@ impl ExecutionContext {
     let plugin_manager = self.shared_state.plugins();
 
     let started_at = chrono::Utc::now();
+    plugin_manager.on_run_step(command.clone());
     plugin_manager.on_state_change(WorkflowStateEvent::StepStateUpdated {
       id: step_id.clone(),
       state: WorkflowState::InProgress,
@@ -51,13 +52,17 @@ impl ExecutionContext {
           state: WorkflowState::Failed,
         });
 
-        return StepRunResult {
+        let result = StepRunResult {
           id: step_id,
           state: WorkflowState::Failed,
           exit_code: Some(1),
           started_at: Some(started_at),
           completed_at: Some(completed_at),
         };
+
+        plugin_manager.on_step_completed(result.clone());
+
+        return result;
       }
     };
 
@@ -92,27 +97,34 @@ impl ExecutionContext {
 
     let res = match res {
       RunResult::Succeeded => StepRunResult {
-        id: step_id,
+        id: step_id.clone(),
         state: WorkflowState::Succeeded,
         exit_code: None,
         started_at: Some(started_at),
         completed_at: Some(completed_at),
       },
       RunResult::Failed { exit_code } => StepRunResult {
-        id: step_id,
+        id: step_id.clone(),
         state: WorkflowState::Failed,
         exit_code: Some(exit_code),
         started_at: Some(started_at),
         completed_at: Some(completed_at),
       },
       RunResult::Cancelled => StepRunResult {
-        id: step_id,
+        id: step_id.clone(),
         state: WorkflowState::Cancelled,
         exit_code: None,
         started_at: Some(started_at),
         completed_at: Some(completed_at),
       },
     };
+
+    plugin_manager.on_state_change(WorkflowStateEvent::StepStateUpdated {
+      id: step_id.clone(),
+      state: res.state.clone(),
+    });
+
+    plugin_manager.on_step_completed(res.clone());
 
     res
   }

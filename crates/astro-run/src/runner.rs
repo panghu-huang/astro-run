@@ -1,6 +1,6 @@
 use crate::{
-  context, stream::StreamReceiver, Job, JobRunResult, Workflow, WorkflowLog, WorkflowLogType,
-  WorkflowRunResult, WorkflowStateEvent,
+  context, stream::StreamReceiver, Job, JobRunResult, Step, StepRunResult, Workflow, WorkflowLog,
+  WorkflowLogType, WorkflowRunResult, WorkflowStateEvent,
 };
 pub use tokio_stream::{Stream, StreamExt};
 
@@ -42,6 +42,8 @@ pub type RunResponse = crate::Result<StreamReceiver>;
 pub trait Runner: Send + Sync {
   fn on_run_workflow(&self, _workflow: Workflow) {}
   fn on_run_job(&self, _job: Job) {}
+  fn on_run_step(&self, _step: Step) {}
+  fn on_step_completed(&self, _result: StepRunResult) {}
   fn on_job_completed(&self, _result: JobRunResult) {}
   fn on_workflow_completed(&self, _result: WorkflowRunResult) {}
   fn on_state_change(&self, _event: WorkflowStateEvent) {}

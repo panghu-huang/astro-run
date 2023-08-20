@@ -1,4 +1,7 @@
-use crate::{Job, JobRunResult, Workflow, WorkflowLog, WorkflowRunResult, WorkflowStateEvent};
+use crate::{
+  Job, JobRunResult, Step, StepRunResult, Workflow, WorkflowLog, WorkflowRunResult,
+  WorkflowStateEvent,
+};
 use parking_lot::Mutex;
 use std::sync::Arc;
 
@@ -6,16 +9,20 @@ type OnStateChange = dyn Fn(WorkflowStateEvent) -> () + Send + Sync;
 type OnLog = dyn Fn(WorkflowLog) -> () + Send + Sync;
 type OnRunWorkflow = dyn Fn(Workflow) -> () + Send + Sync;
 type OnRunJob = dyn Fn(Job) -> () + Send + Sync;
+type OnRunStep = dyn Fn(Step) -> () + Send + Sync;
 type OnWorkflowComplete = dyn Fn(WorkflowRunResult) -> () + Send + Sync;
 type OnJobComplete = dyn Fn(JobRunResult) -> () + Send + Sync;
+type OnStepComplete = dyn Fn(StepRunResult) -> () + Send + Sync;
 
 pub trait Plugin: Send {
   fn on_state_change(&self, event: WorkflowStateEvent) -> ();
   fn on_log(&self, log: WorkflowLog) -> ();
   fn on_run_workflow(&self, workflow: Workflow) -> ();
   fn on_run_job(&self, job: Job) -> ();
+  fn on_run_step(&self, step: Step) -> ();
   fn on_workflow_completed(&self, result: WorkflowRunResult) -> ();
   fn on_job_completed(&self, result: JobRunResult) -> ();
+  fn on_step_completed(&self, result: StepRunResult) -> ();
 }
 
 pub struct PluginBuilder {
@@ -24,8 +31,10 @@ pub struct PluginBuilder {
   on_log: Option<Box<OnLog>>,
   on_run_workflow: Option<Box<OnRunWorkflow>>,
   on_run_job: Option<Box<OnRunJob>>,
+  on_run_step: Option<Box<OnRunStep>>,
   on_workflow_completed: Option<Box<OnWorkflowComplete>>,
   on_job_completed: Option<Box<OnJobComplete>>,
+  on_step_completed: Option<Box<OnStepComplete>>,
 }
 
 impl PluginBuilder {
@@ -36,8 +45,10 @@ impl PluginBuilder {
       on_log: None,
       on_run_workflow: None,
       on_run_job: None,
+      on_run_step: None,
       on_workflow_completed: None,
       on_job_completed: None,
+      on_step_completed: None,
     }
   }
 
@@ -73,6 +84,14 @@ impl PluginBuilder {
     self
   }
 
+  pub fn on_run_step<T>(mut self, on_run_step: T) -> Self
+  where
+    T: Fn(Step) -> () + 'static + Send + Sync,
+  {
+    self.on_run_step = Some(Box::new(on_run_step));
+    self
+  }
+
   pub fn on_workflow_completed<T>(mut self, on_workflow_completed: T) -> Self
   where
     T: Fn(WorkflowRunResult) -> () + 'static + Send + Sync,
@@ -89,6 +108,14 @@ impl PluginBuilder {
     self
   }
 
+  pub fn on_step_completed<T>(mut self, on_step_completed: T) -> Self
+  where
+    T: Fn(StepRunResult) -> () + 'static + Send + Sync,
+  {
+    self.on_step_completed = Some(Box::new(on_step_completed));
+    self
+  }
+
   pub fn build(self) -> AstroRunPlugin {
     AstroRunPlugin {
       name: self.name,
@@ -96,8 +123,10 @@ impl PluginBuilder {
       on_log: self.on_log,
       on_run_workflow: self.on_run_workflow,
       on_run_job: self.on_run_job,
+      on_run_step: self.on_run_step,
       on_workflow_completed: self.on_workflow_completed,
       on_job_completed: self.on_job_completed,
+      on_step_completed: self.on_step_completed,
     }
   }
 }
@@ -108,8 +137,10 @@ pub struct AstroRunPlugin {
   on_log: Option<Box<OnLog>>,
   on_run_workflow: Option<Box<OnRunWorkflow>>,
   on_run_job: Option<Box<OnRunJob>>,
+  on_run_step: Option<Box<OnRunStep>>,
   on_workflow_completed: Option<Box<OnWorkflowComplete>>,
   on_job_completed: Option<Box<OnJobComplete>>,
+  on_step_completed: Option<Box<OnStepComplete>>,
 }
 
 impl AstroRunPlugin {
@@ -143,6 +174,12 @@ impl Plugin for AstroRunPlugin {
     }
   }
 
+  fn on_run_step(&self, step: Step) -> () {
+    if let Some(on_run_step) = &self.on_run_step {
+      on_run_step(step);
+    }
+  }
+
   fn on_workflow_completed(&self, result: WorkflowRunResult) {
     if let Some(on_workflow_completed) = &self.on_workflow_completed {
       on_workflow_completed(result);
@@ -152,6 +189,12 @@ impl Plugin for AstroRunPlugin {
   fn on_job_completed(&self, result: JobRunResult) {
     if let Some(on_job_completed) = &self.on_job_completed {
       on_job_completed(result);
+    }
+  }
+
+  fn on_step_completed(&self, result: StepRunResult) {
+    if let Some(on_step_completed) = &self.on_step_completed {
+      on_step_completed(result);
     }
   }
 }
@@ -208,6 +251,13 @@ impl PluginManager {
     }
   }
 
+  pub fn on_run_step(&self, step: Step) {
+    let plugins = self.plugins.lock();
+    for plugin in plugins.iter() {
+      plugin.on_run_step(step.clone());
+    }
+  }
+
   pub fn on_workflow_completed(&self, result: WorkflowRunResult) {
     let plugins = self.plugins.lock();
     for plugin in plugins.iter() {
@@ -219,6 +269,13 @@ impl PluginManager {
     let plugins = self.plugins.lock();
     for plugin in plugins.iter() {
       plugin.on_job_completed(result.clone());
+    }
+  }
+
+  pub fn on_step_completed(&self, result: StepRunResult) {
+    let plugins = self.plugins.lock();
+    for plugin in plugins.iter() {
+      plugin.on_step_completed(result.clone());
     }
   }
 }

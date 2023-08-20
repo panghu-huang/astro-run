@@ -8,9 +8,9 @@ Astro Run is a highly extensible runner that can execute any workflow.
 
 ## Features
 
-* Workflow runtime for Docker
-* Support for [gRPC server](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run-server/examples/server.rs) to coordinate multiple runner clients
-* Support for connecting to remote runners [WIP]
+* [Workflow runtime for Docker](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-runner)
+* Support for [gRPC server](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run-server) to coordinate multiple runner clients
+* Support for [connecting to remote runners](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run-remote-runner)
 
 ## Example
 
@@ -62,9 +62,7 @@ jobs:
   job:
     name: Job
     steps:
-      - timeout: 60m
-        continue-on-error: false
-        run: Hello World
+      - run: Hello World
   "#;
 
     // Create Workflow
@@ -86,12 +84,11 @@ Astro Run only defines the interface for Runners. Users can implement their own 
 
 ## More Examples
 
-* Astro Run Plugins: TODO
+* [Workflow runtime for Docker](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-runner/examples/basic.rs)
+* [Astro Run Plugins](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run/examples/plugins.rs)
 * [Astro run gRPC Server](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run-server/examples/server.rs)
 * [gRPC Runner Client](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run-server/examples/client.rs)
-* gRPC Server Plugins: TODO
-* gRPC Runner Client Plugins: TODO
-* Remote Runner: TODO
+* [Remote Runner](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run-remote-runner/examples/runner-server.rs)
 
 ## Contributing
 

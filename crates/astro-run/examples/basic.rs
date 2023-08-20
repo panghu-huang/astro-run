@@ -33,9 +33,7 @@ jobs:
   job:
     name: Job
     steps:
-      - timeout: 60m
-        continue-on-error: false
-        run: Hello World
+      - run: Hello World
   "#;
 
   // Create workflow

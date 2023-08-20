@@ -1,6 +1,6 @@
 use crate::{
-  shared_state::AstroRunSharedState, Actions, AstroRunPlugin, ExecutionContext, PluginManager,
-  Runner,
+  shared_state::AstroRunSharedState, Action, Actions, AstroRunPlugin, ExecutionContext,
+  PluginManager, Runner,
 };
 use std::sync::Arc;
 
@@ -82,6 +82,11 @@ impl AstroRunBuilder {
 
   pub fn plugin(self, plugin: AstroRunPlugin) -> Self {
     self.shared_state.register_plugin(plugin);
+    self
+  }
+
+  pub fn action(self, name: impl Into<String>, action: impl Action + 'static) -> Self {
+    self.shared_state.register_action(name, action);
     self
   }
 
