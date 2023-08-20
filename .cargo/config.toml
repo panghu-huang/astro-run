@@ -1,2 +1,2 @@
 [alias]
-astro-run-cov = "tarpaulin --all-features --timeout 120 -p astro-run --exclude-files crates/runner/* --skip-clean"
+astro-run-cov = "tarpaulin --all-features --timeout 120 -p astro-run --exclude-files crates/runner/* --skip-clean --out Xml"
