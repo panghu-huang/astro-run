@@ -9,10 +9,12 @@ message Event {
   oneof payload {
     astro_run.Workflow run_workflow_event = 2;
     astro_run.Job run_job_event = 3;
-    astro_run.WorkflowRunResult workflow_completed_event = 4;
-    astro_run.JobRunResult job_completed_event = 5;
-    astro_run.WorkflowStateEvent workflow_state_event = 6;
-    astro_run.WorkflowLog log_event = 7;
+    astro_run.Command run_step_event = 4;
+    astro_run.WorkflowRunResult workflow_completed_event = 5;
+    astro_run.JobRunResult job_completed_event = 6;
+    astro_run.StepRunResult step_completed_event = 7;
+    astro_run.WorkflowStateEvent workflow_state_event = 8;
+    astro_run.WorkflowLog log_event = 9;
   }
 }
 
@@ -26,7 +28,10 @@ message RunResponse {
 
 message SendEventResponse {}
 
+message ConnectRequest {}
+
 service AstroRunRemoteRunner {
+  rpc GetRunnerMetadata(ConnectRequest) returns (astro_run.RunnerMetadata) {}
   rpc Run(astro_run.Context) returns (stream RunResponse) {}
   rpc SendEvent(Event) returns (SendEventResponse) {}
 }

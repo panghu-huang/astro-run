@@ -162,6 +162,7 @@ async fn test_run() -> Result<()> {
     let runner = TestRunner::new();
 
     let runner_server = AstroRunRemoteRunnerServer::builder()
+      .id("test-runner")
       .runner(runner)
       .build()
       .unwrap();

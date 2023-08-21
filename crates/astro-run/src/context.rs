@@ -2,7 +2,7 @@ use crate::{ContainerOptions, EnvironmentVariables, StepId};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Command {
   pub id: StepId,
   pub name: Option<String>,

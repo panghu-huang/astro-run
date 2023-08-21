@@ -113,3 +113,13 @@ message RunResult {
     google.protobuf.Empty cancelled = 4;
   }
 }
+
+message RunnerMetadata {
+  string id = 1;
+  string os = 2;
+  string arch = 3;
+  string version = 4;
+  int32 max_runs = 5;
+  bool support_docker = 6;
+  bool support_host = 7;
+}

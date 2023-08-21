@@ -1,5 +1,5 @@
 use astro_run::{AstroRun, AstroRunPlugin, Workflow, WorkflowEvent, WorkflowState};
-use astro_runner::DockerRunner;
+use astro_runner::AstroRunner;
 use parking_lot::Mutex;
 use std::sync::Arc;
 
@@ -9,7 +9,6 @@ fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
   let cloned_logs = logs.clone();
   AstroRunPlugin::builder("test-plugin")
     .on_log(move |log| {
-      println!("Log: {}", log.message);
       logs.lock().push(log.message);
     })
     .on_workflow_completed(move |_| {
@@ -24,7 +23,7 @@ fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
 
 #[tokio::test]
 #[ignore]
-async fn test_run() {
+async fn test_docker() {
   let workflow = r#"
 jobs:
   test:
@@ -38,7 +37,7 @@ jobs:
           echo Content is $content
           echo "Cache" >> /home/work/caches/test.txt
   "#;
-  let runner = DockerRunner::builder().build().unwrap();
+  let runner = AstroRunner::builder().build().unwrap();
 
   let astro_run = AstroRun::builder()
     .runner(runner)
@@ -64,4 +63,40 @@ jobs:
 
   assert_eq!(job_result.steps[0].state, WorkflowState::Succeeded);
   assert_eq!(job_result.steps[1].state, WorkflowState::Succeeded);
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_host() {
+  let workflow = r#"
+jobs:
+  test:
+    name: Test Job
+    steps:
+      - container: host/windows
+        run: echo "Hello world"
+  "#;
+  let runner = AstroRunner::builder().build().unwrap();
+
+  let astro_run = AstroRun::builder()
+    .runner(runner)
+    .plugin(assert_logs_plugin(vec!["Hello world".to_string()]))
+    .build();
+
+  let workflow = Workflow::builder()
+    .event(WorkflowEvent::default())
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
+
+  let ctx = astro_run.execution_context();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Succeeded);
+  let job_result = res.jobs.get("test").unwrap();
+  assert_eq!(job_result.state, WorkflowState::Succeeded);
+  assert_eq!(job_result.steps.len(), 1);
+
+  assert_eq!(job_result.steps[0].state, WorkflowState::Succeeded);
 }

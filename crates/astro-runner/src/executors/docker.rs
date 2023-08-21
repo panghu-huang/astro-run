@@ -1,6 +1,7 @@
 use crate::{
   command::Command,
   docker::Docker,
+  executors::Executor,
   metadata::{Metadata, PathBufTryToString},
   utils,
 };
@@ -8,20 +9,21 @@ use astro_run::{Context, Result, StreamSender, WorkflowEvent};
 use std::path::PathBuf;
 use tokio::fs;
 
-pub struct Executor {
+pub struct DockerExecutor {
   pub working_directory: PathBuf,
 }
 
-impl Executor {
+#[async_trait::async_trait]
+impl Executor for DockerExecutor {
   /**
    * Run the step
    * Step shared the same execution context as the job
    */
-  pub async fn execute(
+  async fn execute(
     &self,
+    ctx: Context,
     sender: StreamSender,
     event: Option<WorkflowEvent>,
-    ctx: Context,
   ) -> Result<()> {
     // Runner working directory
     let mut builder = Metadata::builder()
@@ -65,7 +67,9 @@ impl Executor {
     log::info!("Step run finished");
     Ok(())
   }
+}
 
+impl DockerExecutor {
   fn into_command(&self, image: String, metadata: Metadata) -> Result<Command> {
     let docker = Docker::new(&metadata.docker_name)
       .image(image)

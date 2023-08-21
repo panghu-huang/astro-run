@@ -183,6 +183,24 @@ pub mod run_result {
         Cancelled(()),
     }
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunnerMetadata {
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub os: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub arch: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub version: ::prost::alloc::string::String,
+    #[prost(int32, tag = "5")]
+    pub max_runs: i32,
+    #[prost(bool, tag = "6")]
+    pub support_docker: bool,
+    #[prost(bool, tag = "7")]
+    pub support_host: bool,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum WorkflowState {

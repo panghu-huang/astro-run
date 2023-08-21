@@ -3,7 +3,7 @@
 pub struct Event {
     #[prost(string, tag = "1")]
     pub event_name: ::prost::alloc::string::String,
-    #[prost(oneof = "event::Payload", tags = "2, 3, 4, 5, 6, 7, 8, 9")]
+    #[prost(oneof = "event::Payload", tags = "2, 3, 4, 5, 6, 7, 8, 9, 10, 11")]
     pub payload: ::core::option::Option<event::Payload>,
 }
 /// Nested message and enum types in `Event`.
@@ -18,26 +18,20 @@ pub mod event {
         #[prost(message, tag = "4")]
         RunJobEvent(super::super::astro_run::Job),
         #[prost(message, tag = "5")]
-        WorkflowCompletedEvent(super::super::astro_run::WorkflowRunResult),
+        RunStepEvent(super::super::astro_run::Command),
         #[prost(message, tag = "6")]
-        JobCompletedEvent(super::super::astro_run::JobRunResult),
+        WorkflowCompletedEvent(super::super::astro_run::WorkflowRunResult),
         #[prost(message, tag = "7")]
-        WorkflowStateEvent(super::super::astro_run::WorkflowStateEvent),
+        JobCompletedEvent(super::super::astro_run::JobRunResult),
         #[prost(message, tag = "8")]
+        StepCompletedEvent(super::super::astro_run::StepRunResult),
+        #[prost(message, tag = "9")]
+        WorkflowStateEvent(super::super::astro_run::WorkflowStateEvent),
+        #[prost(message, tag = "10")]
         LogEvent(super::super::astro_run::WorkflowLog),
-        #[prost(string, tag = "9")]
+        #[prost(string, tag = "11")]
         Error(::prost::alloc::string::String),
     }
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SubscribeEventsRequest {
-    #[prost(string, tag = "1")]
-    pub id: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
-    pub version: ::prost::alloc::string::String,
-    #[prost(string, optional, tag = "3")]
-    pub token: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -140,7 +134,7 @@ pub mod astro_run_service_client {
         }
         pub async fn subscribe_events(
             &mut self,
-            request: impl tonic::IntoRequest<super::SubscribeEventsRequest>,
+            request: impl tonic::IntoRequest<super::super::astro_run::RunnerMetadata>,
         ) -> std::result::Result<
             tonic::Response<tonic::codec::Streaming<super::Event>>,
             tonic::Status,
@@ -242,7 +236,7 @@ pub mod astro_run_service_server {
             + 'static;
         async fn subscribe_events(
             &self,
-            request: tonic::Request<super::SubscribeEventsRequest>,
+            request: tonic::Request<super::super::astro_run::RunnerMetadata>,
         ) -> std::result::Result<
             tonic::Response<Self::SubscribeEventsStream>,
             tonic::Status,
@@ -347,7 +341,7 @@ pub mod astro_run_service_server {
                     impl<
                         T: AstroRunService,
                     > tonic::server::ServerStreamingService<
-                        super::SubscribeEventsRequest,
+                        super::super::astro_run::RunnerMetadata,
                     > for SubscribeEventsSvc<T> {
                         type Response = super::Event;
                         type ResponseStream = T::SubscribeEventsStream;
@@ -357,7 +351,9 @@ pub mod astro_run_service_server {
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::SubscribeEventsRequest>,
+                            request: tonic::Request<
+                                super::super::astro_run::RunnerMetadata,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {

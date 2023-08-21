@@ -1,9 +1,9 @@
 use astro_run::{AstroRunPlugin, Context, Error, PluginManager, Result, Runner};
 use astro_run_protocol::{
   astro_run_server::{self, event::Payload as EventPayload},
-  tonic, AstroRunServiceClient,
+  tonic, AstroRunServiceClient, RunnerMetadata,
 };
-use std::sync::Arc;
+use std::{env, sync::Arc};
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 
@@ -14,6 +14,9 @@ enum Command {
 
 pub struct AstroRunRunner {
   id: String,
+  max_runs: i32,
+  support_docker: bool,
+  support_host: bool,
   client: AstroRunServiceClient<tonic::transport::Channel>,
   runner: Arc<Box<dyn Runner>>,
   plugins: PluginManager,
@@ -29,10 +32,14 @@ impl AstroRunRunner {
 
     let stream = self
       .client
-      .subscribe_events(astro_run_server::SubscribeEventsRequest {
+      .subscribe_events(RunnerMetadata {
         id: self.id.clone(),
-        token: None,
         version: crate::VERSION.to_string(),
+        os: env::consts::OS.to_string(),
+        arch: env::consts::ARCH.to_string(),
+        max_runs: self.max_runs,
+        support_docker: self.support_docker,
+        support_host: self.support_host,
       })
       .await
       .map_err(|e| {
@@ -62,6 +69,11 @@ impl AstroRunRunner {
             EventPayload::Run(ctx) => {
               self.run(tx.clone(), ctx.try_into()?);
             }
+            EventPayload::StepCompletedEvent(result) => {
+              let result: astro_run::StepRunResult = result.try_into()?;
+              self.plugins.on_step_completed(result.clone());
+              self.runner.on_step_completed(result);
+            }
             EventPayload::JobCompletedEvent(result) => {
               let result: astro_run::JobRunResult = result.try_into()?;
               self.plugins.on_job_completed(result.clone());
@@ -81,6 +93,11 @@ impl AstroRunRunner {
               let job: astro_run::Job = job.try_into()?;
               self.plugins.on_run_job(job.clone());
               self.runner.on_run_job(job);
+            }
+            EventPayload::RunStepEvent(step) => {
+              let step: astro_run::Step = step.try_into()?;
+              self.plugins.on_run_step(step.clone());
+              self.runner.on_run_step(step);
             }
             EventPayload::Error(error) => {
               log::error!("Received error event: {:?}", error);
@@ -174,6 +191,9 @@ pub struct AstroRunRunnerBuilder {
   runner: Option<Box<dyn Runner>>,
   id: Option<String>,
   url: Option<String>,
+  max_runs: i32,
+  support_docker: bool,
+  support_host: bool,
   plugins: PluginManager,
 }
 
@@ -183,6 +203,9 @@ impl AstroRunRunnerBuilder {
       runner: None,
       id: None,
       url: None,
+      max_runs: 10,
+      support_docker: true,
+      support_host: true,
       plugins: PluginManager::new(),
     }
   }
@@ -202,6 +225,21 @@ impl AstroRunRunnerBuilder {
 
   pub fn url(mut self, url: impl Into<String>) -> Self {
     self.url = Some(url.into());
+    self
+  }
+
+  pub fn max_runs(mut self, max_runs: i32) -> Self {
+    self.max_runs = max_runs;
+    self
+  }
+
+  pub fn support_docker(mut self, support_docker: bool) -> Self {
+    self.support_docker = support_docker;
+    self
+  }
+
+  pub fn support_host(mut self, support_host: bool) -> Self {
+    self.support_host = support_host;
     self
   }
 
@@ -229,6 +267,9 @@ impl AstroRunRunnerBuilder {
     Ok(AstroRunRunner {
       id,
       client,
+      max_runs: self.max_runs,
+      support_docker: self.support_docker,
+      support_host: self.support_host,
       runner: Arc::new(runner),
       plugins: self.plugins,
     })

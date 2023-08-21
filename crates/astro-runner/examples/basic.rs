@@ -1,5 +1,5 @@
 use astro_run::{AstroRun, Workflow};
-use astro_runner::DockerRunner;
+use astro_runner::AstroRunner;
 
 #[tokio::main]
 #[ignore]
@@ -17,7 +17,7 @@ jobs:
           echo Content is $content
           echo "Cache" >> /home/work/caches/test.txt
   "#;
-  let runner = DockerRunner::builder().build().unwrap();
+  let runner = AstroRunner::builder().build().unwrap();
 
   let astro_run = AstroRun::builder().runner(runner).build();
 

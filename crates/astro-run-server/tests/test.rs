@@ -158,6 +158,7 @@ async fn test_run() -> Result<()> {
     let runner = TestRunner::new();
 
     let mut astro_run_runner = AstroRunRunner::builder()
+      .id("test-runner")
       .runner(runner)
       .plugin(assert_logs_plugin(vec![
         "Hello World".to_string(),

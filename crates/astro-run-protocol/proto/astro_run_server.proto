@@ -10,18 +10,14 @@ message Event {
     astro_run.Context run = 2;
     astro_run.Workflow run_workflow_event = 3;
     astro_run.Job run_job_event = 4;
-    astro_run.WorkflowRunResult workflow_completed_event = 5;
-    astro_run.JobRunResult job_completed_event = 6;
-    astro_run.WorkflowStateEvent workflow_state_event = 7;
-    astro_run.WorkflowLog log_event = 8;
-    string error = 9;
+    astro_run.Command run_step_event = 5;
+    astro_run.WorkflowRunResult workflow_completed_event = 6;
+    astro_run.JobRunResult job_completed_event = 7;
+    astro_run.StepRunResult step_completed_event = 8;
+    astro_run.WorkflowStateEvent workflow_state_event = 9;
+    astro_run.WorkflowLog log_event = 10;
+    string error = 11;
   }
-}
-
-message SubscribeEventsRequest {
-  string id = 1;
-  string version = 2;
-  optional string token = 3;
 }
 
 message ReportLogResponse {}
@@ -34,7 +30,7 @@ message ReportRunCompletedRequest {
 message ReportRunCompletedResponse {}
 
 service AstroRunService {
-  rpc SubscribeEvents(SubscribeEventsRequest) returns (stream Event) {}
+  rpc SubscribeEvents(astro_run.RunnerMetadata) returns (stream Event) {}
   rpc ReportLog(astro_run.WorkflowLog) returns (ReportLogResponse) {}
   rpc ReportRunCompleted(ReportRunCompletedRequest) returns (ReportRunCompletedResponse) {}
 }

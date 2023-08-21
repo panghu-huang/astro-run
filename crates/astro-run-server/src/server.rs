@@ -1,5 +1,7 @@
 use astro_run::{stream, Context, Error, RunResponse, Runner, StreamSender, WorkflowLogType};
-use astro_run_protocol::{astro_run_server, tonic, AstroRunService, AstroRunServiceServer};
+use astro_run_protocol::{
+  astro_run_server, tonic, AstroRunService, AstroRunServiceServer, RunnerMetadata,
+};
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
@@ -37,7 +39,7 @@ impl AstroRunService for AstroRunServer {
 
   async fn subscribe_events(
     &self,
-    request: Request<astro_run_server::SubscribeEventsRequest>,
+    request: Request<RunnerMetadata>,
   ) -> Result<Response<Self::SubscribeEventsStream>, Status> {
     let req = request.into_inner();
     if req.version != crate::VERSION {

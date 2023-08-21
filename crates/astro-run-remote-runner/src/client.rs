@@ -121,6 +121,8 @@ impl AstroRunRemoteRunnerClient {
   pub async fn start(&self) -> Result<()> {
     let mut receiver = self.event_sender.subscribe();
 
+    // TODO: Connect to server
+
     while let Ok(event) = receiver.recv().await {
       let mut client = self.client.clone();
       let event = tonic::Request::new(event);

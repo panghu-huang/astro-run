@@ -1,4 +1,4 @@
-use crate::executor::Executor;
+use crate::executors::{DockerExecutor, Executor, HostExecutor};
 use astro_run::{
   stream, Context, Error, Result, RunResponse, RunResult, Runner, WorkflowEvent, WorkflowId,
 };
@@ -9,18 +9,18 @@ struct RunnerState {
   workflow_events: HashMap<WorkflowId, WorkflowEvent>,
 }
 
-pub struct DockerRunner {
+pub struct AstroRunner {
   working_directory: PathBuf,
   state: Arc<Mutex<RunnerState>>,
 }
 
-impl DockerRunner {
-  pub fn builder() -> DockerRunnerBuilder {
-    DockerRunnerBuilder::new()
+impl AstroRunner {
+  pub fn builder() -> AstroRunnerBuilder {
+    AstroRunnerBuilder::new()
   }
 }
 
-impl Runner for DockerRunner {
+impl Runner for AstroRunner {
   fn on_run_workflow(&self, workflow: astro_run::Workflow) {
     let mut state = self.state.lock();
 
@@ -31,16 +31,14 @@ impl Runner for DockerRunner {
 
   fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) {
     if let Err(err) = self.cleanup_workflow_working_directory(result) {
-      log::error!("DockerRunner: cleanup error: {}", err);
+      log::error!("AstroRunner: cleanup error: {}", err);
     }
   }
 
   fn run(&self, ctx: Context) -> RunResponse {
     let (sender, receiver) = stream();
 
-    let executor = Executor {
-      working_directory: self.working_directory.clone(),
-    };
+    let executor = self.create_executor(&ctx);
     let event = self
       .state
       .lock()
@@ -49,11 +47,12 @@ impl Runner for DockerRunner {
       .cloned();
 
     tokio::spawn(async move {
-      if let Err(err) = executor.execute(sender.clone(), event, ctx).await {
-        log::error!("DockerRunner: execute error: {}", err);
-        if !sender.is_ended() {
-          sender.end(RunResult::Failed { exit_code: 1 });
-        }
+      if let Err(err) = executor.execute(ctx, sender.clone(), event).await {
+        log::error!("AstroRunner: execute error: {}", err);
+      }
+
+      if !sender.is_ended() {
+        sender.end(RunResult::Failed { exit_code: 1 });
       }
     });
 
@@ -61,9 +60,35 @@ impl Runner for DockerRunner {
   }
 }
 
-impl DockerRunner {
+impl AstroRunner {
+  fn create_executor(&self, ctx: &Context) -> Box<dyn Executor> {
+    let os_name = std::env::consts::OS;
+    let architecture = std::env::consts::ARCH;
+    let container = ctx.command.container.clone();
+    if let Some(container) = container {
+      // Example: host/windows
+      let host_name = format!("host/{}", os_name);
+      // Example: host/windows-x86_64, host/linux-x86_64
+      let host_name_with_arch = format!("host/{}-{}", os_name, architecture);
+
+      if container.name == host_name_with_arch || container.name == host_name {
+        let executor = HostExecutor {
+          working_directory: self.working_directory.clone(),
+        };
+
+        return Box::new(executor);
+      }
+    }
+
+    let executor = DockerExecutor {
+      working_directory: self.working_directory.clone(),
+    };
+
+    Box::new(executor)
+  }
+
   fn cleanup_workflow_working_directory(&self, result: astro_run::WorkflowRunResult) -> Result<()> {
-    log::info!("DockerRunner: workflow completed: {:?}", result);
+    log::info!("AstroRunner: workflow completed: {:?}", result);
     let event = self.state.lock().workflow_events.get(&result.id).cloned();
 
     let mut directory = self.working_directory.clone();
@@ -71,7 +96,7 @@ impl DockerRunner {
     if let Some(event) = event {
       directory = directory.join(&event.repo_owner).join(&event.repo_name);
     }
-    
+
     directory = directory.join(&result.id.inner());
 
     fs::remove_dir_all(directory)?;
@@ -80,11 +105,11 @@ impl DockerRunner {
   }
 }
 
-pub struct DockerRunnerBuilder {
+pub struct AstroRunnerBuilder {
   working_directory: Option<PathBuf>,
 }
 
-impl DockerRunnerBuilder {
+impl AstroRunnerBuilder {
   pub fn new() -> Self {
     Self {
       working_directory: None,
@@ -96,15 +121,15 @@ impl DockerRunnerBuilder {
     self
   }
 
-  pub fn build(self) -> Result<DockerRunner> {
+  pub fn build(self) -> Result<AstroRunner> {
     let working_directory = self.working_directory.map(|i| Ok(i)).unwrap_or_else(|| {
       #[allow(deprecated)]
       env::home_dir()
         .map(|home| home.join("astro-run"))
-        .ok_or_else(|| Error::init_error("DockerRunnerBuilder: working_directory is required"))
+        .ok_or_else(|| Error::init_error("AstroRunnerBuilder: working_directory is required"))
     })?;
 
-    let runner = DockerRunner {
+    let runner = AstroRunner {
       working_directory,
       state: Arc::new(Mutex::new(RunnerState {
         workflow_events: HashMap::new(),

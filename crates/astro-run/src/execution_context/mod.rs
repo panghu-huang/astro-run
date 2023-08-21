@@ -26,7 +26,10 @@ impl ExecutionContext {
     let plugin_manager = self.shared_state.plugins();
 
     let started_at = chrono::Utc::now();
+
     plugin_manager.on_run_step(command.clone());
+    self.runner.on_run_step(command.clone());
+
     plugin_manager.on_state_change(WorkflowStateEvent::StepStateUpdated {
       id: step_id.clone(),
       state: WorkflowState::InProgress,
@@ -61,6 +64,7 @@ impl ExecutionContext {
         };
 
         plugin_manager.on_step_completed(result.clone());
+        self.runner.on_step_completed(result.clone());
 
         return result;
       }
@@ -125,6 +129,7 @@ impl ExecutionContext {
     });
 
     plugin_manager.on_step_completed(res.clone());
+    self.runner.on_step_completed(res.clone());
 
     res
   }

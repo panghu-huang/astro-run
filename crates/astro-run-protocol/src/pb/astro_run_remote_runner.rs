@@ -3,7 +3,7 @@
 pub struct Event {
     #[prost(string, tag = "1")]
     pub event_name: ::prost::alloc::string::String,
-    #[prost(oneof = "event::Payload", tags = "2, 3, 4, 5, 6, 7")]
+    #[prost(oneof = "event::Payload", tags = "2, 3, 4, 5, 6, 7, 8, 9")]
     pub payload: ::core::option::Option<event::Payload>,
 }
 /// Nested message and enum types in `Event`.
@@ -16,12 +16,16 @@ pub mod event {
         #[prost(message, tag = "3")]
         RunJobEvent(super::super::astro_run::Job),
         #[prost(message, tag = "4")]
-        WorkflowCompletedEvent(super::super::astro_run::WorkflowRunResult),
+        RunStepEvent(super::super::astro_run::Command),
         #[prost(message, tag = "5")]
-        JobCompletedEvent(super::super::astro_run::JobRunResult),
+        WorkflowCompletedEvent(super::super::astro_run::WorkflowRunResult),
         #[prost(message, tag = "6")]
-        WorkflowStateEvent(super::super::astro_run::WorkflowStateEvent),
+        JobCompletedEvent(super::super::astro_run::JobRunResult),
         #[prost(message, tag = "7")]
+        StepCompletedEvent(super::super::astro_run::StepRunResult),
+        #[prost(message, tag = "8")]
+        WorkflowStateEvent(super::super::astro_run::WorkflowStateEvent),
+        #[prost(message, tag = "9")]
         LogEvent(super::super::astro_run::WorkflowLog),
     }
 }
@@ -47,6 +51,9 @@ pub mod run_response {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SendEventResponse {}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ConnectRequest {}
 /// Generated client implementations.
 pub mod astro_run_remote_runner_client {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
@@ -132,6 +139,36 @@ pub mod astro_run_remote_runner_client {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
+        pub async fn get_runner_metadata(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ConnectRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::astro_run::RunnerMetadata>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/astro_run_remote_runner.AstroRunRemoteRunner/GetRunnerMetadata",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "astro_run_remote_runner.AstroRunRemoteRunner",
+                        "GetRunnerMetadata",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn run(
             &mut self,
             request: impl tonic::IntoRequest<super::super::astro_run::Context>,
@@ -201,6 +238,13 @@ pub mod astro_run_remote_runner_server {
     /// Generated trait containing gRPC methods that should be implemented for use with AstroRunRemoteRunnerServer.
     #[async_trait]
     pub trait AstroRunRemoteRunner: Send + Sync + 'static {
+        async fn get_runner_metadata(
+            &self,
+            request: tonic::Request<super::ConnectRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::astro_run::RunnerMetadata>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the Run method.
         type RunStream: futures_core::Stream<
                 Item = std::result::Result<super::RunResponse, tonic::Status>,
@@ -299,6 +343,52 @@ pub mod astro_run_remote_runner_server {
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             let inner = self.inner.clone();
             match req.uri().path() {
+                "/astro_run_remote_runner.AstroRunRemoteRunner/GetRunnerMetadata" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetRunnerMetadataSvc<T: AstroRunRemoteRunner>(pub Arc<T>);
+                    impl<
+                        T: AstroRunRemoteRunner,
+                    > tonic::server::UnaryService<super::ConnectRequest>
+                    for GetRunnerMetadataSvc<T> {
+                        type Response = super::super::astro_run::RunnerMetadata;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ConnectRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                (*inner).get_runner_metadata(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetRunnerMetadataSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/astro_run_remote_runner.AstroRunRemoteRunner/Run" => {
                     #[allow(non_camel_case_types)]
                     struct RunSvc<T: AstroRunRemoteRunner>(pub Arc<T>);
