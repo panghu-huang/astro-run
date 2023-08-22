@@ -51,7 +51,7 @@ fn assert_default_scheduler_state(scheduler: &DefaultScheduler) {
   assert_eq!(state.job_runners.len(), 0);
 }
 
-#[tokio::test]
+#[astro_run_test::test]
 async fn test_default_schedule() {
   let scheduler = DefaultScheduler::new();
 
@@ -109,7 +109,7 @@ async fn test_default_schedule() {
   assert_default_scheduler_state(&scheduler);
 }
 
-#[tokio::test]
+#[astro_run_test::test]
 async fn test_default_schedule1() {
   let scheduler = DefaultScheduler::new();
 
@@ -168,7 +168,7 @@ async fn test_default_schedule1() {
   assert_default_scheduler_state(&scheduler);
 }
 
-#[tokio::test]
+#[astro_run_test::test]
 async fn test_default_schedule_none() {
   let scheduler = DefaultScheduler::new();
 

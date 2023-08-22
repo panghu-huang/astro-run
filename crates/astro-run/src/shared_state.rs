@@ -1,6 +1,6 @@
 use crate::{
-  Actions, AstroRunPlugin, Job, JobRunResult, PluginManager, Step, StepRunResult, Workflow,
-  WorkflowRunResult, WorkflowStateEvent,
+  Actions, AstroRunPlugin, Job, JobRunResult, PluginManager, Workflow, WorkflowRunResult,
+  WorkflowStateEvent,
 };
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -67,19 +67,11 @@ impl AstroRunSharedState {
     self.0.lock().plugins.on_run_job(job);
   }
 
-  pub fn on_run_step(&self, step: Step) {
-    self.0.lock().plugins.on_run_step(step);
-  }
-
   pub fn on_workflow_completed(&self, result: WorkflowRunResult) {
     self.0.lock().plugins.on_workflow_completed(result);
   }
 
   pub fn on_job_completed(&self, result: JobRunResult) {
     self.0.lock().plugins.on_job_completed(result);
-  }
-
-  pub fn on_step_completed(&self, result: StepRunResult) {
-    self.0.lock().plugins.on_step_completed(result);
   }
 }

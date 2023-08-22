@@ -6,11 +6,11 @@ use astro_run::{
 use astro_run_server::{AstroRunRunner, AstroRunServer};
 use parking_lot::Mutex;
 
-struct TestRunner {}
+struct TestRunner;
 
 impl TestRunner {
   fn new() -> Self {
-    TestRunner {}
+    TestRunner
   }
 }
 
@@ -18,8 +18,15 @@ impl Runner for TestRunner {
   fn run(&self, ctx: Context) -> astro_run::RunResponse {
     let (tx, rx) = stream();
 
-    tx.log(ctx.command.run);
-    tx.end(RunResult::Succeeded);
+    if ctx.command.container.is_some() {
+      tx.log(ctx.command.run);
+
+      tx.end(RunResult::Succeeded);
+    } else {
+      tx.error(ctx.command.run);
+
+      tx.end(RunResult::Succeeded);
+    }
 
     Ok(rx)
   }
@@ -73,7 +80,7 @@ impl Runner for TestRunner {
   }
 }
 
-fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
+fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
   let index = Mutex::new(0);
 
   PluginBuilder::new("assert-logs-plugin")
@@ -85,7 +92,7 @@ fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
     .build()
 }
 
-#[tokio::test]
+#[astro_run_test::test]
 async fn test_run() -> Result<()> {
   let server_thread_handle = tokio::spawn(async {
     let server = AstroRunServer::new();
@@ -96,10 +103,7 @@ async fn test_run() -> Result<()> {
     });
 
     let astro_run = AstroRun::builder()
-      .plugin(assert_logs_plugin(vec![
-        "Hello World".to_string(),
-        "Hello World1".to_string(),
-      ]))
+      .plugin(assert_logs_plugin(vec!["Hello World", "Hello World1"]))
       .runner(server)
       .plugin(
         AstroRunPlugin::builder("abort-thread")
@@ -160,10 +164,10 @@ async fn test_run() -> Result<()> {
     let mut astro_run_runner = AstroRunRunner::builder()
       .id("test-runner")
       .runner(runner)
-      .plugin(assert_logs_plugin(vec![
-        "Hello World".to_string(),
-        "Hello World1".to_string(),
-      ]))
+      .max_runs(5)
+      .support_docker(true)
+      .support_host(true)
+      .plugin(assert_logs_plugin(vec!["Hello World", "Hello World1"]))
       .url("http://127.0.0.1:5001")
       .id("test-runner")
       .build()

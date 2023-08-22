@@ -30,3 +30,8 @@ tokio = { workspace = true, features = [
   "rt-multi-thread",
   "time",
 ] }
+
+
+[dev-dependencies]
+astro-run-test = { path = "../astro-run-test" }
+astro-run-logger = { path = "../astro-run-logger" }

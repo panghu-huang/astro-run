@@ -18,8 +18,15 @@ impl Runner for TestRunner {
   fn run(&self, ctx: Context) -> astro_run::RunResponse {
     let (tx, rx) = stream();
 
-    tx.log(ctx.command.run);
-    tx.end(RunResult::Succeeded);
+    if ctx.command.container.is_some() {
+      tx.log(ctx.command.run);
+
+      tx.end(RunResult::Succeeded);
+    } else {
+      tx.error(ctx.command.run);
+
+      tx.end(RunResult::Succeeded);
+    }
 
     Ok(rx)
   }
@@ -85,7 +92,7 @@ fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
     .build()
 }
 
-#[tokio::test]
+#[astro_run_test::test]
 async fn test_run() -> Result<()> {
   let client_thread_handle = tokio::spawn(async {
     let client_runner = AstroRunRemoteRunnerClient::builder()

@@ -24,10 +24,10 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
       let result = Self::run(sender.clone(), client, context).await;
       if let Err(err) = result {
         log::error!("Failed to run: {}", err);
-        if !sender.is_ended() {
-          sender.error(err.to_string());
-          sender.end(astro_run::RunResult::Failed { exit_code: 1 });
-        }
+      }
+      if !sender.is_ended() {
+        sender.error("Failed to run");
+        sender.end(astro_run::RunResult::Failed { exit_code: 1 });
       }
     });
 
@@ -41,9 +41,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
           log::error!("Failed to send event: {}", err);
         }
       }
-      Err(err) => {
-        log::error!("Failed to create event: {}", err);
-      }
+      Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
 
@@ -54,9 +52,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
           log::error!("Failed to send event: {}", err);
         }
       }
-      Err(err) => {
-        log::error!("Failed to create event: {}", err);
-      }
+      Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
 
@@ -67,9 +63,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
           log::error!("Failed to send event: {}", err);
         }
       }
-      Err(err) => {
-        log::error!("Failed to create event: {}", err);
-      }
+      Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
 
@@ -80,9 +74,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
           log::error!("Failed to send event: {}", err);
         }
       }
-      Err(err) => {
-        log::error!("Failed to create event: {}", err);
-      }
+      Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
 
@@ -93,9 +85,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
           log::error!("Failed to send event: {}", err);
         }
       }
-      Err(err) => {
-        log::error!("Failed to create event: {}", err);
-      }
+      Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
 
@@ -106,9 +96,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
           log::error!("Failed to send event: {}", err);
         }
       }
-      Err(err) => {
-        log::error!("Failed to create event: {}", err);
-      }
+      Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
 }

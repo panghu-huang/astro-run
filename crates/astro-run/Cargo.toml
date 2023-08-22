@@ -37,3 +37,7 @@ log = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 tokio-stream = { workspace = true }
+
+[dev-dependencies]
+astro-run-test = { path = "../astro-run-test" }
+astro-run-logger = { path = "../astro-run-logger" }

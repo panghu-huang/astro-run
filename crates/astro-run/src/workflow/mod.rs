@@ -126,14 +126,12 @@ impl Workflow {
   }
 
   fn run_job(&self, key: Id, job: job::Job, context: ExecutionContext, sender: Sender<Result>) {
-    let _res = tokio::spawn(async move {
+    tokio::spawn(async move {
       let result = job.run(context).await;
 
-      sender.send((key.clone(), result)).await.map_err(|_| {
-        crate::Error::internal_runtime_error(format!("Failed to send result for job {}", key))
-      })?;
-
-      Ok::<(), crate::Error>(())
+      if let Err(err) = sender.send((key.clone(), result)).await {
+        log::error!("Failed to send job result for job {}: {}", key, err);
+      }
     });
   }
 

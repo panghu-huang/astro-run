@@ -5,11 +5,11 @@ use astro_run::{
 };
 use parking_lot::Mutex;
 
-struct TestRunner {}
+struct TestRunner;
 
 impl TestRunner {
   fn new() -> Self {
-    TestRunner {}
+    TestRunner
   }
 }
 
@@ -78,7 +78,7 @@ impl Runner for TestRunner {
   }
 }
 
-fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
+fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
   let index = Mutex::new(0);
 
   PluginBuilder::new("test-plugin")
@@ -90,7 +90,7 @@ fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
     .build()
 }
 
-#[tokio::test]
+#[astro_run_test::test]
 async fn test_run() {
   let workflow = r#"
 jobs:
@@ -102,7 +102,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec!["Hello World".to_string()]))
+    .plugin(assert_logs_plugin(vec!["Hello World"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -123,7 +123,7 @@ jobs:
   assert_eq!(job_result.steps[0].state, WorkflowState::Succeeded);
 }
 
-#[tokio::test]
+#[astro_run_test::test]
 async fn test_run_full_features() {
   let workflow = r#"
 jobs:
@@ -148,7 +148,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec!["Hello World".to_string()]))
+    .plugin(assert_logs_plugin(vec!["Hello World"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -169,7 +169,7 @@ jobs:
   assert_eq!(job_result.steps[0].state, WorkflowState::Succeeded);
 }
 
-#[tokio::test]
+#[astro_run_test::test]
 async fn test_multiple_steps() {
   let workflow = r#"
 jobs:
@@ -187,9 +187,9 @@ jobs:
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
     .plugin(assert_logs_plugin(vec![
-      "Hello World1".to_string(),
-      "Hello World2".to_string(),
-      "Hello World3".to_string(),
+      "Hello World1",
+      "Hello World2",
+      "Hello World3",
     ]))
     .build();
 
@@ -213,7 +213,7 @@ jobs:
   }
 }
 
-#[tokio::test]
+#[astro_run_test::test]
 async fn test_throw_error() {
   let workflow = r#"
 jobs:
@@ -226,7 +226,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec!["Hello World1".to_string()]))
+    .plugin(assert_logs_plugin(vec!["Hello World1"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -248,7 +248,7 @@ jobs:
   assert_eq!(job_result.steps[1].state, WorkflowState::Skipped);
 }
 
-#[tokio::test]
+#[astro_run_test::test]
 async fn test_depends_on() {
   let workflow = r#"
   jobs:
@@ -266,10 +266,7 @@ async fn test_depends_on() {
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec![
-      "Hello World1".to_string(),
-      "Hello World2".to_string(),
-    ]))
+    .plugin(assert_logs_plugin(vec!["Hello World1", "Hello World2"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -292,7 +289,7 @@ async fn test_depends_on() {
   assert_eq!(job_result.steps.len(), 1);
 }
 
-#[tokio::test]
+#[astro_run_test::test]
 async fn test_failed_step() {
   let workflow = r#"
 jobs:
@@ -305,7 +302,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec!["Failed step".to_string()]))
+    .plugin(assert_logs_plugin(vec!["Failed step"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -326,7 +323,7 @@ jobs:
   assert_eq!(job_result.steps[1].state, WorkflowState::Skipped);
 }
 
-#[tokio::test]
+#[astro_run_test::test]
 async fn test_continue_on_error() {
   let workflow = r#"
 jobs:
@@ -341,10 +338,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec![
-      "Failed step".to_string(),
-      "Hello World".to_string(),
-    ]))
+    .plugin(assert_logs_plugin(vec!["Failed step", "Hello World"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -366,7 +360,7 @@ jobs:
   assert_eq!(job_result.steps[2].state, WorkflowState::Skipped);
 }
 
-#[tokio::test]
+#[astro_run_test::test]
 async fn test_cancel_step() {
   let workflow = r#"
 jobs:
@@ -381,7 +375,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec!["Cancel step".to_string()]))
+    .plugin(assert_logs_plugin(vec!["Cancel step"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -403,7 +397,51 @@ jobs:
   assert_eq!(job_result.steps[2].state, WorkflowState::Skipped);
 }
 
-#[tokio::test]
+#[astro_run_test::test]
+async fn test_actions() {
+  let workflow = r#"
+name: Test Workflow
+jobs:
+  test:
+    name: Test Job
+    steps:
+      - uses: test
+      - run: Hello World
+  "#;
+
+  struct TestAction;
+
+  impl Action for TestAction {
+    fn normalize(&self, _step: UserActionStep) -> astro_run::Result<ActionSteps> {
+      Ok(ActionSteps {
+        pre: None,
+        run: UserStep::Command(UserCommandStep {
+          name: Some("Test".to_string()),
+          run: String::from("test"),
+          ..Default::default()
+        }),
+        post: None,
+      })
+    }
+  }
+
+  let astro_run = AstroRun::builder()
+    .runner(TestRunner::new())
+    .plugin(assert_logs_plugin(vec!["test", "Hello World"]))
+    .action("test", TestAction)
+    .build();
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
+
+  let ctx = astro_run.execution_context();
+
+  workflow.run(ctx).await;
+}
+
+#[astro_run_test::test]
 async fn test_actions_and_plugins() {
   let workflow = r#"
 name: Test Workflow
@@ -463,6 +501,26 @@ jobs:
           let step = steps[2].clone();
           assert_eq!(step.run, "Hello World");
         })
+        .on_run_step(|step| {
+          let index = step.id.step_number();
+          match index {
+            0 => {
+              assert_eq!(step.name.unwrap(), "Pre test");
+              assert_eq!(step.run, "pre test");
+            }
+            1 => {
+              assert_eq!(step.name.unwrap(), "Test");
+              assert_eq!(step.run, "test");
+            }
+            2 => {
+              assert_eq!(step.run, "Hello World");
+            }
+            _ => panic!("Should not be called"),
+          }
+        })
+        .on_step_completed(|res| {
+          assert_eq!(res.state, WorkflowState::Succeeded);
+        })
         .on_job_completed(|res| {
           assert_eq!(res.state, WorkflowState::Succeeded);
         })
@@ -471,11 +529,7 @@ jobs:
         })
         .build(),
     )
-    .register_plugin(assert_logs_plugin(vec![
-      "pre test".to_string(),
-      "test".to_string(),
-      "Hello World".to_string(),
-    ]))
+    .register_plugin(assert_logs_plugin(vec!["pre test", "test", "Hello World"]))
     .register_action("test", TestAction {});
 
   let workflow = Workflow::builder()
@@ -498,7 +552,7 @@ jobs:
   assert_eq!(astro_run.actions().size(), 0);
 }
 
-// #[tokio::test]
+// #[astro_run_test::test]
 // async fn test_unregister_astro_plugins() {
 //   let workflow = r#"
 // jobs:

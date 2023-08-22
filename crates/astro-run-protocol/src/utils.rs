@@ -48,4 +48,16 @@ mod tests {
     let datetime = convert_timestamp_to_datetime(&Some(timestamp)).unwrap();
     assert_eq!(datetime.unwrap().to_rfc3339(), "2021-01-01T00:00:00+00:00");
   }
+
+  #[test]
+  fn test_convert_datatime_to_timestamp_none() {
+    let timestamp = convert_datetime_to_timestamp(&None).unwrap();
+    assert_eq!(timestamp, None);
+  }
+
+  #[test]
+  fn test_convert_timestamp_to_datetime_none() {
+    let datetime = convert_timestamp_to_datetime(&None).unwrap();
+    assert_eq!(datetime, None);
+  }
 }
