@@ -2,6 +2,7 @@ use astro_run::{stream, Context, Error, RunResponse, Runner, StreamSender, Workf
 use astro_run_protocol::{
   astro_run_server, tonic, AstroRunService, AstroRunServiceServer, RunnerMetadata,
 };
+use astro_run_scheduler::{DefaultScheduler, Scheduler};
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
@@ -10,27 +11,26 @@ use tonic::{transport::Server, Request, Response, Status};
 
 #[derive(Clone)]
 struct Client {
-  id: String,
+  metadata: astro_run_scheduler::RunnerMetadata,
   sender: mpsc::Sender<Result<astro_run_server::Event, Status>>,
-  runs: u32,
 }
 
 #[derive(Clone)]
 struct RunningClient {
-  /// Runner ID
-  id: String,
   sender: StreamSender,
 }
 
 struct SharedState {
   /// Run ID -> Client
   running: HashMap<String, RunningClient>,
-  clients: Vec<Client>,
+  /// Runner clients (Runner ID -> Client)
+  clients: HashMap<String, Client>,
 }
 
 #[derive(Clone)]
 pub struct AstroRunServer {
   state: Arc<Mutex<SharedState>>,
+  scheduler: Arc<Box<dyn Scheduler>>,
 }
 
 #[tonic::async_trait]
@@ -42,10 +42,15 @@ impl AstroRunService for AstroRunServer {
     request: Request<RunnerMetadata>,
   ) -> Result<Response<Self::SubscribeEventsStream>, Status> {
     let req = request.into_inner();
-    if req.version != crate::VERSION {
+    let metadata: astro_run_scheduler::RunnerMetadata =
+      req.try_into().map_err(|err: astro_run::Error| {
+        Status::invalid_argument(format!("Failed to convert metadata: {}", err.to_string()))
+      })?;
+
+    if metadata.version != crate::VERSION {
       return Err(Status::invalid_argument(format!(
         "Version mismatch: {} != {}",
-        req.version,
+        metadata.version,
         crate::VERSION
       )));
     }
@@ -53,11 +58,13 @@ impl AstroRunService for AstroRunServer {
     let (tx, rx) = mpsc::channel(100);
 
     let mut state = self.state.lock();
-    state.clients.push(Client {
-      id: req.id.clone(),
-      sender: tx,
-      runs: 0,
-    });
+    state.clients.insert(
+      metadata.id.clone(),
+      Client {
+        metadata,
+        sender: tx,
+      },
+    );
 
     let stream = ReceiverStream::new(rx);
 
@@ -109,14 +116,7 @@ impl AstroRunService for AstroRunServer {
         .into(),
     );
 
-    let mut state = self.state.lock();
-    state.running.remove(&id);
-    state
-      .clients
-      .iter_mut()
-      .find(|c| c.id == client.id)
-      .ok_or(Status::internal("No client found"))?
-      .runs -= 1;
+    self.state.lock().running.remove(&id);
 
     Ok(Response::new(
       astro_run_server::ReportRunCompletedResponse {},
@@ -131,27 +131,29 @@ impl Runner for AstroRunServer {
 
     let clients = self.state.lock().clients.clone();
 
-    // Pick a min runs client
+    let runners = clients
+      .values()
+      .map(|c| c.metadata.clone())
+      .collect::<Vec<_>>();
+
+    let runner = match self.scheduler.schedule(&runners, &ctx) {
+      Some(runner) => runner,
+      None => {
+        sender.error("No runner available");
+        sender.end(astro_run::RunResult::Failed { exit_code: 1 });
+
+        return Ok(receiver);
+      }
+    };
+
     let client = clients
-      .iter()
-      .min_by_key(|client| client.runs)
-      .ok_or_else(|| Error::internal_runtime_error("No clients available".to_string()))?;
+      .get(&runner.id)
+      .ok_or_else(|| Error::internal_runtime_error("No client found for runner"))?;
 
-    let mut state = self.state.lock();
-    state
-      .clients
-      .iter_mut()
-      .find(|c| c.id == client.id)
-      .ok_or(Error::internal_runtime_error(format!(
-        "No client found with id {}",
-        client.id
-      )))?
-      .runs += 1;
-
-    state.running.insert(
+    self.state.lock().running.insert(
       id.clone(),
       RunningClient {
-        id: client.id.clone(),
+        // id: client.id.clone(),
         sender,
       },
     );
@@ -196,8 +198,22 @@ impl AstroRunServer {
     Self {
       state: Arc::new(Mutex::new(SharedState {
         running: HashMap::new(),
-        clients: vec![],
+        clients: HashMap::new(),
       })),
+      scheduler: Arc::new(Box::new(DefaultScheduler::new())),
+    }
+  }
+
+  pub fn with_scheduler<T>(scheduler: T) -> Self
+  where
+    T: Scheduler + 'static,
+  {
+    Self {
+      state: Arc::new(Mutex::new(SharedState {
+        running: HashMap::new(),
+        clients: HashMap::new(),
+      })),
+      scheduler: Arc::new(Box::new(scheduler)),
     }
   }
 
@@ -228,7 +244,7 @@ impl AstroRunServer {
     };
     let clients = self.state.lock().clients.clone();
 
-    for client in clients {
+    for client in clients.values() {
       if let Err(err) = client.sender.try_send(Ok(event.clone())) {
         log::error!("Failed to send event to client: {}", err);
       }

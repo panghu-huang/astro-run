@@ -192,7 +192,7 @@ pub struct AstroRunRunnerBuilder {
   id: Option<String>,
   url: Option<String>,
   max_runs: i32,
-  support_docker: bool,
+  support_docker: Option<bool>,
   support_host: bool,
   plugins: PluginManager,
 }
@@ -204,7 +204,7 @@ impl AstroRunRunnerBuilder {
       id: None,
       url: None,
       max_runs: 10,
-      support_docker: true,
+      support_docker: None,
       support_host: true,
       plugins: PluginManager::new(),
     }
@@ -234,7 +234,7 @@ impl AstroRunRunnerBuilder {
   }
 
   pub fn support_docker(mut self, support_docker: bool) -> Self {
-    self.support_docker = support_docker;
+    self.support_docker = Some(support_docker);
     self
   }
 
@@ -264,11 +264,21 @@ impl AstroRunRunnerBuilder {
       .await
       .map_err(|e| Error::internal_runtime_error(format!("Failed to connect: {}", e)))?;
 
+    let support_docker = self.support_docker.unwrap_or_else(|| {
+      log::info!("Support docker is not set, Checking if docker is installed and running");
+
+      // Check if docker is installed and running
+      std::process::Command::new("docker")
+        .arg("ps")
+        .status()
+        .map_or(false, |status| status.success())
+    });
+
     Ok(AstroRunRunner {
       id,
       client,
       max_runs: self.max_runs,
-      support_docker: self.support_docker,
+      support_docker,
       support_host: self.support_host,
       runner: Arc::new(runner),
       plugins: self.plugins,
