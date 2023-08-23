@@ -1,9 +1,34 @@
 use astro_run::{AstroRun, Result, Workflow};
-use astro_run_remote_runner::AstroRunRemoteRunnerClient;
+use astro_run_remote_runner::{AstroRunRemoteRunnerClient, RunnerMetadata, Scheduler};
+
+struct TestScheduler;
+
+impl TestScheduler {
+  fn new() -> Self {
+    TestScheduler
+  }
+}
+
+impl Scheduler for TestScheduler {
+  fn schedule<'a, 'b: 'a>(
+    &'b self,
+    runners: &'a Vec<RunnerMetadata>,
+    _ctx: &astro_run::Context,
+  ) -> Option<&'a RunnerMetadata> {
+    // Always return the first runner
+    runners.first()
+  }
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  let client_runner = AstroRunRemoteRunnerClient::builder().build().unwrap();
+  astro_run_logger::init_logger();
+
+  let client_runner = AstroRunRemoteRunnerClient::builder()
+    // Use the custom scheduler
+    .scheduler(TestScheduler::new())
+    .build()
+    .unwrap();
 
   let mut cloned_client_runner = client_runner.clone();
   let handle = tokio::task::spawn(async move {

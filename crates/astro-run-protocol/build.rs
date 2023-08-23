@@ -1,4 +1,8 @@
 fn main() {
+  if std::env::var("ASTRO_RUN_PROTOCOL_SKIP_BUILD").is_ok() {
+    return;
+  }
+
   tonic_build::configure()
     .out_dir("src/pb")
     .compile(

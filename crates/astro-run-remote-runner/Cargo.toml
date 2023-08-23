@@ -31,6 +31,8 @@ tokio = { workspace = true, features = [
   "time",
 ] }
 
+astro-run-scheduler = { path = "../astro-run-scheduler" }
+
 [dev-dependencies]
 astro-run-test = { path = "../astro-run-test" }
 astro-run-logger = { path = "../astro-run-logger" }

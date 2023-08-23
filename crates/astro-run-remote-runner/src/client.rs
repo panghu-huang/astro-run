@@ -1,17 +1,28 @@
 use astro_run::{Context, Error, Result};
 use astro_run_protocol::{
-  astro_run_remote_runner::{run_response, Event},
-  tonic,
+  astro_run_remote_runner::{run_response, ConnectRequest, Event},
+  tonic::{self, Request},
 };
+use astro_run_scheduler::RunnerMetadata;
+use astro_run_scheduler::Scheduler;
+use parking_lot::Mutex;
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
 
-type Client = astro_run_protocol::AstroRunRemoteRunnerClient<tonic::transport::Channel>;
+type GRPCClient = astro_run_protocol::AstroRunRemoteRunnerClient<tonic::transport::Channel>;
 
-// TODO: Add runner version / token to request header
+#[derive(Clone)]
+struct Client {
+  id: String,
+  metadata: RunnerMetadata,
+  client: GRPCClient,
+}
+
 #[derive(Clone)]
 pub struct AstroRunRemoteRunnerClient {
-  client: Client,
+  clients: Arc<Mutex<HashMap<String, Client>>>,
+  scheduler: Arc<Box<dyn Scheduler>>,
   event_sender: broadcast::Sender<Event>,
 }
 
@@ -19,7 +30,23 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
   fn run(&self, context: Context) -> astro_run::RunResponse {
     let (sender, receiver) = astro_run::stream();
 
-    let client = self.client.clone();
+    let clients = self.clients.lock().clone();
+    let runners: Vec<RunnerMetadata> = clients
+      .iter()
+      .map(|(_, client)| client.metadata.clone())
+      .collect();
+
+    let runner = match self.scheduler.schedule(&runners, &context) {
+      Some(runner) => runner,
+      None => {
+        sender.error("No runner available".to_string());
+        sender.end(astro_run::RunResult::Failed { exit_code: 1 });
+        return Ok(receiver);
+      }
+    };
+
+    let client = clients.get(&runner.id).unwrap().clone();
+
     tokio::task::spawn(async move {
       let result = Self::run(sender.clone(), client, context).await;
       if let Err(err) = result {
@@ -106,28 +133,82 @@ impl AstroRunRemoteRunnerClient {
     AstroRunRemoteRunnerClientBuilder::new()
   }
 
-  pub async fn start(&self) -> Result<()> {
+  pub async fn start<T>(&mut self, urls: Vec<T>) -> Result<()>
+  where
+    T: Into<String>,
+  {
     let mut receiver = self.event_sender.subscribe();
 
-    // TODO: Connect to server
+    for url in urls {
+      let url = url.into();
+      match Self::connect(url.clone()).await {
+        Ok(client) => {
+          let mut clients = self.clients.lock();
+          if clients.contains_key(&client.id) {
+            log::warn!("Runner already connected: {}", client.id);
+            continue;
+          }
+          log::info!("Connected to runner: {}", client.metadata.id);
+          clients.insert(client.id.clone(), client);
+        }
+        Err(err) => {
+          log::error!("Failed to connect {}: {}", url, err);
+        }
+      }
+    }
 
     while let Ok(event) = receiver.recv().await {
-      let mut client = self.client.clone();
-      let event = tonic::Request::new(event);
+      let clients = self.clients.lock().clone();
+      for (_, mut client) in clients {
+        let event = Request::new(event.clone());
 
-      if let Err(err) = client.send_event(event).await {
-        log::error!("Failed to send event: {}", err);
+        if let Err(err) = client.client.send_event(event).await {
+          log::error!("Failed to send event: {}", err);
+        }
       }
     }
 
     Ok(())
   }
 
+  async fn connect(url: String) -> Result<Client> {
+    let mut client = GRPCClient::connect(url)
+      .await
+      .map_err(|e| Error::internal_runtime_error(format!("Failed to connect: {}", e)))?;
+
+    let res = client
+      .get_runner_metadata(Request::new(ConnectRequest {}))
+      .await
+      .map_err(|e| {
+        Error::internal_runtime_error(format!("Failed to get runner metadata: {}", e))
+      })?;
+
+    let metadata = res.into_inner();
+
+    log::debug!("Runner metadata: {:?}", metadata);
+
+    if metadata.version != crate::VERSION {
+      return Err(Error::internal_runtime_error(format!(
+        "Incompatible version: {}",
+        metadata.version
+      )));
+    }
+
+    Ok(Client {
+      id: metadata.id.clone(),
+      metadata: metadata
+        .try_into()
+        .map_err(|e| Error::internal_runtime_error(format!("Failed to parse metadata: {}", e)))?,
+      client,
+    })
+  }
+
   async fn run(sender: astro_run::StreamSender, client: Client, context: Context) -> Result<()> {
     let context = context.try_into()?;
     let mut client = client;
     let response = client
-      .run(tonic::Request::new(context))
+      .client
+      .run(Request::new(context))
       .await
       .map_err(|e| {
         let error = format!("Failed to run: {}", e.to_string());
@@ -183,33 +264,33 @@ impl AstroRunRemoteRunnerClient {
 }
 
 pub struct AstroRunRemoteRunnerClientBuilder {
-  url: Option<String>,
+  scheduler: Option<Box<dyn astro_run_scheduler::Scheduler>>,
 }
 
 impl AstroRunRemoteRunnerClientBuilder {
   pub fn new() -> Self {
-    AstroRunRemoteRunnerClientBuilder { url: None }
+    AstroRunRemoteRunnerClientBuilder { scheduler: None }
   }
 
-  pub fn url(mut self, url: impl Into<String>) -> Self {
-    self.url = Some(url.into());
+  pub fn scheduler<T>(mut self, scheduler: T) -> Self
+  where
+    T: astro_run_scheduler::Scheduler + 'static,
+  {
+    self.scheduler = Some(Box::new(scheduler));
     self
   }
 
-  pub async fn build(self) -> Result<AstroRunRemoteRunnerClient> {
-    let url = self
-      .url
-      .ok_or_else(|| Error::internal_runtime_error("Missing url".to_string()))?;
-
-    let client = Client::connect(url)
-      .await
-      .map_err(|e| Error::internal_runtime_error(format!("Failed to connect: {}", e)))?;
+  pub fn build(self) -> Result<AstroRunRemoteRunnerClient> {
+    let scheduler = self
+      .scheduler
+      .unwrap_or_else(|| Box::new(astro_run_scheduler::DefaultScheduler::new()));
 
     let (event_sender, _) = broadcast::channel(30);
 
     Ok(AstroRunRemoteRunnerClient {
-      client,
+      scheduler: Arc::new(scheduler),
       event_sender,
+      clients: Arc::new(Mutex::new(HashMap::new())),
     })
   }
 }

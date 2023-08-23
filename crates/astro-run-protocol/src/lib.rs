@@ -265,6 +265,38 @@ impl TryFrom<astro_run::WorkflowStateEvent> for WorkflowStateEvent {
   }
 }
 
+impl TryInto<astro_run_scheduler::RunnerMetadata> for RunnerMetadata {
+  type Error = astro_run::Error;
+
+  fn try_into(self) -> Result<astro_run_scheduler::RunnerMetadata, Self::Error> {
+    Ok(astro_run_scheduler::RunnerMetadata {
+      id: self.id,
+      version: self.version,
+      os: self.os,
+      arch: self.arch,
+      support_docker: self.support_docker,
+      support_host: self.support_host,
+      max_runs: self.max_runs,
+    })
+  }
+}
+
+impl TryFrom<astro_run_scheduler::RunnerMetadata> for RunnerMetadata {
+  type Error = astro_run::Error;
+
+  fn try_from(value: astro_run_scheduler::RunnerMetadata) -> Result<Self, Self::Error> {
+    Ok(RunnerMetadata {
+      id: value.id,
+      version: value.version,
+      os: value.os,
+      arch: value.arch,
+      support_docker: value.support_docker,
+      support_host: value.support_host,
+      max_runs: value.max_runs,
+    })
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

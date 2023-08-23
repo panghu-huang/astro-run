@@ -201,8 +201,9 @@ pub struct AstroRunRemoteRunnerServerBuilder {
   id: Option<String>,
   runner: Option<Arc<Box<dyn Runner>>>,
   max_runs: i32,
-  support_docker: bool,
+  support_docker: Option<bool>,
   support_host: bool,
+  plugins: PluginManager,
 }
 
 impl AstroRunRemoteRunnerServerBuilder {
@@ -210,9 +211,10 @@ impl AstroRunRemoteRunnerServerBuilder {
     Self {
       id: None,
       runner: None,
-      max_runs: 1,
-      support_docker: false,
-      support_host: false,
+      max_runs: 5,
+      support_docker: None,
+      support_host: true,
+      plugins: PluginManager::new(),
     }
   }
 
@@ -227,12 +229,18 @@ impl AstroRunRemoteRunnerServerBuilder {
   }
 
   pub fn support_docker(mut self, support_docker: bool) -> Self {
-    self.support_docker = support_docker;
+    self.support_docker = Some(support_docker);
     self
   }
 
   pub fn support_host(mut self, support_host: bool) -> Self {
     self.support_host = support_host;
+    self
+  }
+
+  pub fn plugin(self, plugin: astro_run::AstroRunPlugin) -> Self {
+    self.plugins.register(plugin);
+
     self
   }
 
@@ -253,13 +261,23 @@ impl AstroRunRemoteRunnerServerBuilder {
       .id
       .ok_or_else(|| Error::internal_runtime_error("Id is not set".to_string()))?;
 
+    let support_docker = self.support_docker.unwrap_or_else(|| {
+      log::info!("Support docker is not set, Checking if docker is installed and running");
+
+      // Check if docker is installed and running
+      std::process::Command::new("docker")
+        .arg("ps")
+        .status()
+        .map_or(false, |status| status.success())
+    });
+
     Ok(AstroRunRemoteRunnerServer {
       id,
       max_runs: self.max_runs,
-      support_docker: self.support_docker,
+      support_docker,
       support_host: self.support_host,
       runner,
-      plugins: PluginManager::new(),
+      plugins: self.plugins,
     })
   }
 }
