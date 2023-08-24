@@ -50,12 +50,10 @@ impl Command {
 
   pub async fn exec(&mut self) -> Result<String> {
     let mut command = self.build_command();
-    println!("command: {:?}", command);
     let output = command.output().await.map_err(|err| {
       Error::internal_runtime_error(format!("Failed to spawn child process: {}", err))
     })?;
 
-    println!("Success: {}", output.status.success());
     if output.status.success() {
       let stdout = String::from_utf8(output.stdout)
         .map_err(|err| Error::internal_runtime_error(format!("Failed to parse stdout: {}", err)))?;
@@ -185,7 +183,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_command() {
-    let mut cmd = Command::new("echo 'hello'");
+    let mut cmd = Command::new("echo hello");
     let (sender, mut receiver) = stream();
 
     let mut logs = vec![];
