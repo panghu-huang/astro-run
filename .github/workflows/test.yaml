@@ -14,17 +14,21 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
 
-      # - name: Install cargo-tarpaulin
-      #   run: cargo install cargo-tarpaulin
+      - name: Generate code coverage
+        run: |
+          export ASTRO_RUN_PROTOCOL_SKIP_BUILD=true
+          cargo test --all --all-features -- --nocapture
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
 
       - name: Generate code coverage
         run: |
-          # export ASTRO_RUN_PROTOCOL_SKIP_BUILD=true
+          export ASTRO_RUN_PROTOCOL_SKIP_BUILD=true
 
-          # cargo astro-run-cov
-          cargo test --package astro-runner --lib -- command::tests --nocapture
+          cargo astro-run-cov
 
-      # - name: Upload coverage reports to Codecov
-      #   uses: codecov/codecov-action@v3
-      #   env:
-      #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

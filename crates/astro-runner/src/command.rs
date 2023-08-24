@@ -185,7 +185,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_command() {
-    let mut cmd = Command::new("echo hello");
+    let mut cmd = Command::new("echo 'hello'");
     let (sender, mut receiver) = stream();
 
     let mut logs = vec![];

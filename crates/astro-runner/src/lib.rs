@@ -6,5 +6,5 @@ mod executors;
 mod metadata;
 mod utils;
 
-pub use astro_runner::AstroRunner;
+pub use crate::astro_runner::AstroRunner;
 pub use executors::{DockerExecutor, HostExecutor};
