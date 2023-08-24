@@ -48,6 +48,8 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
 #[astro_run_test::test]
 async fn test_run() -> Result<()> {
   let client_thread_handle = tokio::spawn(async {
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
     // Check if docker is installed and running
     let is_support_docker = std::process::Command::new("docker")
       .arg("ps")
@@ -66,6 +68,9 @@ async fn test_run() -> Result<()> {
         .unwrap();
     });
 
+    // Wait for server to start and listen for connections
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
     let astro_run = AstroRun::builder()
       .plugin(assert_logs_plugin(vec![
         "Hello World",
@@ -77,9 +82,6 @@ async fn test_run() -> Result<()> {
       ]))
       .runner(client_runner)
       .build();
-
-    // Wait for server to start and listen for connections
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
     let workflow = format!(
       r#"
