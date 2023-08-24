@@ -102,10 +102,12 @@ async fn test_run() -> Result<()> {
       assert_eq!(res.state, WorkflowState::Failed);
     }
 
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
 
     handle.abort();
   });
+
+  tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
   let client_thread_handle = tokio::spawn(async {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);

@@ -78,6 +78,8 @@ impl Runner for TestRunner {
 #[astro_run_test::test]
 async fn test_protocol() -> Result<()> {
   let client_thread_handle = tokio::spawn(async {
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
     let client_runner = AstroRunRemoteRunnerClient::builder().build().unwrap();
 
     let mut cloned_client_runner = client_runner.clone();

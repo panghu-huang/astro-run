@@ -103,7 +103,7 @@ async fn test_protocol() -> Result<()> {
       .build();
 
     // Wait for server to start and listen for connections
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
 
     let workflow = r#"
     name: CI
@@ -145,6 +145,8 @@ async fn test_protocol() -> Result<()> {
 
     handle.abort();
   });
+
+  tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
   let client_thread_handle = tokio::spawn(async {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
