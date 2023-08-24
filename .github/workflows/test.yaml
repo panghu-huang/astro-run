@@ -14,11 +14,6 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Generate code coverage
-        run: |
-          export ASTRO_RUN_PROTOCOL_SKIP_BUILD=true
-          cargo test --all --all-features -- --nocapture
-
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin
 
