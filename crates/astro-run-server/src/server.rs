@@ -168,12 +168,20 @@ impl Runner for AstroRunServer {
     Ok(receiver)
   }
 
+  fn on_step_completed(&self, result: astro_run::StepRunResult) {
+    self.send_event_to_clients(result);
+  }
+
   fn on_job_completed(&self, result: astro_run::JobRunResult) {
     self.send_event_to_clients(result);
   }
 
   fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) {
     self.send_event_to_clients(result);
+  }
+
+  fn on_run_step(&self, step: astro_run::Step) {
+    self.send_event_to_clients(step);
   }
 
   fn on_run_job(&self, job: astro_run::Job) {

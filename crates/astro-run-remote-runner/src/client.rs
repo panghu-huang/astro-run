@@ -72,6 +72,17 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
     }
   }
 
+  fn on_step_completed(&self, result: astro_run::StepRunResult) {
+    match Event::new_step_completed(result) {
+      Ok(event) => {
+        if let Err(err) = self.event_sender.send(event) {
+          log::error!("Failed to send event: {}", err);
+        }
+      }
+      Err(err) => log::error!("Failed to create event: {}", err),
+    }
+  }
+
   fn on_job_completed(&self, result: astro_run::JobRunResult) {
     match Event::new_job_completed(result) {
       Ok(event) => {
@@ -96,6 +107,17 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
 
   fn on_state_change(&self, event: astro_run::WorkflowStateEvent) {
     match Event::new_state_change(event) {
+      Ok(event) => {
+        if let Err(err) = self.event_sender.send(event) {
+          log::error!("Failed to send event: {}", err);
+        }
+      }
+      Err(err) => log::error!("Failed to create event: {}", err),
+    }
+  }
+
+  fn on_run_step(&self, step: astro_run::Step) {
+    match Event::new_run_step(step) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
           log::error!("Failed to send event: {}", err);

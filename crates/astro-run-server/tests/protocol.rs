@@ -61,6 +61,10 @@ impl Runner for TestRunner {
     assert_eq!(result.state, WorkflowState::Succeeded);
   }
 
+  fn on_step_completed(&self, result: astro_run::StepRunResult) {
+    assert_eq!(result.state, WorkflowState::Succeeded);
+  }
+
   fn on_log(&self, log: WorkflowLog) {
     let index = log.step_id.step_number();
     if index == 0 {

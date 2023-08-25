@@ -1,5 +1,5 @@
-#[astro_run_test::test]
-fn basic_test2() -> Result<(), ()> {
+#[astro_run_test::test(docker)]
+fn docker_required() -> Result<(), ()> {
   log::info!("Hello, world !");
   log::warn!("Hello, world !");
   log::error!("Hello, world !");
@@ -10,7 +10,7 @@ fn basic_test2() -> Result<(), ()> {
 }
 
 #[astro_run_test::test]
-async fn basic_test3() -> Result<(), ()> {
+async fn test() -> Result<(), ()> {
   log::info!("Hello, world !");
   log::warn!("Hello, world !");
   log::error!("Hello, world !");

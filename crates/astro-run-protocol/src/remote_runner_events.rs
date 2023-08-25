@@ -43,6 +43,15 @@ impl Event {
     })
   }
 
+  pub fn new_step_completed(result: astro_run::StepRunResult) -> astro_run::Result<Self> {
+    let event = event::Payload::StepCompletedEvent(result.try_into()?);
+
+    Ok(Self {
+      event_name: "step_completed".to_string(),
+      payload: Some(event),
+    })
+  }
+
   pub fn new_job_completed(result: astro_run::JobRunResult) -> astro_run::Result<Self> {
     let event = event::Payload::JobCompletedEvent(result.try_into()?);
 
@@ -67,6 +76,15 @@ impl Event {
     Ok(Self {
       event_name: "workflow_state_change".to_string(),
       payload: Some(event),
+    })
+  }
+
+  pub fn new_run_step(step: astro_run::Step) -> astro_run::Result<Self> {
+    let step = step.try_into()?;
+
+    Ok(Self {
+      event_name: "run_step".to_string(),
+      payload: Some(event::Payload::RunStepEvent(step)),
     })
   }
 
