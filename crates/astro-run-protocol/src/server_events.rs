@@ -1,6 +1,19 @@
 use super::astro_run_server::{event, Event};
 use super::*;
 
+impl TryFrom<astro_run::StepRunResult> for Event {
+  type Error = astro_run::Error;
+
+  fn try_from(value: astro_run::StepRunResult) -> Result<Self, Self::Error> {
+    let result = StepRunResult::try_from(value)?;
+
+    Ok(Event {
+      event_name: "step_completed".to_string(),
+      payload: Some(event::Payload::StepCompletedEvent(result)),
+    })
+  }
+}
+
 impl TryFrom<astro_run::JobRunResult> for Event {
   type Error = astro_run::Error;
 
@@ -47,6 +60,19 @@ impl TryFrom<astro_run::Context> for Event {
     Ok(Event {
       event_name: "run".to_string(),
       payload: Some(event::Payload::Run(ctx)),
+    })
+  }
+}
+
+impl TryFrom<astro_run::Step> for Event {
+  type Error = astro_run::Error;
+
+  fn try_from(value: astro_run::Step) -> Result<Self, Self::Error> {
+    let step = value.try_into()?;
+
+    Ok(Event {
+      event_name: "run_step".to_string(),
+      payload: Some(event::Payload::RunStepEvent(step)),
     })
   }
 }

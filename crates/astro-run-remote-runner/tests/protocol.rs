@@ -1,6 +1,7 @@
 use astro_run::{
   stream, AstroRun, Context, EnvironmentVariable, Job, JobRunResult, PluginBuilder, Result,
-  RunResult, Runner, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
+  RunResult, Runner, StepRunResult, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState,
+  WorkflowStateEvent,
 };
 use astro_run_remote_runner::{AstroRunRemoteRunnerClient, AstroRunRemoteRunnerServer};
 
@@ -51,7 +52,7 @@ impl Runner for TestRunner {
     assert_eq!(step.secrets[0], "secret-name");
   }
 
-  fn on_step_completed(&self, result: astro_run::StepRunResult) {
+  fn on_step_completed(&self, result: StepRunResult) {
     assert_eq!(result.state, WorkflowState::Succeeded);
   }
 

@@ -7,7 +7,7 @@ pub struct Logger;
 
 impl log::Log for Logger {
   fn enabled(&self, metadata: &log::Metadata) -> bool {
-    metadata.level() <= Level::Trace
+    metadata.level() <= Level::Debug
   }
 
   fn log(&self, record: &log::Record) {
@@ -29,7 +29,7 @@ impl log::Log for Logger {
     };
 
     let prefix = match (record.file(), record.line()) {
-      (Some(file), Some(line)) => format!("{}#{} ", file, line).cyan(),
+      (Some(file), Some(line)) => format!("{}:{} ", file, line).cyan(),
       _ => String::new().black(),
     };
 

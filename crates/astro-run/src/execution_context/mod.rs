@@ -131,6 +131,8 @@ impl ExecutionContext {
     plugin_manager.on_step_completed(res.clone());
     self.runner.on_step_completed(res.clone());
 
+    log::info!("Step {:?} completed", step_id);
+
     res
   }
 
