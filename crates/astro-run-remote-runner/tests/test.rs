@@ -123,6 +123,7 @@ async fn test_run() -> Result<()> {
     let runner_server = AstroRunRemoteRunnerServer::builder()
       .id("test-runner")
       .runner(runner)
+      .max_runs(5)
       .plugin(
         PluginBuilder::new("test-plugin")
           .on_workflow_completed(move |_| {
@@ -142,4 +143,33 @@ async fn test_run() -> Result<()> {
   tokio::try_join!(server_thread_handle, client_thread_handle).unwrap();
 
   Ok(())
+}
+
+#[astro_run_test::test]
+async fn no_available_runners() {
+  let client_runner = AstroRunRemoteRunnerClient::builder().build().unwrap();
+
+  let astro_run = AstroRun::builder()
+    .plugin(assert_logs_plugin(vec!["No runner available"]))
+    .runner(client_runner)
+    .build();
+
+  let workflow = r#"
+    jobs:
+      test:
+        steps:
+          - run: Hello World
+      "#;
+
+  let workflow = Workflow::builder()
+    .event(astro_run::WorkflowEvent::default())
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
+
+  let ctx = astro_run.execution_context();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Failed);
 }

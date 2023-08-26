@@ -7,14 +7,11 @@ use tokio::{
 };
 
 /// A command to be executed by the runner.
-///
-/// And also can be send via Network.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Command {
   pub command: String,
   pub current_dir: Option<PathBuf>,
   pub envs: Vec<(String, String)>,
-  pub args: Vec<String>,
 }
 
 impl Command {
@@ -23,7 +20,6 @@ impl Command {
       command: cmd.into(),
       current_dir: None,
       envs: vec![],
-      args: vec![],
     }
   }
 
@@ -35,15 +31,6 @@ impl Command {
 
   pub fn dir(&mut self, dir: &PathBuf) -> &mut Self {
     self.current_dir = Some(dir.clone());
-
-    self
-  }
-
-  pub fn arg<S>(&mut self, arg: S) -> &mut Self
-  where
-    S: Into<String>,
-  {
-    self.args.push(arg.into());
 
     self
   }
@@ -145,7 +132,8 @@ impl Command {
   fn build_command(&self) -> Cmd {
     let mut command;
 
-    if cfg!(target_os = "windows") {
+    #[cfg(target_os = "windows")]
+    {
       command = Cmd::new("powershell.exe");
 
       command
@@ -153,7 +141,9 @@ impl Command {
         .arg("-NonInteractive")
         .arg("-Command")
         .arg(self.command.clone());
-    } else {
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
       command = Cmd::new("sh");
 
       command.arg("-c").arg(self.command.clone());
@@ -165,10 +155,6 @@ impl Command {
 
     for (key, value) in &self.envs {
       command.env(key, value);
-    }
-
-    for arg in &self.args {
-      command.arg(arg);
     }
 
     command
@@ -239,5 +225,40 @@ mod tests {
     let stdout = cmd.exec().await.unwrap();
 
     assert_eq!(stdout, "hello");
+  }
+
+  #[astro_run_test::test]
+  async fn test_stderr_command() {
+    let mut cmd = Command::new("cd /not/exist");
+
+    let (sender, mut receiver) = stream();
+    let mut logs = vec![];
+
+    tokio::join!(
+      async {
+        while let Some(log) = receiver.next().await {
+          logs.push(log);
+        }
+      },
+      async {
+        cmd.run(sender).await.unwrap();
+      }
+    );
+
+    assert_eq!(logs.len(), 1);
+    assert!(logs[0].is_error());
+    assert!(matches!(
+      receiver.result().unwrap(),
+      RunResult::Failed { .. }
+    ));
+  }
+
+  #[astro_run_test::test]
+  async fn test_exec_stderr_command() {
+    let mut cmd = Command::new("cd /not/exist");
+
+    let res = cmd.exec().await;
+
+    assert!(res.is_err());
   }
 }

@@ -1,5 +1,5 @@
 use astro_run::{AstroRun, AstroRunPlugin, Workflow, WorkflowEvent, WorkflowState};
-use astro_runner::AstroRunner;
+use astro_runner::{AstroRunner, Command};
 use parking_lot::Mutex;
 use std::sync::Arc;
 
@@ -13,6 +13,7 @@ fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
     })
     .on_workflow_completed(move |_| {
       let logs = cloned_logs.lock();
+      log::debug!("Logs: {:?}", logs);
       assert_eq!(logs.len(), excepted_logs.len());
       for (i, log) in logs.iter().enumerate() {
         assert_eq!(log, &excepted_logs[i]);
@@ -21,9 +22,12 @@ fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
     .build()
 }
 
-#[tokio::test]
-#[ignore]
+#[astro_run_test::test(docker)]
 async fn test_docker() {
+  // Pull the image before running the test
+  log::debug!("Pulling ubuntu image");
+  Command::new("docker pull ubuntu").exec().await.unwrap();
+
   let workflow = r#"
 jobs:
   test:
@@ -35,7 +39,6 @@ jobs:
       - run: |
           content=$(cat test.txt)
           echo Content is $content
-          echo "Cache" >> /home/work/caches/test.txt
   "#;
   let runner = AstroRunner::builder().build().unwrap();
 
@@ -65,18 +68,30 @@ jobs:
   assert_eq!(job_result.steps[1].state, WorkflowState::Succeeded);
 }
 
-#[tokio::test]
-#[ignore]
+#[astro_run_test::test]
 async fn test_host() {
-  let workflow = r#"
-jobs:
-  test:
-    name: Test Job
-    steps:
-      - container: host/windows
-        run: echo "Hello world"
-  "#;
-  let runner = AstroRunner::builder().build().unwrap();
+  let workflow = format!(
+    r#"
+  jobs:
+    test:
+      name: Test Job
+      steps:
+        - container: host/{}
+          run: echo "Hello world"
+          environments:
+            TEST: Value
+
+    "#,
+    std::env::consts::OS
+  );
+  #[allow(deprecated)]
+  let working_dir = std::env::home_dir()
+    .map(|home| home.join("astro-run"))
+    .unwrap();
+  let runner = AstroRunner::builder()
+    .working_directory(working_dir)
+    .build()
+    .unwrap();
 
   let astro_run = AstroRun::builder()
     .runner(runner)

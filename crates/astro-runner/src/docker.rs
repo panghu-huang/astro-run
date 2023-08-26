@@ -1,11 +1,10 @@
 use crate::command::Command;
-use astro_run::{Error, Result};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct Docker {
-  pub image: Option<String>,
-  pub name: String,
+  pub image: String,
+  pub name: Option<String>,
   pub environments: HashMap<String, String>,
   pub working_dir: Option<String>,
   pub entrypoint: Option<String>,
@@ -15,10 +14,10 @@ pub struct Docker {
 }
 
 impl Docker {
-  pub fn new(name: impl Into<String>) -> Self {
+  pub fn new(image: impl Into<String>) -> Self {
     Self {
-      image: None,
-      name: name.into(),
+      image: image.into(),
+      name: None,
       environments: HashMap::new(),
       working_dir: None,
       entrypoint: None,
@@ -28,8 +27,8 @@ impl Docker {
     }
   }
 
-  pub fn image(mut self, image: impl Into<String>) -> Self {
-    self.image = Some(image.into());
+  pub fn name(mut self, name: impl Into<String>) -> Self {
+    self.name = Some(name.into());
     self
   }
 
@@ -65,16 +64,7 @@ impl Docker {
     self
   }
 
-  fn generate_docker_command(&self) -> Result<String> {
-    let image = match &self.image {
-      Some(image) => image.clone(),
-      None => {
-        return Err(Error::init_error(
-          "Docker image is required to run a docker container",
-        ))
-      }
-    };
-
+  fn generate_docker_command(&self) -> String {
     let mut docker_command: Vec<String> = vec!["docker", "run", "--tty"]
       .iter()
       .map(|item| item.to_string())
@@ -109,10 +99,12 @@ impl Docker {
       docker_command.push(entrypoint.to_string());
     }
 
-    docker_command.push("--name".to_string());
-    docker_command.push(self.name.clone());
+    if let Some(name) = &self.name {
+      docker_command.push("--name".to_string());
+      docker_command.push(name.to_string());
+    }
 
-    docker_command.push(image);
+    docker_command.push(self.image.clone());
 
     // if let Some(entrypoint) = &self.entrypoint {
     //   docker_command.push(format!("/bin/sh -e {}", entrypoint.to_string()));
@@ -120,16 +112,14 @@ impl Docker {
 
     let command = docker_command.join(" ");
 
-    Ok(command)
+    command
   }
 }
 
-impl TryInto<Command> for Docker {
-  type Error = Error;
-
-  fn try_into(self) -> Result<Command> {
-    let command = self.generate_docker_command()?;
-    Ok(Command::new(command))
+impl Into<Command> for Docker {
+  fn into(self) -> Command {
+    let command = self.generate_docker_command();
+    Command::new(command)
   }
 }
 
@@ -139,8 +129,8 @@ mod tests {
 
   #[test]
   fn test_generate_docker_command() {
-    let common = Docker::new("test")
-      .image("ubuntu".to_string())
+    let common = Docker::new("ubuntu")
+      .name("test")
       .environment("key".to_string(), "value".to_string())
       .working_dir("/home/runner/work".to_string())
       .entrypoint("entrypoint".to_string())
@@ -148,7 +138,7 @@ mod tests {
       .generate_docker_command();
 
     assert_eq!(
-      common.unwrap(),
+      common,
       "docker run --tty --rm -v \"/app:/home/runner/work\" -e key=\"value\" -w /home/runner/work --entrypoint entrypoint --name test ubuntu"
     );
   }

@@ -281,21 +281,21 @@ impl TryInto<astro_run_scheduler::RunnerMetadata> for RunnerMetadata {
   }
 }
 
-impl TryFrom<astro_run_scheduler::RunnerMetadata> for RunnerMetadata {
-  type Error = astro_run::Error;
+// impl TryFrom<astro_run_scheduler::RunnerMetadata> for RunnerMetadata {
+//   type Error = astro_run::Error;
 
-  fn try_from(value: astro_run_scheduler::RunnerMetadata) -> Result<Self, Self::Error> {
-    Ok(RunnerMetadata {
-      id: value.id,
-      version: value.version,
-      os: value.os,
-      arch: value.arch,
-      support_docker: value.support_docker,
-      support_host: value.support_host,
-      max_runs: value.max_runs,
-    })
-  }
-}
+//   fn try_from(value: astro_run_scheduler::RunnerMetadata) -> Result<Self, Self::Error> {
+//     Ok(RunnerMetadata {
+//       id: value.id,
+//       version: value.version,
+//       os: value.os,
+//       arch: value.arch,
+//       support_docker: value.support_docker,
+//       support_host: value.support_host,
+//       max_runs: value.max_runs,
+//     })
+//   }
+// }
 
 #[cfg(test)]
 mod tests {

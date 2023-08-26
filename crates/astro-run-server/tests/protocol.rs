@@ -5,12 +5,19 @@ use astro_run::{
 };
 use astro_run_server::{AstroRunRunner, AstroRunServer};
 use parking_lot::Mutex;
+use std::ops::AddAssign;
 
-struct TestRunner;
+struct TestRunner {
+  expected_event_count: usize,
+  current_event_count: Mutex<usize>,
+}
 
 impl TestRunner {
-  fn new() -> Self {
-    TestRunner
+  fn new(expected_event_count: usize) -> Self {
+    TestRunner {
+      expected_event_count,
+      current_event_count: Mutex::new(0),
+    }
   }
 }
 
@@ -25,10 +32,13 @@ impl Runner for TestRunner {
   }
 
   fn on_run_workflow(&self, workflow: Workflow) {
+    self.current_event_count.lock().add_assign(1);
     assert_eq!(workflow.name.unwrap(), "CI");
   }
 
   fn on_run_job(&self, job: Job) {
+    self.current_event_count.lock().add_assign(1);
+
     assert_eq!(job.name.unwrap(), "Test Job");
     let step = job.steps[0].clone();
     assert_eq!(step.run, "Hello World");
@@ -53,19 +63,23 @@ impl Runner for TestRunner {
     assert_eq!(step.secrets[0], "secret-name");
   }
 
-  fn on_state_change(&self, event: WorkflowStateEvent) {
-    println!("State changed: {:?}", event);
+  fn on_state_change(&self, _event: WorkflowStateEvent) {
+    self.current_event_count.lock().add_assign(1);
   }
 
   fn on_job_completed(&self, result: JobRunResult) {
+    self.current_event_count.lock().add_assign(1);
     assert_eq!(result.state, WorkflowState::Succeeded);
   }
 
   fn on_step_completed(&self, result: astro_run::StepRunResult) {
+    self.current_event_count.lock().add_assign(1);
     assert_eq!(result.state, WorkflowState::Succeeded);
   }
 
   fn on_log(&self, log: WorkflowLog) {
+    self.current_event_count.lock().add_assign(1);
+
     let index = log.step_id.step_number();
     if index == 0 {
       assert_eq!(log.message, "Hello World");
@@ -75,7 +89,10 @@ impl Runner for TestRunner {
   }
 
   fn on_workflow_completed(&self, result: WorkflowRunResult) {
+    self.current_event_count.lock().add_assign(1);
     assert_eq!(result.state, WorkflowState::Succeeded);
+
+    assert_eq!(*self.current_event_count.lock(), self.expected_event_count);
   }
 }
 
@@ -154,7 +171,7 @@ async fn test_protocol() -> Result<()> {
 
   let client_thread_handle = tokio::spawn(async {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
-    let runner = TestRunner::new();
+    let runner = TestRunner::new(16);
 
     let mut astro_run_runner = AstroRunRunner::builder()
       .id("test-runner")

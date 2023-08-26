@@ -145,3 +145,32 @@ async fn test_run() -> Result<()> {
 
   Ok(())
 }
+
+#[astro_run_test::test]
+async fn no_available_runners() {
+  let server = AstroRunServer::with_scheduler(DefaultScheduler::new());
+
+  let astro_run = AstroRun::builder()
+    .plugin(assert_logs_plugin(vec!["No runner available"]))
+    .runner(server)
+    .build();
+
+  let workflow = r#"
+  jobs:
+    test:
+      steps:
+        - run: Hello World
+    "#;
+
+  let workflow = Workflow::builder()
+    .event(astro_run::WorkflowEvent::default())
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
+
+  let ctx = astro_run.execution_context();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Failed);
+}
