@@ -39,7 +39,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
     let runner = match self.scheduler.schedule(&runners, &context) {
       Some(runner) => runner,
       None => {
-        sender.error("No runner available".to_string());
+        sender.error("No runner available");
         sender.end(astro_run::RunResult::Failed { exit_code: 1 });
         return Ok(receiver);
       }

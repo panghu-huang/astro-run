@@ -145,7 +145,8 @@ impl Command {
   fn build_command(&self) -> Cmd {
     let mut command;
 
-    if cfg!(target_os = "windows") {
+    #[cfg(target_os = "windows")]
+    {
       command = Cmd::new("powershell.exe");
 
       command
@@ -153,7 +154,9 @@ impl Command {
         .arg("-NonInteractive")
         .arg("-Command")
         .arg(self.command.clone());
-    } else {
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
       command = Cmd::new("sh");
 
       command.arg("-c").arg(self.command.clone());
@@ -239,5 +242,40 @@ mod tests {
     let stdout = cmd.exec().await.unwrap();
 
     assert_eq!(stdout, "hello");
+  }
+
+  #[astro_run_test::test]
+  async fn test_stderr_command() {
+    let mut cmd = Command::new("cd /not/exist");
+
+    let (sender, mut receiver) = stream();
+    let mut logs = vec![];
+
+    tokio::join!(
+      async {
+        while let Some(log) = receiver.next().await {
+          logs.push(log);
+        }
+      },
+      async {
+        cmd.run(sender).await.unwrap();
+      }
+    );
+
+    assert_eq!(logs.len(), 1);
+    assert!(logs[0].is_error());
+    assert_eq!(
+      receiver.result().unwrap(),
+      RunResult::Failed { exit_code: 1 }
+    );
+  }
+
+  #[astro_run_test::test]
+  async fn test_exec_stderr_command() {
+    let mut cmd = Command::new("cd /not/exist");
+
+    let res = cmd.exec().await;
+
+    assert!(res.is_err());
   }
 }

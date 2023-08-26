@@ -21,8 +21,7 @@ fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
     .build()
 }
 
-#[tokio::test]
-#[ignore]
+#[astro_run_test::test(docker)]
 async fn test_docker() {
   let workflow = r#"
 jobs:
@@ -35,7 +34,6 @@ jobs:
       - run: |
           content=$(cat test.txt)
           echo Content is $content
-          echo "Cache" >> /home/work/caches/test.txt
   "#;
   let runner = AstroRunner::builder().build().unwrap();
 
@@ -65,18 +63,30 @@ jobs:
   assert_eq!(job_result.steps[1].state, WorkflowState::Succeeded);
 }
 
-#[tokio::test]
-#[ignore]
+#[astro_run_test::test]
 async fn test_host() {
-  let workflow = r#"
-jobs:
-  test:
-    name: Test Job
-    steps:
-      - container: host/windows
-        run: echo "Hello world"
-  "#;
-  let runner = AstroRunner::builder().build().unwrap();
+  let workflow = format!(
+    r#"
+  jobs:
+    test:
+      name: Test Job
+      steps:
+        - container: host/{}
+          run: echo "Hello world"
+          environments:
+            TEST: Value
+
+    "#,
+    std::env::consts::OS
+  );
+  #[allow(deprecated)]
+  let working_dir = std::env::home_dir()
+    .map(|home| home.join("astro-run"))
+    .unwrap();
+  let runner = AstroRunner::builder()
+    .working_directory(working_dir)
+    .build()
+    .unwrap();
 
   let astro_run = AstroRun::builder()
     .runner(runner)

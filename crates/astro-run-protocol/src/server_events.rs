@@ -40,16 +40,16 @@ impl TryFrom<astro_run::WorkflowRunResult> for Event {
   }
 }
 
-impl TryFrom<astro_run::Error> for Event {
-  type Error = astro_run::Error;
+// impl TryFrom<astro_run::Error> for Event {
+//   type Error = astro_run::Error;
 
-  fn try_from(value: astro_run::Error) -> Result<Self, Self::Error> {
-    Ok(Event {
-      event_name: "error".to_string(),
-      payload: Some(event::Payload::Error(value.to_string())),
-    })
-  }
-}
+//   fn try_from(value: astro_run::Error) -> Result<Self, Self::Error> {
+//     Ok(Event {
+//       event_name: "error".to_string(),
+//       payload: Some(event::Payload::Error(value.to_string())),
+//     })
+//   }
+// }
 
 impl TryFrom<astro_run::Context> for Event {
   type Error = astro_run::Error;

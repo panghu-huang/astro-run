@@ -30,10 +30,12 @@ impl ExecutionContext {
     plugin_manager.on_run_step(command.clone());
     self.runner.on_run_step(command.clone());
 
-    plugin_manager.on_state_change(WorkflowStateEvent::StepStateUpdated {
+    let event = WorkflowStateEvent::StepStateUpdated {
       id: step_id.clone(),
       state: WorkflowState::InProgress,
-    });
+    };
+    plugin_manager.on_state_change(event.clone());
+    self.runner.on_state_change(event);
 
     let mut receiver = match self.runner.run(Context {
       id: step_id.to_string(),
@@ -50,10 +52,12 @@ impl ExecutionContext {
           duration.num_seconds()
         );
 
-        plugin_manager.on_state_change(WorkflowStateEvent::StepStateUpdated {
+        let event = WorkflowStateEvent::StepStateUpdated {
           id: step_id.clone(),
           state: WorkflowState::Failed,
-        });
+        };
+        plugin_manager.on_state_change(event.clone());
+        self.runner.on_state_change(event);
 
         let result = StepRunResult {
           id: step_id,
@@ -123,10 +127,12 @@ impl ExecutionContext {
       },
     };
 
-    plugin_manager.on_state_change(WorkflowStateEvent::StepStateUpdated {
+    let event = WorkflowStateEvent::StepStateUpdated {
       id: step_id.clone(),
       state: res.state.clone(),
-    });
+    };
+    plugin_manager.on_state_change(event.clone());
+    self.runner.on_state_change(event);
 
     plugin_manager.on_step_completed(res.clone());
     self.runner.on_step_completed(res.clone());
