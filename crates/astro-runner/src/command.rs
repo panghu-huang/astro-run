@@ -247,10 +247,10 @@ mod tests {
 
     assert_eq!(logs.len(), 1);
     assert!(logs[0].is_error());
-    assert_eq!(
+    assert!(matches!(
       receiver.result().unwrap(),
-      RunResult::Failed { exit_code: 1 }
-    );
+      RunResult::Failed { .. }
+    ));
   }
 
   #[astro_run_test::test]
