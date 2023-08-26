@@ -13,6 +13,7 @@ fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
     })
     .on_workflow_completed(move |_| {
       let logs = cloned_logs.lock();
+      log::debug!("Logs: {:?}", logs);
       assert_eq!(logs.len(), excepted_logs.len());
       for (i, log) in logs.iter().enumerate() {
         assert_eq!(log, &excepted_logs[i]);
