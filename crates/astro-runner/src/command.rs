@@ -7,14 +7,11 @@ use tokio::{
 };
 
 /// A command to be executed by the runner.
-///
-/// And also can be send via Network.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Command {
   pub command: String,
   pub current_dir: Option<PathBuf>,
   pub envs: Vec<(String, String)>,
-  pub args: Vec<String>,
 }
 
 impl Command {
@@ -23,7 +20,6 @@ impl Command {
       command: cmd.into(),
       current_dir: None,
       envs: vec![],
-      args: vec![],
     }
   }
 
@@ -35,15 +31,6 @@ impl Command {
 
   pub fn dir(&mut self, dir: &PathBuf) -> &mut Self {
     self.current_dir = Some(dir.clone());
-
-    self
-  }
-
-  pub fn arg<S>(&mut self, arg: S) -> &mut Self
-  where
-    S: Into<String>,
-  {
-    self.args.push(arg.into());
 
     self
   }
@@ -168,10 +155,6 @@ impl Command {
 
     for (key, value) in &self.envs {
       command.env(key, value);
-    }
-
-    for arg in &self.args {
-      command.arg(arg);
     }
 
     command

@@ -54,9 +54,7 @@ impl Executor for DockerExecutor {
     if let Err(err) = command.run(sender).await {
       log::error!("Step run error: {}", err);
       // Kill the container on step run error
-      Command::new("docker")
-        .arg("kill")
-        .arg(&metadata.docker_name)
+      Command::new(format!("docker kill {}", metadata.docker_name))
         .exec()
         .await?;
     }
@@ -71,8 +69,8 @@ impl Executor for DockerExecutor {
 
 impl DockerExecutor {
   fn into_command(&self, image: String, metadata: Metadata) -> Result<Command> {
-    let docker = Docker::new(&metadata.docker_name)
-      .image(image)
+    let docker = Docker::new(image)
+      .name(&metadata.docker_name)
       .working_dir(metadata.docker_working_directory.clone())
       .volume(
         metadata.entrypoint_path.to_string()?,
@@ -87,6 +85,6 @@ impl DockerExecutor {
       .entrypoint("/home/work/runner/entrypoint.sh")
       .auto_remove(true);
 
-    docker.try_into()
+    Ok(docker.into())
   }
 }

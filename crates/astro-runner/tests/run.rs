@@ -1,5 +1,5 @@
 use astro_run::{AstroRun, AstroRunPlugin, Workflow, WorkflowEvent, WorkflowState};
-use astro_runner::AstroRunner;
+use astro_runner::{AstroRunner, Command};
 use parking_lot::Mutex;
 use std::sync::Arc;
 
@@ -24,6 +24,10 @@ fn assert_logs_plugin(excepted_logs: Vec<String>) -> AstroRunPlugin {
 
 #[astro_run_test::test(docker)]
 async fn test_docker() {
+  // Pull the image before running the test
+  log::debug!("Pulling ubuntu image");
+  Command::new("docker pull ubuntu").exec().await.unwrap();
+
   let workflow = r#"
 jobs:
   test:
