@@ -139,6 +139,7 @@ impl TryInto<astro_run::Context> for Context {
   fn try_into(self) -> Result<astro_run::Context, Self::Error> {
     Ok(astro_run::Context {
       id: self.id,
+      signal: astro_run::AstroRunSignal::new(),
       command: self
         .command
         .ok_or(astro_run::Error::internal_runtime_error(

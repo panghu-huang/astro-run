@@ -41,7 +41,7 @@ impl Executor for HostExecutor {
     // Clean up working directory
     // fs::remove_dir_all(&metadata.step_host_working_directory).await?;
 
-    log::info!("Step run finished");
+    log::trace!("Step run finished");
 
     Ok(())
   }

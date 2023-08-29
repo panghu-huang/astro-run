@@ -262,7 +262,7 @@ impl AstroRunRemoteRunnerServerBuilder {
       .ok_or_else(|| Error::internal_runtime_error("Id is not set".to_string()))?;
 
     let support_docker = self.support_docker.unwrap_or_else(|| {
-      log::info!("Support docker is not set, Checking if docker is installed and running");
+      log::trace!("Support docker is not set, Checking if docker is installed and running");
 
       // Check if docker is installed and running
       std::process::Command::new("docker")

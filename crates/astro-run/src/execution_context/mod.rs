@@ -2,11 +2,12 @@ mod builder;
 
 use self::builder::ExecutionContextBuilder;
 use crate::{
-  AstroRunSharedState, Command, Context, Error, Job, JobRunResult, RunResult, Runner,
-  StepRunResult, StreamExt, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState,
+  AstroRunSharedState, AstroRunSignal, Command, Context, Error, Job, JobRunResult, RunResult,
+  Runner, StepRunResult, StreamExt, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState,
   WorkflowStateEvent,
 };
 use std::sync::Arc;
+use tokio::time;
 
 #[derive(Clone)]
 pub struct ExecutionContext {
@@ -22,6 +23,7 @@ impl ExecutionContext {
 
   pub async fn run(&self, command: Command) -> StepRunResult {
     let step_id = command.id.clone();
+    let timeout = command.timeout;
 
     let plugin_manager = self.shared_state.plugins();
 
@@ -37,8 +39,11 @@ impl ExecutionContext {
     plugin_manager.on_state_change(event.clone());
     self.runner.on_state_change(event);
 
+    let signal = AstroRunSignal::new();
+
     let mut receiver = match self.runner.run(Context {
       id: step_id.to_string(),
+      signal: signal.clone(),
       command,
     }) {
       Ok(receiver) => receiver,
@@ -74,16 +79,31 @@ impl ExecutionContext {
       }
     };
 
-    while let Some(log) = receiver.next().await {
-      let log = WorkflowLog {
-        step_id: step_id.clone(),
-        log_type: log.log_type,
-        message: log.message,
-        time: chrono::Utc::now(),
-      };
+    loop {
+      tokio::select! {
+        // Timeout
+        _ = time::sleep(timeout) => {
+          signal.timeout();
+        }
+        // _ = async {} => {
+        //   signal.timeout();
+        // }
+        received = receiver.next() => {
+          if let Some(log) = received {
+            let log = WorkflowLog {
+              step_id: step_id.clone(),
+              log_type: log.log_type,
+              message: log.message,
+              time: chrono::Utc::now(),
+            };
 
-      plugin_manager.on_log(log.clone());
-      self.runner.on_log(log);
+            plugin_manager.on_log(log.clone());
+            self.runner.on_log(log);
+          } else {
+            break;
+          }
+        }
+      }
     }
 
     let res = receiver
@@ -96,7 +116,7 @@ impl ExecutionContext {
 
     let completed_at = chrono::Utc::now();
     let duration = completed_at - started_at;
-    log::info!(
+    log::trace!(
       "Step {:?} finished with result {:?} in {} seconds",
       step_id,
       res,
@@ -137,7 +157,7 @@ impl ExecutionContext {
     plugin_manager.on_step_completed(res.clone());
     self.runner.on_step_completed(res.clone());
 
-    log::info!("Step {:?} completed", step_id);
+    log::trace!("Step {:?} completed", step_id);
 
     res
   }

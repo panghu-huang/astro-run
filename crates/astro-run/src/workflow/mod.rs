@@ -102,7 +102,7 @@ impl Workflow {
 
     let completed_at = chrono::Utc::now();
 
-    log::info!(
+    log::trace!(
       "Duration: {:?}ms",
       completed_at.timestamp_millis() - started_at.timestamp_millis()
     );

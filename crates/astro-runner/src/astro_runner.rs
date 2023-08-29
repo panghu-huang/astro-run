@@ -88,7 +88,7 @@ impl AstroRunner {
   }
 
   fn cleanup_workflow_working_directory(&self, result: astro_run::WorkflowRunResult) -> Result<()> {
-    log::info!("AstroRunner: workflow completed: {:?}", result);
+    log::trace!("AstroRunner: workflow completed: {:?}", result);
     let event = self.state.lock().workflow_events.get(&result.id).cloned();
 
     let mut directory = self.working_directory.clone();

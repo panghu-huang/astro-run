@@ -1,4 +1,4 @@
-use crate::{ContainerOptions, EnvironmentVariables, StepId};
+use crate::{AstroRunSignal, ContainerOptions, EnvironmentVariables, StepId};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -14,9 +14,9 @@ pub struct Command {
   pub timeout: Duration,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Context {
   pub id: String,
+  pub signal: AstroRunSignal,
   pub command: Command,
-  // cancel signal
 }

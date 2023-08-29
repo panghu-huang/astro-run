@@ -36,7 +36,7 @@ impl Scheduler for DefaultScheduler {
     runners: &'a Vec<RunnerMetadata>,
     ctx: &Context,
   ) -> Option<&'a RunnerMetadata> {
-    log::debug!("Scheduling runners: {:?}", runners);
+    log::trace!("Scheduling runners: {:?}", runners);
     let mut runner: Option<&'a RunnerMetadata> = None;
 
     let job_id = ctx.command.id.job_id();
@@ -46,7 +46,7 @@ impl Scheduler for DefaultScheduler {
       .map(|c| c.starts_with("host/"))
       .unwrap_or(false);
 
-    log::debug!("Is runs on host: {}", is_runs_on_host);
+    log::trace!("Is runs on host: {}", is_runs_on_host);
 
     let last_used_id = self.state.lock().job_runners.get(&job_id).cloned();
 
@@ -65,12 +65,12 @@ impl Scheduler for DefaultScheduler {
         false
       });
 
-      log::debug!("Last used runner: {:?}", runner);
+      log::trace!("Last used runner: {:?}", runner);
     }
 
     if runner.is_none() {
       runner = self.pick_runner(runners, container_name);
-      log::debug!("Picked runner: {:?}", runner);
+      log::trace!("Picked runner: {:?}", runner);
     }
 
     if let Some(runner) = &runner {
@@ -87,7 +87,7 @@ impl Scheduler for DefaultScheduler {
         state.job_runners.insert(job_id, runner.id.clone());
       }
 
-      log::debug!("Runs count: {:?}", state.runs_count);
+      log::trace!("Runs count: {:?}", state.runs_count);
     }
 
     runner

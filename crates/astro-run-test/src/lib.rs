@@ -59,7 +59,7 @@ pub fn test(attr: TokenStream, item: TokenStream) -> TokenStream {
   };
 
   let content = quote! {
-    astro_run_logger::init_logger();
+    astro_run_logger::init_logger_with_level(log::Level::Trace);
 
     #content
   };

@@ -170,7 +170,7 @@ impl AstroRunRemoteRunnerClient {
             log::warn!("Runner already connected: {}", client.id);
             continue;
           }
-          log::info!("Connected to runner: {}", client.metadata.id);
+          log::trace!("Connected to runner: {}", client.metadata.id);
           clients.insert(client.id.clone(), client);
         }
         Err(err) => {
@@ -207,7 +207,7 @@ impl AstroRunRemoteRunnerClient {
 
     let metadata = res.into_inner();
 
-    log::debug!("Runner metadata: {:?}", metadata);
+    log::trace!("Runner metadata: {:?}", metadata);
 
     if metadata.version != crate::VERSION {
       return Err(Error::internal_runtime_error(format!(
