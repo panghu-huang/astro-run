@@ -90,7 +90,7 @@ jobs:
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
     // Use a empty token to request public repository
-    .github_personal_token(std::env::var("GITHUB_PERSONAL_ACCESS_TOKEN").unwrap())
+    .github_personal_token(std::env::var("PERSONAL_ACCESS_TOKEN").unwrap())
     .plugin(assert_logs_plugin(vec![]))
     .build();
 
@@ -148,7 +148,7 @@ jobs:
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
     // Use a empty token to request public repository
-    .github_personal_token(std::env::var("GITHUB_PERSONAL_ACCESS_TOKEN").unwrap())
+    .github_personal_token(std::env::var("PERSONAL_ACCESS_TOKEN").unwrap())
     .plugin(assert_logs_plugin(vec!["Hello World"]))
     .build();
 
@@ -224,7 +224,7 @@ jobs:
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
     // Use a empty token to request public repository
-    .github_personal_token(std::env::var("GITHUB_PERSONAL_ACCESS_TOKEN").unwrap())
+    .github_personal_token(std::env::var("PERSONAL_ACCESS_TOKEN").unwrap())
     .plugin(assert_logs_plugin(vec!["Hello World"]))
     .build();
 

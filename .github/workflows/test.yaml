@@ -23,6 +23,8 @@ jobs:
         run: cargo install cargo-tarpaulin
 
       - name: Generate code coverage
+        env:
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: cargo coverage
 
       - name: Upload coverage reports to Codecov
