@@ -148,7 +148,7 @@ async fn test_protocol() -> Result<()> {
       .build(&astro_run)
       .unwrap();
 
-    let ctx = astro_run.execution_context();
+    let ctx = astro_run.execution_context().build();
 
     let res = workflow.run(ctx).await;
 

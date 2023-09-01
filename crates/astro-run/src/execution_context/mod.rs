@@ -1,9 +1,10 @@
 mod builder;
+mod condition_matcher;
 
-use self::builder::ExecutionContextBuilder;
+pub use self::builder::ExecutionContextBuilder;
 use crate::{
-  AstroRunSharedState, AstroRunSignal, Command, Context, Error, Job, JobRunResult, RunResult,
-  Runner, StepRunResult, StreamExt, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState,
+  AstroRunSharedState, AstroRunSignal, Condition, Context, Error, Job, JobRunResult, RunResult,
+  Runner, Step, StepRunResult, StreamExt, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState,
   WorkflowStateEvent,
 };
 use std::sync::Arc;
@@ -14,6 +15,7 @@ pub struct ExecutionContext {
   // pub workflow_shared: WorkflowShared,
   runner: Arc<Box<dyn Runner>>,
   shared_state: AstroRunSharedState,
+  condition_matcher: condition_matcher::ConditionMatcher,
 }
 
 impl ExecutionContext {
@@ -21,16 +23,16 @@ impl ExecutionContext {
     ExecutionContextBuilder::new()
   }
 
-  pub async fn run(&self, command: Command) -> StepRunResult {
-    let step_id = command.id.clone();
-    let timeout = command.timeout;
+  pub async fn run(&self, step: Step) -> StepRunResult {
+    let step_id = step.id.clone();
+    let timeout = step.timeout;
 
     let plugin_manager = self.shared_state.plugins();
 
     let started_at = chrono::Utc::now();
 
-    plugin_manager.on_run_step(command.clone());
-    self.runner.on_run_step(command.clone());
+    plugin_manager.on_run_step(step.clone());
+    self.runner.on_run_step(step.clone());
 
     let event = WorkflowStateEvent::StepStateUpdated {
       id: step_id.clone(),
@@ -44,7 +46,8 @@ impl ExecutionContext {
     let mut receiver = match self.runner.run(Context {
       id: step_id.to_string(),
       signal: signal.clone(),
-      command,
+      command: step.into(),
+      event: self.condition_matcher.event.clone(),
     }) {
       Ok(receiver) => receiver,
       Err(err) => {
@@ -160,6 +163,10 @@ impl ExecutionContext {
     log::trace!("Step {:?} completed", step_id);
 
     res
+  }
+
+  pub async fn is_match(&self, condition: &Condition) -> bool {
+    self.condition_matcher.is_match(condition).await
   }
 
   pub fn on_run_workflow(&self, workflow: Workflow) {

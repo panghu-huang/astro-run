@@ -1,6 +1,7 @@
 use super::Step;
 use crate::{
-  ExecutionContext, JobId, JobRunResult, StepRunResult, WorkflowState, WorkflowStateEvent,
+  Condition, ExecutionContext, JobId, JobRunResult, StepRunResult, WorkflowState,
+  WorkflowStateEvent,
 };
 use serde::{Deserialize, Serialize};
 
@@ -8,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub struct Job {
   pub id: JobId,
   pub name: Option<String>,
+  pub on: Option<Condition>,
   pub steps: Vec<Step>,
   /// For workflow run
   pub depends_on: Vec<String>,
@@ -16,6 +18,23 @@ pub struct Job {
 
 impl Job {
   pub async fn run(&self, ctx: ExecutionContext) -> JobRunResult {
+    if let Some(on) = &self.on {
+      if !ctx.is_match(on).await {
+        ctx.on_state_change(WorkflowStateEvent::JobStateUpdated {
+          id: self.id.clone(),
+          state: WorkflowState::Skipped,
+        });
+
+        return JobRunResult {
+          id: self.id.clone(),
+          state: WorkflowState::Skipped,
+          started_at: None,
+          completed_at: None,
+          steps: vec![],
+        };
+      }
+    }
+
     let started_at = chrono::Utc::now();
     let mut job_state = WorkflowState::InProgress;
 
@@ -29,14 +48,28 @@ impl Job {
     let mut steps = Vec::new();
 
     for step in self.steps.iter().cloned() {
-      let skipped = match job_state {
+      let mut skipped = match job_state {
         WorkflowState::Failed => !step.continue_on_error,
         WorkflowState::Cancelled | WorkflowState::Skipped => true,
         _ => false,
       };
 
+      if !skipped {
+        if let Some(on) = &step.on {
+          if !ctx.is_match(on).await {
+            skipped = true;
+          }
+        }
+      }
+
       if skipped {
-        // TODO: log skipped step & call plugin manager
+        log::trace!("Step {} is skipped", step.id.to_string());
+
+        ctx.on_state_change(WorkflowStateEvent::StepStateUpdated {
+          id: step.id.clone(),
+          state: WorkflowState::Skipped,
+        });
+
         steps.push(StepRunResult {
           id: step.id.clone(),
           state: WorkflowState::Skipped,

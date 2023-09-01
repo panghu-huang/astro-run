@@ -39,13 +39,13 @@ message WorkflowEvent {
   optional uint64 pr_number = 4;
   string sha = 5;
   string ref_name = 6;
+  string branch = 7;
 }
 
 message Workflow {
   string id = 1;
   optional string name = 2;
-  WorkflowEvent event = 3;
-  map<string, Job> jobs = 4;
+  map<string, Job> jobs = 3;
 }
 
 enum WorkflowState {
@@ -104,6 +104,7 @@ message Container {
 message Context {
   string id = 1;
   Command command = 2;
+  WorkflowEvent event = 3;
 }
 
 message RunResult {

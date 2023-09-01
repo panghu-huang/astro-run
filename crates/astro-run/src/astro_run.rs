@@ -1,11 +1,12 @@
 use crate::{
   shared_state::AstroRunSharedState, Action, Actions, AstroRunPlugin, ExecutionContext,
-  PluginManager, Runner,
+  ExecutionContextBuilder, GithubAuthorization, PluginManager, Runner,
 };
 use std::sync::Arc;
 
 pub struct AstroRun {
   runner: Arc<Box<dyn Runner>>,
+  github_auth: Option<GithubAuthorization>,
   pub(crate) shared_state: AstroRunSharedState,
 }
 
@@ -49,25 +50,31 @@ impl AstroRun {
     self.shared_state.actions()
   }
 
-  pub fn execution_context(&self) -> ExecutionContext {
+  pub fn execution_context(&self) -> ExecutionContextBuilder {
     let shared_state = self.shared_state.clone();
-    ExecutionContext::builder()
+    let mut builder = ExecutionContext::builder()
       .runner(self.runner.clone())
-      .shared_state(shared_state)
-      .build()
-      .unwrap()
+      .shared_state(shared_state);
+
+    if let Some(github_auth) = &self.github_auth {
+      builder = builder.github_auth(github_auth.clone());
+    }
+
+    builder
   }
 }
 
 pub struct AstroRunBuilder {
   runner: Option<Box<dyn Runner>>,
   shared_state: AstroRunSharedState,
+  github_auth: Option<GithubAuthorization>,
 }
 
 impl AstroRunBuilder {
   pub fn new() -> Self {
     AstroRunBuilder {
       runner: None,
+      github_auth: None,
       shared_state: AstroRunSharedState::new(),
     }
   }
@@ -90,12 +97,27 @@ impl AstroRunBuilder {
     self
   }
 
+  pub fn github_personal_token(mut self, token: impl Into<String>) -> Self {
+    self.github_auth = Some(GithubAuthorization::PersonalAccessToken(token.into()));
+    self
+  }
+
+  pub fn github_app(mut self, app_id: u64, private_key: impl Into<String>) -> Self {
+    self.github_auth = Some(GithubAuthorization::GithubApp {
+      app_id,
+      private_key: private_key.into(),
+    });
+
+    self
+  }
+
   pub fn build(self) -> AstroRun {
     let runner = self.runner.unwrap();
 
     AstroRun {
       runner: Arc::new(runner),
       shared_state: self.shared_state,
+      github_auth: self.github_auth,
     }
   }
 }

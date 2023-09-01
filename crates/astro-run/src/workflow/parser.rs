@@ -1,14 +1,12 @@
 use super::{job::Job, Step, Workflow};
 use crate::{
-  Actions, Error, Id, JobId, Result, StepId, UserCommandStep, UserStep, UserWorkflow,
-  WorkflowEvent, WorkflowId,
+  Actions, Error, Id, JobId, Result, StepId, UserCommandStep, UserStep, UserWorkflow, WorkflowId,
 };
 use std::collections::HashMap;
 
 pub struct WorkflowParser {
   pub id: Id,
   pub user_workflow: UserWorkflow,
-  pub event: Option<WorkflowEvent>,
   pub actions: Actions,
 }
 
@@ -51,6 +49,7 @@ impl WorkflowParser {
     let user_workflow = self.user_workflow.clone();
 
     let mut jobs = HashMap::new();
+
     for (key, job) in user_workflow.jobs {
       let mut steps = Vec::new();
       let job_container = job.container;
@@ -67,6 +66,7 @@ impl WorkflowParser {
           environments,
           timeout,
           secrets,
+          on,
           ..
         }) = step.clone()
         {
@@ -87,6 +87,7 @@ impl WorkflowParser {
             environments: environments.unwrap_or_default(),
             secrets: secrets.unwrap_or_default(),
             timeout,
+            on,
           });
         } else {
           return Err(Error::unsupported_feature("Only command step is supported"));
@@ -98,6 +99,7 @@ impl WorkflowParser {
         Job {
           id: JobId::new(id.clone(), key.clone()),
           name: job.name,
+          on: job.on,
           steps,
           depends_on: job.depends_on.unwrap_or_default(),
           working_directories: job_working_dirs,
@@ -107,8 +109,9 @@ impl WorkflowParser {
 
     Ok(Workflow {
       id: WorkflowId::new(id),
-      event: self.event,
+      // event: self.event,
       name: user_workflow.name,
+      on: user_workflow.on,
       jobs,
     })
   }
@@ -144,12 +147,10 @@ jobs:
   "#;
 
     let user_workflow: UserWorkflow = serde_yaml::from_str(yaml).unwrap();
-    let event = WorkflowEvent::default();
 
     let parser = WorkflowParser {
       id: "test-id".to_string(),
       user_workflow,
-      event: Some(event),
       actions: Actions::new(),
     };
 
@@ -191,7 +192,6 @@ jobs:
     let parser = WorkflowParser {
       id: "test-id".to_string(),
       user_workflow,
-      event: None,
       actions: Actions::new(),
     };
 
@@ -251,7 +251,6 @@ jobs:
     let parser = WorkflowParser {
       id: "test-id".to_string(),
       user_workflow: serde_yaml::from_str(workflow).unwrap(),
-      event: None,
       actions,
     };
 

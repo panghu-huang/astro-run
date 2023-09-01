@@ -69,6 +69,8 @@ pub struct WorkflowEvent {
     pub sha: ::prost::alloc::string::String,
     #[prost(string, tag = "6")]
     pub ref_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub branch: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -77,9 +79,7 @@ pub struct Workflow {
     pub id: ::prost::alloc::string::String,
     #[prost(string, optional, tag = "2")]
     pub name: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, optional, tag = "3")]
-    pub event: ::core::option::Option<WorkflowEvent>,
-    #[prost(map = "string, message", tag = "4")]
+    #[prost(map = "string, message", tag = "3")]
     pub jobs: ::std::collections::HashMap<::prost::alloc::string::String, Job>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -163,6 +163,8 @@ pub struct Context {
     pub id: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "2")]
     pub command: ::core::option::Option<Command>,
+    #[prost(message, optional, tag = "3")]
+    pub event: ::core::option::Option<WorkflowEvent>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

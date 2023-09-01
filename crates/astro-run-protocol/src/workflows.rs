@@ -1,5 +1,45 @@
 use super::*;
 
+impl TryInto<astro_run::Step> for Command {
+  type Error = astro_run::Error;
+
+  fn try_into(self) -> Result<astro_run::Step, Self::Error> {
+    let command: astro_run::Command = self.try_into()?;
+
+    Ok(astro_run::Step {
+      id: command.id,
+      name: command.name,
+      run: command.run,
+      timeout: command.timeout,
+      container: command.container,
+      continue_on_error: command.continue_on_error,
+      environments: command.environments,
+      secrets: command.secrets,
+      on: None,
+    })
+  }
+}
+
+impl TryFrom<astro_run::Step> for Command {
+  type Error = astro_run::Error;
+
+  fn try_from(value: astro_run::Step) -> Result<Self, Self::Error> {
+    let command: astro_run::Command = value.into();
+    let command = Command::try_from(command)?;
+
+    Ok(Command {
+      id: command.id,
+      name: command.name,
+      run: command.run,
+      timeout: command.timeout,
+      container: command.container,
+      continue_on_error: command.continue_on_error,
+      environments: command.environments,
+      secrets: command.secrets,
+    })
+  }
+}
+
 impl TryInto<astro_run::Job> for Job {
   type Error = astro_run::Error;
 
@@ -7,6 +47,7 @@ impl TryInto<astro_run::Job> for Job {
     Ok(astro_run::Job {
       id: astro_run::JobId::try_from(self.id.as_str())?,
       name: self.name,
+      on: None,
       steps: self
         .steps
         .into_iter()
@@ -45,6 +86,7 @@ impl From<astro_run::WorkflowEvent> for WorkflowEvent {
       pr_number: value.pr_number,
       sha: value.sha,
       ref_name: value.ref_name,
+      branch: value.branch,
     }
   }
 }
@@ -58,6 +100,7 @@ impl Into<astro_run::WorkflowEvent> for WorkflowEvent {
       pr_number: self.pr_number,
       sha: self.sha,
       ref_name: self.ref_name,
+      branch: self.branch,
     }
   }
 }
@@ -74,7 +117,7 @@ impl TryInto<astro_run::Workflow> for Workflow {
         .into_iter()
         .map(|(id, job)| Ok::<(String, astro_run::Job), Self::Error>((id, job.try_into()?)))
         .collect::<Result<_, _>>()?,
-      event: self.event.map(|e| e.into()),
+      on: None,
     })
   }
 }
@@ -91,7 +134,6 @@ impl TryFrom<astro_run::Workflow> for Workflow {
         .into_iter()
         .map(|(id, job)| Ok::<(String, Job), Self::Error>((id, job.try_into()?)))
         .collect::<Result<_, _>>()?,
-      event: value.event.map(|s| s.into()),
     })
   }
 }

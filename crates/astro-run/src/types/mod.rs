@@ -1,3 +1,5 @@
+mod condition;
+mod context;
 mod envs;
 mod error;
 mod id;
@@ -6,6 +8,8 @@ mod workflow_event;
 mod workflow_state;
 mod workflow_state_event;
 
+pub use condition::*;
+pub use context::*;
 pub use envs::*;
 pub use error::*;
 pub use id::*;
@@ -15,6 +19,12 @@ pub use workflow_state::*;
 pub use workflow_state_event::*;
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Clone)]
+pub enum GithubAuthorization {
+  PersonalAccessToken(String),
+  GithubApp { app_id: u64, private_key: String },
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]

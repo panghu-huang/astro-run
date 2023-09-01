@@ -21,14 +21,6 @@ impl AstroRunner {
 }
 
 impl Runner for AstroRunner {
-  fn on_run_workflow(&self, workflow: astro_run::Workflow) {
-    let mut state = self.state.lock();
-
-    if let Some(event) = workflow.event {
-      state.workflow_events.insert(workflow.id, event);
-    }
-  }
-
   fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) {
     if let Err(err) = self.cleanup_workflow_working_directory(result) {
       log::error!("AstroRunner: cleanup error: {}", err);
@@ -39,12 +31,15 @@ impl Runner for AstroRunner {
     let (sender, receiver) = stream();
 
     let executor = self.create_executor(&ctx);
-    let event = self
-      .state
-      .lock()
-      .workflow_events
-      .get(&ctx.command.id.workflow_id())
-      .cloned();
+
+    let event = ctx.event.clone();
+    if let Some(event) = &ctx.event {
+      self
+        .state
+        .lock()
+        .workflow_events
+        .insert(ctx.command.id.workflow_id(), event.clone());
+    }
 
     tokio::spawn(async move {
       if let Err(err) = executor.execute(ctx, sender.clone(), event).await {

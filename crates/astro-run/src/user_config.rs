@@ -1,4 +1,4 @@
-use crate::{EnvironmentVariables, Error, Id, Result};
+use crate::{Condition, EnvironmentVariables, Error, Id, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -22,6 +22,7 @@ pub struct UserCommandStep {
   pub name: Option<String>,
   pub container: Option<Container>,
   pub run: String,
+  pub on: Option<Condition>,
   #[serde(rename = "continue-on-error")]
   pub continue_on_error: Option<bool>,
   pub environments: Option<EnvironmentVariables>,
@@ -34,6 +35,7 @@ pub struct UserActionStep {
   pub name: Option<String>,
   pub uses: String,
   pub with: Option<serde_yaml::Value>,
+  pub on: Option<Condition>,
   #[serde(rename = "continue-on-error")]
   pub continue_on_error: Option<bool>,
   pub environments: Option<EnvironmentVariables>,
@@ -56,6 +58,7 @@ pub struct UserJob {
   #[serde(rename = "working-directories")]
   pub working_dirs: Option<Vec<String>>,
   pub steps: Vec<UserStep>,
+  pub on: Option<Condition>,
   #[serde(rename = "depends-on")]
   pub depends_on: Option<Vec<String>>,
 }
@@ -63,6 +66,7 @@ pub struct UserJob {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UserWorkflow {
   pub name: Option<String>,
+  pub on: Option<Condition>,
   pub jobs: HashMap<Id, UserJob>,
 }
 
@@ -156,7 +160,7 @@ impl TryFrom<String> for UserWorkflow {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::EnvironmentVariable;
+  use crate::{ConditionConfig, EnvironmentVariable, PullRequestCondition, PushCondition};
 
   #[test]
   fn test_parse() {
@@ -356,5 +360,105 @@ jobs:
       normalized.volumes,
       Some(vec!["/home/runner/work".to_string()])
     );
+  }
+
+  #[test]
+  fn test_events_condition() {
+    let yaml = r#"
+on:
+  - push
+  - pull_request
+jobs:
+  job:
+    name: Test Job
+    on:
+      - push
+      - pull_request
+    steps:
+      - run: echo "Hello World"
+        on:
+          - push
+          - pull_request
+"#;
+
+    let workflow = UserWorkflow::try_from(yaml).unwrap();
+    let on = Some(Condition::Event(vec![
+      "push".to_string(),
+      "pull_request".to_string(),
+    ]));
+
+    assert_eq!(&workflow.on, &on);
+
+    let job = workflow.jobs.get("job").unwrap();
+    assert_eq!(&job.on, &on);
+
+    let step = job.steps.get(0).unwrap();
+    if let UserStep::Command(command_step) = step {
+      assert_eq!(&command_step.on, &on);
+    } else {
+      panic!("Step should be command step");
+    }
+  }
+
+  #[test]
+  fn test_config_condition() {
+    let yaml = r#"
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "src/**"
+jobs:
+  job:
+    name: Test Job
+    on:
+      push:
+        paths:
+          - "src/**"
+    steps:
+      - run: echo "Hello World"
+        on:
+          pull_request:
+            branches:
+              - master
+"#;
+
+    let workflow = UserWorkflow::try_from(yaml).unwrap();
+    let on = Some(Condition::Config(ConditionConfig {
+      push: Some(PushCondition {
+        branches: Some(vec!["master".to_string()]),
+        paths: Some(vec!["src/**".to_string()]),
+      }),
+      pull_request: None,
+    }));
+
+    assert_eq!(workflow.on, on);
+
+    let on = Some(Condition::Config(ConditionConfig {
+      push: Some(PushCondition {
+        branches: None,
+        paths: Some(vec!["src/**".to_string()]),
+      }),
+      pull_request: None,
+    }));
+    let job = workflow.jobs.get("job").unwrap();
+    assert_eq!(job.on, on);
+
+    let step = job.steps.get(0).unwrap();
+    if let UserStep::Command(command_step) = step {
+      assert_eq!(
+        command_step.on,
+        Some(Condition::Config(ConditionConfig {
+          push: None,
+          pull_request: Some(PullRequestCondition {
+            branches: Some(vec!["master".to_string()]),
+            paths: None,
+          }),
+        }))
+      );
+    } else {
+      panic!("Step should be command step");
+    }
   }
 }

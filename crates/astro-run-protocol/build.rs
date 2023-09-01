@@ -1,5 +1,9 @@
 fn main() {
-  if std::env::var("ASTRO_RUN_PROTOCOL_SKIP_BUILD").is_ok() {
+  let build = std::env::var("ASTRO_RUN_PROTOCOL_BUILD")
+    .map(|e| e == "true")
+    .unwrap_or(false);
+
+  if !build {
     return;
   }
 
@@ -13,6 +17,4 @@ fn main() {
       &["proto"],
     )
     .unwrap();
-
-  // println!("cargo:rerun-if-changed=proto/astro_run_server.proto");
 }

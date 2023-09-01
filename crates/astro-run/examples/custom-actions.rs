@@ -76,13 +76,12 @@ jobs:
 
   // Create workflow
   let workflow = Workflow::builder()
-    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build(&astro_run)
     .unwrap();
 
   // Create a new execution context
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   // Run workflow
   let _res = workflow.run(ctx).await;

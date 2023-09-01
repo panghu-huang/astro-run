@@ -1,17 +1,17 @@
 mod builder;
 mod job;
 mod parser;
+mod step;
 
 pub use self::job::Job;
+pub use self::step::Step;
 use crate::{
-  ExecutionContext, Id, JobRunResult, WorkflowEvent, WorkflowId, WorkflowRunResult, WorkflowState,
+  Condition, ExecutionContext, Id, JobRunResult, WorkflowId, WorkflowRunResult, WorkflowState,
   WorkflowStateEvent,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::mpsc::{channel, Sender};
-
-pub type Step = crate::Command;
 
 // Job key, JobRunResult
 type Result = (Id, JobRunResult);
@@ -20,12 +20,29 @@ type Result = (Id, JobRunResult);
 pub struct Workflow {
   pub id: WorkflowId,
   pub name: Option<String>,
-  pub event: Option<WorkflowEvent>,
+  pub on: Option<Condition>,
   pub jobs: HashMap<String, Job>,
 }
 
 impl Workflow {
   pub async fn run(&self, ctx: ExecutionContext) -> WorkflowRunResult {
+    if let Some(on) = &self.on {
+      if !ctx.is_match(on).await {
+        ctx.on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
+          id: self.id.clone(),
+          state: WorkflowState::Skipped,
+        });
+
+        return WorkflowRunResult {
+          id: self.id.clone(),
+          state: WorkflowState::Skipped,
+          started_at: None,
+          completed_at: None,
+          jobs: HashMap::new(),
+        };
+      }
+    }
+
     let started_at = chrono::Utc::now();
 
     let mut workflow_state = WorkflowState::InProgress;

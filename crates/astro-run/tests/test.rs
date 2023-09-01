@@ -106,12 +106,11 @@ jobs:
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   let res = workflow.run(ctx).await;
 
@@ -152,12 +151,11 @@ jobs:
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   let res = workflow.run(ctx).await;
 
@@ -194,12 +192,11 @@ jobs:
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   let res = workflow.run(ctx).await;
 
@@ -230,12 +227,11 @@ jobs:
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   let res = workflow.run(ctx).await;
 
@@ -270,12 +266,11 @@ async fn test_depends_on() {
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   let res = workflow.run(ctx).await;
 
@@ -306,12 +301,11 @@ jobs:
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   let res = workflow.run(ctx).await;
 
@@ -342,12 +336,11 @@ jobs:
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   let res = workflow.run(ctx).await;
 
@@ -379,12 +372,11 @@ jobs:
     .build();
 
   let workflow = Workflow::builder()
-    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   let res = workflow.run(ctx).await;
 
@@ -436,7 +428,7 @@ jobs:
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   workflow.run(ctx).await;
 }
@@ -534,12 +526,11 @@ jobs:
 
   let workflow = Workflow::builder()
     .id("id")
-    .event(astro_run::WorkflowEvent::default())
     .config(workflow)
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   workflow.run(ctx).await;
 
@@ -573,12 +564,12 @@ jobs:
 //   astro_run.unregister_plugin("test");
 
 //   let workflow = Workflow::builder()
-//     .event(astro_run::WorkflowEvent::default())
+//
 //     .config(workflow)
 //     .build(&astro_run)
 //     .unwrap();
 
-//   let ctx = astro_run.execution_context();
+//   let ctx = astro_run.execution_context().build();
 
 //   workflow.run(ctx).await;
 // }

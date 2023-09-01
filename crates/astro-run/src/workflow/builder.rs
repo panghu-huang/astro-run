@@ -1,10 +1,9 @@
 use super::{parser::WorkflowParser, Workflow};
-use crate::{AstroRun, Error, Id, Result, UserWorkflow, WorkflowEvent};
+use crate::{AstroRun, Error, Id, Result, UserWorkflow};
 
 pub struct WorkflowBuilder {
   id: Option<Id>,
   config: Option<String>,
-  event: Option<WorkflowEvent>,
 }
 
 impl WorkflowBuilder {
@@ -12,7 +11,6 @@ impl WorkflowBuilder {
     Self {
       id: None,
       config: None,
-      event: None,
     }
   }
 
@@ -26,11 +24,6 @@ impl WorkflowBuilder {
     self
   }
 
-  pub fn event(mut self, event: WorkflowEvent) -> Self {
-    self.event = Some(event);
-    self
-  }
-
   pub fn build(self, astro_run: &AstroRun) -> Result<Workflow> {
     let config = self
       .config
@@ -41,7 +34,6 @@ impl WorkflowBuilder {
 
     let parser = WorkflowParser {
       id,
-      event: self.event,
       user_workflow,
       actions: astro_run.shared_state.actions(),
     };

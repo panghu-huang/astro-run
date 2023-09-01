@@ -102,7 +102,7 @@ async fn test_default_schedule() {
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   workflow.run(ctx).await;
 
@@ -161,7 +161,7 @@ async fn test_default_schedule1() {
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   workflow.run(ctx).await;
 
@@ -216,7 +216,7 @@ async fn test_default_schedule_none() {
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   workflow.run(ctx).await;
 

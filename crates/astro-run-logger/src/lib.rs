@@ -3,11 +3,19 @@ use log::Level;
 use std::{env, str::FromStr, sync::OnceLock};
 
 #[derive(Clone)]
-pub struct Logger;
+pub struct Logger {
+  level: log::Level,
+}
+
+impl Logger {
+  pub fn new(level: log::Level) -> Self {
+    Self { level }
+  }
+}
 
 impl log::Log for Logger {
   fn enabled(&self, metadata: &log::Metadata) -> bool {
-    metadata.level() <= Level::Debug
+    metadata.level() <= self.level
   }
 
   fn log(&self, record: &log::Record) {
@@ -52,7 +60,8 @@ pub fn init_logger() {
     let level = env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
     let level = log::Level::from_str(&level).unwrap_or(log::Level::Info);
 
-    log::set_logger(&Logger).unwrap();
+    let logger = Logger::new(level.clone());
+    log::set_logger(Box::leak(Box::new(logger))).unwrap();
     log::set_max_level(level.to_level_filter());
   });
 }
@@ -63,7 +72,8 @@ pub fn init_logger_with_level(level: log::Level) {
   }
 
   LOGGER.get_or_init(|| {
-    log::set_logger(&Logger).unwrap();
+    let logger = Logger::new(level.clone());
+    log::set_logger(Box::leak(Box::new(logger))).unwrap();
     log::set_max_level(level.to_level_filter());
   });
 }

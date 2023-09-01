@@ -28,36 +28,35 @@ astro-run = "0.1"
 ```rust
 use astro_run::{stream, AstroRun, Context, RunResult, Workflow};
 
-// Custom Runner
-struct Runner {}
+struct Runner;
 
 impl Runner {
-    fn new() -> Self {
-        Runner {}
-    }
+  fn new() -> Self {
+    Runner
+  }
 }
 
 impl astro_run::Runner for Runner {
-    fn run(&self, ctx: Context) -> astro_run::RunResponse {
-        let (tx, rx) = stream();
+  fn run(&self, ctx: Context) -> astro_run::RunResponse {
+    let (tx, rx) = stream();
 
-        // Send runtime logs
-        tx.log(ctx.command.run);
+    // Send running log
+    tx.log(ctx.command.run);
 
-        // Send run result
-        tx.end(RunResult::Succeeded);
+    // Send success log
+    tx.end(RunResult::Succeeded);
 
-        Ok(rx)
-    }
+    Ok(rx)
+  }
 }
 
 #[tokio::main]
 async fn main() {
-    // Create Astro Run
-    let astro_run = AstroRun::builder().runner(Runner::new()).build();
+  // Create astro run
+  let astro_run = AstroRun::builder().runner(Runner::new()).build();
 
-    // Workflow Configuration
-    let workflow = r#"
+  // Workflow
+  let workflow = r#"
 jobs:
   job:
     name: Job
@@ -65,18 +64,17 @@ jobs:
       - run: Hello World
   "#;
 
-    // Create Workflow
-    let workflow = Workflow::builder()
-        .event(astro_run::WorkflowEvent::default())
-        .config(workflow)
-        .build(&astro_run)
-        .unwrap();
+  // Create workflow
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
 
-    // Create a new execution context
-    let ctx = astro_run.execution_context();
+  // Create a new execution context
+  let ctx = astro_run.execution_context().build();
 
-    // Run the workflow
-    let _res = workflow.run(ctx).await;
+  // Run workflow
+  let _res = workflow.run(ctx).await;
 }
 ```
 

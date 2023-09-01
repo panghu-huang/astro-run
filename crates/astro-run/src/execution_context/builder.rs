@@ -1,9 +1,15 @@
-use crate::{shared_state::AstroRunSharedState, Error, ExecutionContext, Result, Runner};
+use super::condition_matcher::ConditionMatcher;
+use crate::{
+  shared_state::AstroRunSharedState, Error, ExecutionContext, GithubAuthorization, Runner,
+  WorkflowEvent,
+};
 use std::sync::Arc;
 
 pub struct ExecutionContextBuilder {
   runner: Option<Arc<Box<dyn Runner>>>,
   shared_state: Option<AstroRunSharedState>,
+  event: Option<WorkflowEvent>,
+  github_auth: Option<GithubAuthorization>,
 }
 
 impl ExecutionContextBuilder {
@@ -11,6 +17,8 @@ impl ExecutionContextBuilder {
     ExecutionContextBuilder {
       runner: None,
       shared_state: None,
+      event: None,
+      github_auth: None,
     }
   }
 
@@ -24,10 +32,23 @@ impl ExecutionContextBuilder {
     self
   }
 
-  pub fn build(self) -> Result<ExecutionContext> {
-    let runner = self.runner.ok_or(Error::init_error(
-      "Runner is not set in execution context builder",
-    ))?;
+  pub fn event(mut self, event: WorkflowEvent) -> Self {
+    self.event = Some(event);
+    self
+  }
+
+  pub fn github_auth(mut self, github_auth: GithubAuthorization) -> Self {
+    self.github_auth = Some(github_auth);
+    self
+  }
+
+  pub fn build(self) -> ExecutionContext {
+    let runner = self
+      .runner
+      .ok_or(Error::init_error(
+        "Runner is not set in execution context builder",
+      ))
+      .unwrap();
 
     let shared_state = self
       .shared_state
@@ -36,8 +57,9 @@ impl ExecutionContextBuilder {
     let ctx = ExecutionContext {
       runner,
       shared_state,
+      condition_matcher: ConditionMatcher::new(self.event, self.github_auth),
     };
 
-    Ok(ctx)
+    ctx
   }
 }

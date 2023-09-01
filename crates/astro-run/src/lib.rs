@@ -1,6 +1,5 @@
 mod actions;
 mod astro_run;
-mod context;
 mod execution_context;
 mod plugin;
 mod runner;
@@ -13,7 +12,6 @@ mod workflow;
 
 pub use crate::astro_run::*;
 pub use actions::*;
-pub use context::*;
 pub use execution_context::*;
 pub use plugin::*;
 pub use runner::*;

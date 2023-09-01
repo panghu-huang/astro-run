@@ -1,4 +1,4 @@
-use astro_run::{AstroRun, AstroRunPlugin, Workflow, WorkflowEvent, WorkflowState};
+use astro_run::{AstroRun, AstroRunPlugin, Workflow, WorkflowState};
 use astro_runner::{AstroRunner, Command};
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -50,12 +50,11 @@ jobs:
     .build();
 
   let workflow = Workflow::builder()
-    .event(WorkflowEvent::default())
     .config(workflow)
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   let res = workflow.run(ctx).await;
 
@@ -99,12 +98,11 @@ async fn test_host() {
     .build();
 
   let workflow = Workflow::builder()
-    .event(WorkflowEvent::default())
     .config(workflow)
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context();
+  let ctx = astro_run.execution_context().build();
 
   let res = workflow.run(ctx).await;
 
