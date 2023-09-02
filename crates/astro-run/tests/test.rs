@@ -1,7 +1,7 @@
 use astro_run::{
   stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Job, JobRunResult, PluginBuilder,
   RunResult, Runner, Step, StepRunResult, UserActionStep, UserCommandStep, UserStep, Workflow,
-  WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
+  WorkflowEvent, WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
 use parking_lot::Mutex;
 
@@ -123,11 +123,16 @@ jobs:
 }
 
 #[astro_run_test::test]
-async fn test_run_full_features() {
+async fn test_full_features() {
   let workflow = r#"
+on: [push]
+
 jobs:
   test:
     name: Test Job
+    on:
+      pull_request:
+        branches: [master]
     steps:
       - name: Step
         continue-on-error: false
@@ -543,33 +548,87 @@ jobs:
   assert_eq!(astro_run.actions().size(), 0);
 }
 
-// #[astro_run_test::test]
-// async fn test_unregister_astro_plugins() {
-//   let workflow = r#"
-// jobs:
-//   test:
-//     name: Test Job
-//     steps:
-//       - run: Hello World
-//   "#;
+#[astro_run_test::test]
+async fn test_empty_event() {
+  let workflow = r#"
+on: [push]
 
-//   let astro_run = AstroRun::builder().runner(TestRunner::new()).build();
+jobs:
+  test:
+    steps:
+      - run: Hello World
+  "#;
 
-//   astro_run.register_plugin(
-//     AstroRunPlugin::builder("test")
-//       .on_log(|_| panic!("Should not be called"))
-//       .build(),
-//   );
+  let astro_run = AstroRun::builder()
+    .github_personal_token("token")
+    .runner(TestRunner::new())
+    .build();
 
-//   astro_run.unregister_plugin("test");
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
 
-//   let workflow = Workflow::builder()
-//
-//     .config(workflow)
-//     .build(&astro_run)
-//     .unwrap();
+  let ctx = astro_run.execution_context().build();
 
-//   let ctx = astro_run.execution_context().build();
+  let res = workflow.run(ctx).await;
 
-//   workflow.run(ctx).await;
-// }
+  assert_eq!(res.state, WorkflowState::Succeeded);
+}
+
+#[astro_run_test::test]
+async fn test_invalid_event() -> astro_run::Result<()> {
+  dotenv::dotenv().ok();
+
+  let app_id = std::env::var("GH_APP_ID")
+    .map_err(|err| astro_run::Error::internal_runtime_error(format!("GH_APP_ID: {}", err)))?;
+
+  let private_key = std::env::var("GH_APP_PRIVATE_KEY").map_err(|err| {
+    astro_run::Error::internal_runtime_error(format!("GH_APP_PRIVATE_KEY: {}", err))
+  })?;
+
+  let workflow = r#"
+on: [push]
+
+jobs:
+  test:
+    steps:
+      - run: Hello World
+  "#;
+
+  let astro_run = AstroRun::builder()
+    .github_app(app_id.parse().unwrap(), private_key)
+    .runner(TestRunner::new())
+    .build();
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
+
+  let ctx = astro_run
+    .execution_context()
+    .event(WorkflowEvent {
+      event: "push".to_string(),
+      ..Default::default()
+    })
+    .build();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Succeeded);
+
+  let ctx = astro_run
+    .execution_context()
+    .event(WorkflowEvent {
+      event: "pull_request".to_string(),
+      ..Default::default()
+    })
+    .build();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Succeeded);
+
+  Ok(())
+}

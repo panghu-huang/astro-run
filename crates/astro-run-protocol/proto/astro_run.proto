@@ -101,6 +101,11 @@ message Container {
   repeated string security_opts = 3;
 }
 
+message Signal {
+  string id = 1;
+  string action = 2;
+}
+
 message Context {
   string id = 1;
   Command command = 2;

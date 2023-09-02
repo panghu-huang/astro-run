@@ -18,6 +18,7 @@ struct Client {
 #[derive(Clone)]
 struct RunningClient {
   sender: StreamSender,
+  completed_token: mpsc::Sender<()>,
 }
 
 struct SharedState {
@@ -116,7 +117,15 @@ impl AstroRunService for AstroRunServer {
         .into(),
     );
 
-    self.state.lock().running.remove(&id);
+    let removed = self.state.lock().running.remove(&id);
+
+    if let Some(removed) = removed {
+      if !removed.completed_token.is_closed() {
+        if let Err(err) = removed.completed_token.send(()).await {
+          log::error!("Failed to send completed token: {}", err);
+        }
+      }
+    }
 
     Ok(Response::new(
       astro_run_server::ReportRunCompletedResponse {},
@@ -148,22 +157,44 @@ impl Runner for AstroRunServer {
 
     let client = clients
       .get(&runner.id)
-      .ok_or_else(|| Error::internal_runtime_error("No client found for runner"))?;
+      .ok_or_else(|| Error::internal_runtime_error("No client found for runner"))?
+      .clone();
 
-    self.state.lock().running.insert(
-      id.clone(),
-      RunningClient {
-        // id: client.id.clone(),
-        sender,
-      },
-    );
-
-    let event = astro_run_server::Event::try_from(ctx)
+    let event = astro_run_server::Event::try_from(ctx.clone())
       .map_err(|err| Error::internal_runtime_error(err.to_string()))?;
 
     if let Err(err) = client.sender.try_send(Ok(event)) {
       log::error!("Failed to send event to client: {}", err);
     }
+
+    let (completed_sender, mut completed_receiver) = mpsc::channel(1);
+
+    self.state.lock().running.insert(
+      id.clone(),
+      RunningClient {
+        sender,
+        completed_token: completed_sender.clone(),
+      },
+    );
+
+    tokio::task::spawn(async move {
+      tokio::select! {
+        _ = completed_receiver.recv() => {
+          log::trace!("Completed token received");
+        }
+        signal = ctx.signal.recv() => {
+          log::trace!("Signal received {:?}", ctx.signal);
+          let event = astro_run_server::Event::new_signal_event(
+            ctx.id,
+            signal
+          );
+
+          if let Err(err) = client.sender.send(Ok(event)).await {
+            log::error!("Failed to send event to client: {}", err);
+          }
+        }
+      }
+    });
 
     Ok(receiver)
   }

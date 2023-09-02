@@ -19,15 +19,8 @@ impl Runner for TestRunner {
   fn run(&self, ctx: Context) -> astro_run::RunResponse {
     let (tx, rx) = stream();
 
-    if ctx.command.container.is_some() {
-      tx.log(ctx.command.run);
-
-      tx.end(RunResult::Succeeded);
-    } else {
-      tx.error(ctx.command.run);
-
-      tx.end(RunResult::Succeeded);
-    }
+    tx.log(ctx.command.run);
+    tx.end(RunResult::Succeeded);
 
     Ok(rx)
   }
@@ -47,6 +40,8 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
 
 #[astro_run_test::test]
 async fn test_run() -> Result<()> {
+  let (oneshot_tx, rx) = tokio::sync::oneshot::channel();
+
   let client_thread_handle = tokio::spawn(async {
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
@@ -62,6 +57,8 @@ async fn test_run() -> Result<()> {
 
     let mut cloned_client_runner = client_runner.clone();
     let handle = tokio::task::spawn(async move {
+      rx.await.unwrap();
+
       cloned_client_runner
         .start(vec!["http://127.0.0.1:5001"])
         .await
@@ -69,7 +66,7 @@ async fn test_run() -> Result<()> {
     });
 
     // Wait for server to start and listen for connections
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
     let astro_run = AstroRun::builder()
       .plugin(assert_logs_plugin(vec![
@@ -133,6 +130,8 @@ async fn test_run() -> Result<()> {
       .build()
       .unwrap();
 
+    oneshot_tx.send(()).unwrap();
+
     tokio::select! {
       _ = rx.recv() => {}
       _ = runner_server.serve("127.0.0.1:5001") => {}
@@ -170,4 +169,42 @@ async fn no_available_runners() {
   let res = workflow.run(ctx).await;
 
   assert_eq!(res.state, WorkflowState::Failed);
+}
+
+#[astro_run_test::test]
+async fn connect_to_invalid_url() {
+  let client_runner = AstroRunRemoteRunnerClient::builder().build().unwrap();
+
+  let mut cloned_client_runner = client_runner.clone();
+  let handle = tokio::task::spawn(async move {
+    cloned_client_runner
+      .start(vec!["http://1.1.1.1:8888"])
+      .await
+      .unwrap();
+  });
+
+  let astro_run = AstroRun::builder()
+    .plugin(assert_logs_plugin(vec!["No runner available"]))
+    .runner(client_runner)
+    .build();
+
+  let workflow = r#"
+    jobs:
+      test:
+        steps:
+          - run: Hello World
+      "#;
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
+
+  let ctx = astro_run.execution_context().build();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Failed);
+
+  handle.abort();
 }

@@ -14,6 +14,9 @@ async fn main() -> Result<()> {
       .unwrap();
   });
 
+  // Wait for the client runner to start
+  tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
   let astro_run = AstroRun::builder().runner(client_runner).build();
 
   let workflow = r#"

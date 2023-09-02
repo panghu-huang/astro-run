@@ -110,11 +110,14 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
 
 #[astro_run_test::test]
 async fn test_protocol() -> Result<()> {
+  let (tx, rx) = tokio::sync::oneshot::channel();
   let server_thread_handle = tokio::spawn(async {
     let server = AstroRunServer::new();
 
     let cloned_server = server.clone();
     let handle = tokio::task::spawn(async move {
+      tx.send(()).unwrap();
+
       cloned_server.serve("127.0.0.1:5001").await.unwrap();
     });
 
@@ -166,9 +169,10 @@ async fn test_protocol() -> Result<()> {
     handle.abort();
   });
 
-  tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-
   let client_thread_handle = tokio::spawn(async {
+    // Wait for server to start and listen for connections
+    rx.await.unwrap();
+
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     let runner = TestRunner::new(16);
 
@@ -187,14 +191,9 @@ async fn test_protocol() -> Result<()> {
           .build(),
       )
       .url("http://127.0.0.1:5001")
-      .id("test-runner")
       .build()
       .await
       .unwrap();
-
-    astro_run_runner.register_plugin(AstroRunPlugin::builder("test").build());
-
-    astro_run_runner.unregister_plugin("test");
 
     tokio::select! {
       _ = astro_run_runner.start() => {}

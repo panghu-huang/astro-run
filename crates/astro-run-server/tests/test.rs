@@ -17,15 +17,9 @@ impl Runner for TestRunner {
   fn run(&self, ctx: Context) -> astro_run::RunResponse {
     let (tx, rx) = stream();
 
-    if ctx.command.container.is_some() {
-      tx.log(ctx.command.run);
+    tx.log(ctx.command.run);
 
-      tx.end(RunResult::Succeeded);
-    } else {
-      tx.error(ctx.command.run);
-
-      tx.end(RunResult::Succeeded);
-    }
+    tx.end(RunResult::Succeeded);
 
     Ok(rx)
   }
@@ -45,6 +39,7 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
 
 #[astro_run_test::test]
 async fn test_run() -> Result<()> {
+  let (tx, rx) = tokio::sync::oneshot::channel();
   let server_thread_handle = tokio::spawn(async {
     // Check if docker is installed and running
     let is_support_docker = std::process::Command::new("docker")
@@ -56,6 +51,7 @@ async fn test_run() -> Result<()> {
 
     let cloned_server = server.clone();
     let handle = tokio::task::spawn(async move {
+      tx.send(()).unwrap();
       cloned_server.serve("127.0.0.1:5001").await.unwrap();
     });
 
@@ -72,7 +68,7 @@ async fn test_run() -> Result<()> {
       .build();
 
     // Wait for server to start and listen for connections
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
     let workflow = format!(
       r#"
@@ -106,9 +102,10 @@ async fn test_run() -> Result<()> {
     handle.abort();
   });
 
-  tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-
   let client_thread_handle = tokio::spawn(async {
+    // Wait for server to start and listen for connections
+    rx.await.unwrap();
+
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     let runner = TestRunner::new();
 
@@ -125,7 +122,6 @@ async fn test_run() -> Result<()> {
           .build(),
       )
       .url("http://127.0.0.1:5001")
-      .id("test-runner")
       .build()
       .await
       .unwrap();

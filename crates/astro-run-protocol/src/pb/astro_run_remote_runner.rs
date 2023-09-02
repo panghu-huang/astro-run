@@ -3,7 +3,7 @@
 pub struct Event {
     #[prost(string, tag = "1")]
     pub event_name: ::prost::alloc::string::String,
-    #[prost(oneof = "event::Payload", tags = "2, 3, 4, 5, 6, 7, 8, 9")]
+    #[prost(oneof = "event::Payload", tags = "2, 3, 4, 5, 6, 7, 8, 9, 10")]
     pub payload: ::core::option::Option<event::Payload>,
 }
 /// Nested message and enum types in `Event`.
@@ -27,6 +27,8 @@ pub mod event {
         WorkflowStateEvent(super::super::astro_run::WorkflowStateEvent),
         #[prost(message, tag = "9")]
         LogEvent(super::super::astro_run::WorkflowLog),
+        #[prost(message, tag = "10")]
+        SignalEvent(super::super::astro_run::Signal),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

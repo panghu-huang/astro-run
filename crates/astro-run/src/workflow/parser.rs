@@ -217,7 +217,7 @@ jobs:
       - run: Hello World
   "#;
 
-    struct CacheAction {}
+    struct CacheAction;
 
     #[derive(Serialize, Deserialize)]
     struct CacheOptions {
@@ -271,5 +271,47 @@ jobs:
     let step = steps.get(2).unwrap();
     assert_eq!(step.name, Some("Save cache".to_string()));
     assert_eq!(step.run, "save cache /tmp test".to_string());
+  }
+
+  #[test]
+  fn unsupported_nested_actions() {
+    let workflow = r#"
+name: Test Workflow
+jobs:
+  test:
+    steps:
+      - uses: nested
+  "#;
+
+    struct NestedAction;
+
+    impl Action for NestedAction {
+      fn normalize(&self, _step: UserActionStep) -> Result<ActionSteps> {
+        Ok(ActionSteps {
+          pre: None,
+          run: UserStep::Action(UserActionStep {
+            ..Default::default()
+          }),
+          post: None,
+        })
+      }
+    }
+
+    let actions = Actions::new();
+
+    actions.register("nested", NestedAction);
+
+    let parser = WorkflowParser {
+      id: "test-id".to_string(),
+      user_workflow: serde_yaml::from_str(workflow).unwrap(),
+      actions,
+    };
+
+    let error = parser.parse().unwrap_err();
+
+    assert_eq!(
+      error,
+      Error::unsupported_feature("Only command step is supported")
+    );
   }
 }

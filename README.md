@@ -3,6 +3,7 @@
 Astro Run is a highly extensible runner that can execute any workflow.
 
 ![astro-run](https://img.shields.io/crates/v/astro-run.svg)
+![CI](https://github.com/panghu-huang/astro-run/actions/workflows/test.yaml/badge.svg)
 [![codecov](https://codecov.io/gh/panghu-huang/astro-run/branch/main/graph/badge.svg?token=B9P3T5C97U)](https://codecov.io/gh/panghu-huang/astro-run)
 ![MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 
