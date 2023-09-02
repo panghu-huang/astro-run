@@ -32,11 +32,14 @@ impl astro_run::Runner for TimeoutRunner {
 
 #[astro_run_test::test]
 async fn test_signal() -> Result<()> {
+  let (tx, rx) = tokio::sync::oneshot::channel();
+
   let server_thread_handle = tokio::spawn(async {
     let server = AstroRunServer::new();
 
     let cloned_server = server.clone();
     let handle = tokio::task::spawn(async move {
+      tx.send(()).unwrap();
       cloned_server.serve("127.0.0.1:5001").await.unwrap();
     });
 
@@ -74,6 +77,9 @@ async fn test_signal() -> Result<()> {
   });
 
   let client_thread_handle = tokio::spawn(async {
+    // Wait for server to start and listen for connections
+    rx.await.unwrap();
+
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
 
     let mut astro_run_runner = AstroRunRunner::builder()
@@ -106,11 +112,15 @@ async fn test_signal() -> Result<()> {
 
 #[astro_run_test::test]
 async fn test_timeout() -> Result<()> {
+  let (tx, rx) = tokio::sync::oneshot::channel();
+
   let server_thread_handle = tokio::spawn(async {
     let server = AstroRunServer::new();
 
     let cloned_server = server.clone();
     let handle = tokio::task::spawn(async move {
+      tx.send(()).unwrap();
+
       cloned_server.serve("127.0.0.1:5001").await.unwrap();
     });
 
@@ -153,6 +163,9 @@ async fn test_timeout() -> Result<()> {
   });
 
   let client_thread_handle = tokio::spawn(async {
+    // Wait for server to start and listen for connections
+    rx.await.unwrap();
+
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
 
     let mut astro_run_runner = AstroRunRunner::builder()

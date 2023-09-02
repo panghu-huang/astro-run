@@ -119,9 +119,11 @@ impl AstroRunService for AstroRunServer {
 
     let removed = self.state.lock().running.remove(&id);
 
-    if let Some(removed) = removed {// is closed
-      if let Err(err) = removed.completed_token.send(()).await {
-        log::error!("Failed to send completed token: {}", err);
+    if let Some(removed) = removed {
+      if !removed.completed_token.is_closed() {
+        if let Err(err) = removed.completed_token.send(()).await {
+          log::error!("Failed to send completed token: {}", err);
+        }
       }
     }
 
