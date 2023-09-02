@@ -143,4 +143,11 @@ mod tests {
     assert_eq!(directories.docker_name, "workflow-id-job-key-1");
     assert_eq!(directories.docker_working_directory, "/home/runner/work");
   }
+
+  #[test]
+  fn test_to_string() {
+    let path = PathBuf::from("/home/runner/work");
+    let path_string = path.to_string().unwrap();
+    assert_eq!(path_string, "/home/runner/work");
+  }
 }

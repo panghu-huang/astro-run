@@ -226,11 +226,10 @@ impl AstroRunRemoteRunnerClient {
   }
 
   async fn run(sender: astro_run::StreamSender, client: Client, context: Context) -> Result<()> {
-    let context = context.try_into()?;
     let mut client = client;
     let response = client
       .client
-      .run(Request::new(context))
+      .run(Request::new(context.clone().try_into()?))
       .await
       .map_err(|e| {
         let error = format!("Failed to run: {}", e.to_string());
@@ -240,43 +239,61 @@ impl AstroRunRemoteRunnerClient {
       })?;
 
     let mut stream = response.into_inner();
-    while let Some(response) = stream.next().await {
-      match response {
-        Ok(response) => {
-          if let Some(payload) = response.payload {
-            match payload {
-              run_response::Payload::Log(log) => {
-                let log: astro_run::WorkflowLog = log.try_into().map_err(|e| {
-                  Error::internal_runtime_error(format!("Failed to parse log: {}", e))
-                })?;
 
-                if log.is_error() {
-                  sender.error(log.message);
-                } else {
-                  sender.log(log.message);
+    loop {
+      tokio::select! {
+        response = stream.next() => {
+          if response.is_none() {
+            break;
+          }
+
+          match response.unwrap() {
+            Ok(response) => {
+              if let Some(payload) = response.payload {
+                match payload {
+                  run_response::Payload::Log(log) => {
+                    let log: astro_run::WorkflowLog = log.try_into().map_err(|e| {
+                      Error::internal_runtime_error(format!("Failed to parse log: {}", e))
+                    })?;
+
+                    if log.is_error() {
+                      sender.error(log.message);
+                    } else {
+                      sender.log(log.message);
+                    }
+                  }
+                  run_response::Payload::Result(result) => {
+                    let result: astro_run::RunResult = result
+                      .result
+                      .ok_or(Error::internal_runtime_error(
+                        "Missing result in response".to_string(),
+                      ))?
+                      .try_into()
+                      .map_err(|e| {
+                        Error::internal_runtime_error(format!("Failed to parse result: {}", e))
+                      })?;
+
+                    sender.end(result);
+                  }
                 }
               }
-              run_response::Payload::Result(result) => {
-                let result: astro_run::RunResult = result
-                  .result
-                  .ok_or(Error::internal_runtime_error(
-                    "Missing result in response".to_string(),
-                  ))?
-                  .try_into()
-                  .map_err(|e| {
-                    Error::internal_runtime_error(format!("Failed to parse result: {}", e))
-                  })?;
-
-                sender.end(result);
-              }
+            }
+            Err(e) => {
+              let error = format!("Failed to run: {}", e.to_string());
+              sender.error(error.clone());
+              sender.end(astro_run::RunResult::Failed { exit_code: 1 });
+              return Err(Error::internal_runtime_error(error));
             }
           }
         }
-        Err(e) => {
-          let error = format!("Failed to run: {}", e.to_string());
-          sender.error(error.clone());
-          sender.end(astro_run::RunResult::Failed { exit_code: 1 });
-          return Err(Error::internal_runtime_error(error));
+        signal = context.signal.recv() => {
+          let event = Event::new_signal(context.id.clone(), signal);
+
+          client
+            .client
+            .send_event(Request::new(event))
+            .await
+            .map_err(|e| Error::internal_runtime_error(e))?;
         }
       }
     }

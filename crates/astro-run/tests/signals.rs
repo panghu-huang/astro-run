@@ -16,7 +16,7 @@ impl astro_run::Runner for TimeoutRunner {
           sender.end(RunResult::Succeeded);
         }
         _ = config.signal.recv() => {
-          sender.end(RunResult::Failed { exit_code: 1 });
+          sender.end(RunResult::Failed { exit_code: 123 });
         }
       }
     });
@@ -26,7 +26,7 @@ impl astro_run::Runner for TimeoutRunner {
 }
 
 #[astro_run_test::test]
-async fn test_timeout_success() {
+async fn test_signal() {
   let workflow = r#"
 jobs:
   test:
@@ -79,4 +79,9 @@ jobs:
   let res = workflow.run(ctx).await;
 
   assert_eq!(res.state, WorkflowState::Failed);
+
+  assert_eq!(
+    res.jobs.get("test").unwrap().steps[0].exit_code.unwrap(),
+    123
+  );
 }

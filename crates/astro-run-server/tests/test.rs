@@ -17,15 +17,9 @@ impl Runner for TestRunner {
   fn run(&self, ctx: Context) -> astro_run::RunResponse {
     let (tx, rx) = stream();
 
-    if ctx.command.container.is_some() {
-      tx.log(ctx.command.run);
+    tx.log(ctx.command.run);
 
-      tx.end(RunResult::Succeeded);
-    } else {
-      tx.error(ctx.command.run);
-
-      tx.end(RunResult::Succeeded);
-    }
+    tx.end(RunResult::Succeeded);
 
     Ok(rx)
   }
@@ -72,7 +66,7 @@ async fn test_run() -> Result<()> {
       .build();
 
     // Wait for server to start and listen for connections
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
     let workflow = format!(
       r#"
@@ -106,8 +100,6 @@ async fn test_run() -> Result<()> {
     handle.abort();
   });
 
-  tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-
   let client_thread_handle = tokio::spawn(async {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     let runner = TestRunner::new();
@@ -125,7 +117,6 @@ async fn test_run() -> Result<()> {
           .build(),
       )
       .url("http://127.0.0.1:5001")
-      .id("test-runner")
       .build()
       .await
       .unwrap();

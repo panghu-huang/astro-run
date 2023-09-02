@@ -233,6 +233,14 @@ mod tests {
     };
 
     assert_eq!(condition.is_match(&payload), true);
+
+    let payload = ConditionPayload {
+      event: "pull_request".to_string(),
+      branch: "main".to_string(),
+      paths: vec!["src/main.rs".to_string()],
+    };
+
+    assert_eq!(condition.is_match(&payload), false);
   }
 
   #[test]
@@ -271,5 +279,33 @@ mod tests {
     };
 
     assert_eq!(condition.is_match(&payload), true);
+  }
+
+  #[test]
+  fn test_events_condition() {
+    let push = Condition::Event(vec!["push".to_string()]);
+    let pull_request = Condition::Event(vec!["pull_request".to_string()]);
+
+    let payload = ConditionPayload {
+      event: "push".to_string(),
+      branch: "master".to_string(),
+      paths: vec!["src/main.rs".to_string()],
+    };
+
+    assert_eq!(push.is_match(&payload), true);
+    assert_eq!(pull_request.is_match(&payload), false);
+  }
+
+  #[test]
+  fn test_invalid_event() {
+    let pull_request = Condition::Event(vec!["pull_request".to_string()]);
+
+    let payload = ConditionPayload {
+      event: "invalid".to_string(),
+      branch: "".to_string(),
+      paths: vec![],
+    };
+
+    assert_eq!(pull_request.is_match(&payload), false);
   }
 }

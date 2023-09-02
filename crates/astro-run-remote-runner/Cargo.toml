@@ -1,6 +1,6 @@
 [package]
 name = "astro-run-remote-runner"
-version = "0.1.1"
+version = "0.1.2"
 edition.workspace = true
 repository.workspace = true
 homepage.workspace = true
@@ -12,8 +12,8 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-astro-run = { path = "../astro-run", version = "0.1.0" }
-astro-run-protocol = { path = "../astro-run-protocol", version = "0.1.1", features = [
+astro-run = { path = "../astro-run", version = "0.1.1" }
+astro-run-protocol = { path = "../astro-run-protocol", version = "0.1.2", features = [
   "astro-run-remote-runner",
 ] }
 
@@ -31,7 +31,7 @@ tokio = { workspace = true, features = [
   "time",
 ] }
 
-astro-run-scheduler = { path = "../astro-run-scheduler", version = "0.1.0" }
+astro-run-scheduler = { path = "../astro-run-scheduler", version = "0.1.1" }
 
 [dev-dependencies]
 astro-run-test = { path = "../astro-run-test" }

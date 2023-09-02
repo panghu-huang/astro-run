@@ -1,9 +1,10 @@
 use astro_run::{AstroRunPlugin, Context, Error, PluginManager, Result, Runner};
 use astro_run_protocol::{
   astro_run_server::{self, event::Payload as EventPayload},
-  tonic, AstroRunServiceClient, RunnerMetadata,
+  tonic, AstroRunServiceClient, RunnerMetadata, WorkflowLog,
 };
-use std::{env, sync::Arc};
+use parking_lot::Mutex;
+use std::{collections::HashMap, env, sync::Arc};
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 
@@ -20,6 +21,7 @@ pub struct AstroRunRunner {
   client: AstroRunServiceClient<tonic::transport::Channel>,
   runner: Arc<Box<dyn Runner>>,
   plugins: PluginManager,
+  signals: Arc<Mutex<HashMap<String, astro_run::AstroRunSignal>>>,
 }
 
 impl AstroRunRunner {
@@ -112,6 +114,24 @@ impl AstroRunRunner {
               self.plugins.on_state_change(event.clone());
               self.runner.on_state_change(event);
             }
+            EventPayload::SignalEvent(signal) => {
+              log::trace!("Received signal: {:?}", signal);
+              let astro_run_signal = self.signals.lock().get(&signal.id).cloned();
+
+              if let Some(astro_run_signal) = astro_run_signal {
+                match signal.action.as_str() {
+                  "cancel" => {
+                    astro_run_signal.cancel();
+                  }
+                  "timeout" => {
+                    astro_run_signal.timeout();
+                  }
+                  _ => {}
+                }
+              } else {
+                log::trace!("Signal {} is not found", signal.id);
+              }
+            }
           }
         },
         Some(command) = rx.recv() => {
@@ -143,11 +163,17 @@ impl AstroRunRunner {
   fn run(&self, tx: mpsc::Sender<Command>, ctx: Context) {
     let runner = self.runner.clone();
 
+    self
+      .signals
+      .lock()
+      .insert(ctx.id.clone(), ctx.signal.clone());
+
     tokio::task::spawn(async move {
       let step_id = ctx.command.id.clone();
       let mut receiver = runner.run(ctx)?;
+
       while let Some(log) = receiver.next().await {
-        let request = astro_run_protocol::WorkflowLog::try_from(astro_run::WorkflowLog {
+        let request = WorkflowLog::try_from(astro_run::WorkflowLog {
           step_id: step_id.clone(),
           message: log.message,
           log_type: log.log_type,
@@ -282,6 +308,7 @@ impl AstroRunRunnerBuilder {
       support_host: self.support_host,
       runner: Arc::new(runner),
       plugins: self.plugins,
+      signals: Arc::new(Mutex::new(HashMap::new())),
     })
   }
 }

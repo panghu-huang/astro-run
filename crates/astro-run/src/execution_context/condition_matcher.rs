@@ -29,6 +29,7 @@ impl ConditionMatcher {
       log::trace!("Event is not provided");
       return true;
     }
+    log::trace!("Matching condition {:#?}", condition);
 
     if let Some(payload) = self.payload.lock().as_ref() {
       return condition.is_match(payload);

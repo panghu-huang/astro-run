@@ -18,6 +18,7 @@ struct SignalState {
 }
 
 pub struct Receiver<'a> {
+  is_notified: bool,
   signal: &'a AstroRunSignal,
 }
 
@@ -37,7 +38,10 @@ impl AstroRunSignal {
   }
 
   pub fn recv(&self) -> Receiver {
-    let receiver = Receiver { signal: self };
+    let receiver = Receiver {
+      signal: self,
+      is_notified: false,
+    };
 
     receiver
   }
@@ -75,11 +79,36 @@ impl<'a> Future for Receiver<'a> {
   fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
     let mut state = self.signal.state.lock();
 
+    if self.is_notified {
+      return Poll::Pending;
+    }
+
     if let Some(signal) = state.signal {
+      self.get_mut().is_notified = true;
+
       Poll::Ready(signal)
     } else {
       state.waker = Some(cx.waker().clone());
       Poll::Pending
+    }
+  }
+}
+
+impl ToString for Signal {
+  fn to_string(&self) -> String {
+    match self {
+      Signal::Cancel => "cancel".to_string(),
+      Signal::Timeout => "timeout".to_string(),
+    }
+  }
+}
+
+impl From<&str> for Signal {
+  fn from(s: &str) -> Self {
+    match s {
+      "cancel" => Signal::Cancel,
+      "timeout" => Signal::Timeout,
+      _ => panic!("Invalid signal: {}", s),
     }
   }
 }
@@ -139,5 +168,17 @@ mod tests {
     assert_eq!(receiver.await, Signal::Timeout);
     assert_eq!(signal.is_cancelled(), false);
     assert_eq!(signal.is_timeout(), true);
+  }
+
+  #[astro_run_test::test]
+  fn to_string() {
+    assert_eq!(Signal::Cancel.to_string(), "cancel".to_string());
+    assert_eq!(Signal::Timeout.to_string(), "timeout".to_string());
+  }
+
+  #[astro_run_test::test]
+  fn from_str() {
+    assert_eq!(Signal::from("cancel"), Signal::Cancel);
+    assert_eq!(Signal::from("timeout"), Signal::Timeout);
   }
 }

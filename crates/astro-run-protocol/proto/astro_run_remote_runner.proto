@@ -15,6 +15,7 @@ message Event {
     astro_run.StepRunResult step_completed_event = 7;
     astro_run.WorkflowStateEvent workflow_state_event = 8;
     astro_run.WorkflowLog log_event = 9;
+    astro_run.Signal signal_event = 10;
   }
 }
 

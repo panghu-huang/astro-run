@@ -3,7 +3,8 @@ use astro_run_protocol::{
   astro_run_remote_runner::{self, event::Payload as EventPayload, RunResponse, SendEventResponse},
   tonic, AstroRunRemoteRunner, RunnerMetadata,
 };
-use std::{env, sync::Arc};
+use parking_lot::Mutex;
+use std::{collections::HashMap, env, sync::Arc};
 use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 
@@ -14,6 +15,7 @@ pub struct AstroRunRemoteRunnerServer {
   support_host: bool,
   runner: Arc<Box<dyn Runner>>,
   plugins: PluginManager,
+  signals: Arc<Mutex<HashMap<String, astro_run::AstroRunSignal>>>,
 }
 
 impl AstroRunRemoteRunnerServer {
@@ -93,6 +95,11 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
       .try_into()
       .map_err(|e| tonic::Status::internal(format!("Failed to convert context: {}", e)))?;
 
+    self
+      .signals
+      .lock()
+      .insert(context.id.clone(), context.signal.clone());
+
     let runner = self.runner.clone();
 
     Self::run(runner, tx, context);
@@ -131,6 +138,11 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           tonic::Status::internal(format!("Failed to convert step completed event: {}", e))
         })?;
 
+        // Remove signal once step is completed
+        let step_id = result.id.to_string();
+        self.signals.lock().remove(&step_id);
+
+        // Dispatch event to plugins and runner
         self.plugins.on_step_completed(result.clone());
         self.runner.on_step_completed(result);
       }
@@ -173,6 +185,23 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
 
         self.plugins.on_run_workflow(workflow.clone());
         self.runner.on_run_workflow(workflow);
+      }
+      EventPayload::SignalEvent(signal) => {
+        log::trace!("Received signal: {:?}", signal);
+        let astro_run_signal = self.signals.lock().get(&signal.id).cloned();
+
+        if let Some(astro_run_signal) = astro_run_signal {
+          match astro_run::Signal::from(signal.action.as_str()) {
+            astro_run::Signal::Cancel => {
+              astro_run_signal.cancel();
+            }
+            astro_run::Signal::Timeout => {
+              astro_run_signal.timeout();
+            }
+          }
+        } else {
+          log::trace!("Signal {} is not found", signal.id);
+        }
       }
     }
 
@@ -278,6 +307,7 @@ impl AstroRunRemoteRunnerServerBuilder {
       support_host: self.support_host,
       runner,
       plugins: self.plugins,
+      signals: Arc::new(Mutex::new(HashMap::new())),
     })
   }
 }

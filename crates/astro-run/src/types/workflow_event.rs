@@ -1,4 +1,3 @@
-use super::condition::ConditionPayload;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -12,12 +11,6 @@ pub struct WorkflowEvent {
   pub branch: String,
   /// refs/heads/master / refs/tags/v1.0.0 / refs/pull/1/merge
   pub ref_name: String,
-}
-
-impl WorkflowEvent {
-  pub async fn get_condition_payload(&self) -> ConditionPayload {
-    todo!()
-  }
 }
 
 impl Default for WorkflowEvent {

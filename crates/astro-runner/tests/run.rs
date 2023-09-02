@@ -33,9 +33,13 @@ jobs:
   test:
     name: Test Job
     steps:
-      - timeout: 60m
+      - container:
+          name: ubuntu
+          security-opts: 
+            - seccomp=unconfined
         continue-on-error: false
         run: echo "Hello World" >> test.txt
+        timeout: 60m
       - run: |
           content=$(cat test.txt)
           echo Content is $content

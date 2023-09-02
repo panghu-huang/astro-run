@@ -3,7 +3,7 @@
 pub struct Event {
     #[prost(string, tag = "1")]
     pub event_name: ::prost::alloc::string::String,
-    #[prost(oneof = "event::Payload", tags = "2, 3, 4, 5, 6, 7, 8, 9, 10, 11")]
+    #[prost(oneof = "event::Payload", tags = "2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12")]
     pub payload: ::core::option::Option<event::Payload>,
 }
 /// Nested message and enum types in `Event`.
@@ -29,7 +29,9 @@ pub mod event {
         WorkflowStateEvent(super::super::astro_run::WorkflowStateEvent),
         #[prost(message, tag = "10")]
         LogEvent(super::super::astro_run::WorkflowLog),
-        #[prost(string, tag = "11")]
+        #[prost(message, tag = "11")]
+        SignalEvent(super::super::astro_run::Signal),
+        #[prost(string, tag = "12")]
         Error(::prost::alloc::string::String),
     }
 }

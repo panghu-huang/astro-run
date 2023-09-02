@@ -105,4 +105,14 @@ impl Event {
       payload: Some(event::Payload::RunWorkflowEvent(workflow)),
     })
   }
+
+  pub fn new_signal(id: String, signal: astro_run::Signal) -> Self {
+    Self {
+      event_name: "signal".to_string(),
+      payload: Some(event::Payload::SignalEvent(Signal {
+        id,
+        action: signal.to_string(),
+      })),
+    }
+  }
 }

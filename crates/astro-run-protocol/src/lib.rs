@@ -137,7 +137,6 @@ impl TryInto<astro_run::Context> for Context {
   type Error = astro_run::Error;
 
   fn try_into(self) -> Result<astro_run::Context, Self::Error> {
-    println!("Context: {:?}", self);
     Ok(astro_run::Context {
       id: self.id,
       signal: astro_run::AstroRunSignal::new(),
@@ -156,7 +155,6 @@ impl TryFrom<astro_run::Context> for Context {
   type Error = astro_run::Error;
 
   fn try_from(value: astro_run::Context) -> Result<Self, Self::Error> {
-    println!("111Context: {:?}", value);
     Ok(Context {
       id: value.id,
       command: Some(value.command.try_into()?),

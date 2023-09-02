@@ -116,7 +116,7 @@ async fn test_protocol() -> Result<()> {
     let astro_run = AstroRun::builder().runner(client_runner).build();
 
     // Wait for server to start and listen for connections
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
     let workflow = r#"
     name: CI

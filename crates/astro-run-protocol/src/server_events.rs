@@ -129,6 +129,18 @@ impl TryFrom<astro_run::WorkflowStateEvent> for Event {
   }
 }
 
+impl Event {
+  pub fn new_signal_event(id: String, signal: astro_run::Signal) -> Self {
+    Event {
+      event_name: "signal".to_string(),
+      payload: Some(event::Payload::SignalEvent(Signal {
+        id,
+        action: signal.to_string(),
+      })),
+    }
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
