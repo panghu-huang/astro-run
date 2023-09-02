@@ -578,8 +578,7 @@ jobs:
 
 #[astro_run_test::test]
 async fn test_invalid_event() -> astro_run::Result<()> {
-  dotenv::dotenv()
-    .map_err(|err| astro_run::Error::internal_runtime_error(format!("dotenv: {}", err)))?;
+  dotenv::dotenv().ok();
 
   let app_id = std::env::var("GH_APP_ID")
     .map_err(|err| astro_run::Error::internal_runtime_error(format!("GH_APP_ID: {}", err)))?;
