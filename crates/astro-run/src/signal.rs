@@ -116,6 +116,8 @@ impl From<&str> for Signal {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use std::pin::Pin;
+
   // #[test]
   // #[should_panic(expected = "Signal can only be set once.")]
   // fn test_set_signal_twice() {
@@ -180,5 +182,31 @@ mod tests {
   fn from_str() {
     assert_eq!(Signal::from("cancel"), Signal::Cancel);
     assert_eq!(Signal::from("timeout"), Signal::Timeout);
+  }
+
+  #[astro_run_test::test]
+  async fn test_wait_signal_twice() {
+    std::future::poll_fn(|cx| {
+      let signal = AstroRunSignal::new();
+      assert_eq!(signal.is_cancelled(), false);
+      assert_eq!(signal.is_timeout(), false);
+
+      signal.cancel();
+
+      let receiver = &mut signal.recv();
+      let mut receiver = Pin::new(receiver);
+      let res = receiver.as_mut().poll(cx);
+
+      assert_eq!(res, Poll::Ready(Signal::Cancel));
+
+      assert_eq!(signal.is_cancelled(), true);
+      assert_eq!(signal.is_timeout(), false);
+
+      let res = receiver.poll(cx);
+
+      assert_eq!(res, Poll::Pending);
+      Poll::Ready(())
+    })
+    .await;
   }
 }
