@@ -1,14 +1,15 @@
 use crate::{
-  Actions, AstroRunPlugin, Job, JobRunResult, PluginManager, Workflow, WorkflowRunResult,
-  WorkflowStateEvent,
+  Actions, AstroRunPlugin, AstroRunSignal, Error, Job, JobId, JobRunResult, PluginManager, Result,
+  Workflow, WorkflowRunResult, WorkflowStateEvent,
 };
 use parking_lot::Mutex;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Clone)]
 struct SharedState {
   plugins: PluginManager,
   actions: Actions,
+  signals: HashMap<JobId, AstroRunSignal>,
 }
 
 impl SharedState {
@@ -16,6 +17,7 @@ impl SharedState {
     SharedState {
       plugins: PluginManager::new(),
       actions: Actions::new(),
+      signals: HashMap::new(),
     }
   }
 }
@@ -73,5 +75,27 @@ impl AstroRunSharedState {
 
   pub fn on_job_completed(&self, result: JobRunResult) {
     self.0.lock().plugins.on_job_completed(result);
+  }
+
+  pub fn add_signal(&self, job_id: JobId, signal: AstroRunSignal) {
+    self.0.lock().signals.insert(job_id, signal);
+  }
+
+  pub fn get_signal(&self, job_id: &JobId) -> Option<AstroRunSignal> {
+    self.0.lock().signals.get(job_id).cloned()
+  }
+
+  pub fn remove_signal(&self, job_id: &JobId) {
+    self.0.lock().signals.remove(job_id);
+  }
+
+  pub fn cancel(&self, job_id: &JobId) -> Result<()> {
+    let signal = self
+      .get_signal(job_id)
+      .ok_or_else(|| Error::error(format!("Job {} not found", job_id.to_string())))?;
+
+    signal.cancel()?;
+
+    Ok(())
   }
 }

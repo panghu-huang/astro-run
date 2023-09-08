@@ -3,9 +3,9 @@ mod condition_matcher;
 
 pub use self::builder::ExecutionContextBuilder;
 use crate::{
-  AstroRunSharedState, AstroRunSignal, Condition, Context, Error, Job, JobRunResult, RunResult,
-  Runner, Step, StepRunResult, StreamExt, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState,
-  WorkflowStateEvent,
+  AstroRunSharedState, AstroRunSignal, Condition, Context, Error, Job, JobId, JobRunResult, Result,
+  RunResult, Runner, Signal, Step, StepRunResult, StreamExt, Workflow, WorkflowLog,
+  WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
 use std::sync::Arc;
 use tokio::time;
@@ -40,7 +40,13 @@ impl ExecutionContext {
     };
     plugin_manager.on_state_change(event.clone());
     self.runner.on_state_change(event);
+    // Job signal
+    let job_signal = self
+      .shared_state
+      .get_signal(&step.id.job_id())
+      .expect("Missing job signal");
 
+    // Step signal
     let signal = AstroRunSignal::new();
 
     let mut receiver = match self.runner.run(Context {
@@ -86,11 +92,19 @@ impl ExecutionContext {
       tokio::select! {
         // Timeout
         _ = time::sleep(timeout) => {
-          signal.timeout();
+          // Ignore error
+          signal.timeout().ok();
         }
-        // _ = async {} => {
-        //   signal.timeout();
-        // }
+        s = job_signal.recv() => {
+          match s {
+            Signal::Cancel => {
+              signal.cancel().ok();
+            }
+            Signal::Timeout => {
+              signal.timeout().ok();
+            }
+          }
+        }
         received = receiver.next() => {
           if let Some(log) = received {
             let log = WorkflowLog {
@@ -175,6 +189,10 @@ impl ExecutionContext {
   }
 
   pub fn on_run_job(&self, job: Job) {
+    self
+      .shared_state
+      .add_signal(job.id.clone(), AstroRunSignal::new());
+
     self.shared_state.on_run_job(job.clone());
     self.runner.on_run_job(job);
   }
@@ -185,6 +203,8 @@ impl ExecutionContext {
   }
 
   pub fn on_job_completed(&self, result: JobRunResult) {
+    self.shared_state.remove_signal(&result.id);
+
     self.shared_state.on_job_completed(result.clone());
     self.runner.on_job_completed(result);
   }
@@ -192,5 +212,9 @@ impl ExecutionContext {
   pub fn on_workflow_completed(&self, result: WorkflowRunResult) {
     self.shared_state.on_workflow_completed(result.clone());
     self.runner.on_workflow_completed(result);
+  }
+
+  pub fn cancel(&self, job_id: &JobId) -> Result<()> {
+    self.shared_state.cancel(job_id)
   }
 }

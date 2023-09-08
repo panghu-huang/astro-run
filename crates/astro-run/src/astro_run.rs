@@ -1,9 +1,10 @@
 use crate::{
   shared_state::AstroRunSharedState, Action, Actions, AstroRunPlugin, ExecutionContext,
-  ExecutionContextBuilder, GithubAuthorization, PluginManager, Runner,
+  ExecutionContextBuilder, GithubAuthorization, JobId, PluginManager, Result, Runner,
 };
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub struct AstroRun {
   runner: Arc<Box<dyn Runner>>,
   github_auth: Option<GithubAuthorization>,
@@ -13,6 +14,10 @@ pub struct AstroRun {
 impl AstroRun {
   pub fn builder() -> AstroRunBuilder {
     AstroRunBuilder::new()
+  }
+
+  pub fn cancel(&self, job_id: &JobId) -> Result<()> {
+    self.shared_state.cancel(job_id)
   }
 
   pub fn register_plugin(&self, plugin: AstroRunPlugin) -> &Self {

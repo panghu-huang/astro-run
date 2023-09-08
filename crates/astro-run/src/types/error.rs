@@ -9,6 +9,9 @@ pub enum Error {
   #[error("Failed with exit code: {0:?}")]
   Failed(usize),
 
+  #[error("Error: {0}")]
+  Error(String),
+
   #[error("IO error: {0}")]
   IOError(#[from] std::io::Error),
 
@@ -43,6 +46,10 @@ impl Error {
   pub fn init_error<T: ToString>(message: T) -> Self {
     Self::InitError(message.to_string())
   }
+
+  pub fn error<T: ToString>(message: T) -> Self {
+    Self::Error(message.to_string())
+  }
 }
 
 // implement Eq and PartialEq for Error so that we can compare errors in tests
@@ -53,6 +60,7 @@ impl PartialEq for Error {
       (Self::InternalRuntimeError(a), Self::InternalRuntimeError(b)) => a == b,
       (Self::Failed(a), Self::Failed(b)) => a == b,
       (Self::IOError(a), Self::IOError(b)) => a.kind() == b.kind(),
+      (Self::Error(a), Self::Error(b)) => a == b,
       (Self::UnsupportedFeature(a), Self::UnsupportedFeature(b)) => a == b,
       _ => false,
     }
@@ -81,6 +89,7 @@ mod tests {
       Error::unsupported_feature("hello"),
       Error::unsupported_feature("hello")
     );
+    assert_eq!(Error::error("hello"), Error::error("hello"));
     assert_eq!(Error::failed(1), Error::failed(1));
   }
 
@@ -105,6 +114,7 @@ mod tests {
       Error::unsupported_feature("hello"),
       Error::unsupported_feature("world")
     );
+    assert_ne!(Error::error("hello"), Error::error("world"));
     assert_ne!(Error::failed(1), Error::failed(2));
     assert_ne!(Error::failed(1), Error::internal_runtime_error("hello"));
   }

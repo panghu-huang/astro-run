@@ -121,10 +121,10 @@ impl AstroRunRunner {
               if let Some(astro_run_signal) = astro_run_signal {
                 match signal.action.as_str() {
                   "cancel" => {
-                    astro_run_signal.cancel();
+                    astro_run_signal.cancel().ok();
                   }
                   "timeout" => {
-                    astro_run_signal.timeout();
+                    astro_run_signal.timeout().ok();
                   }
                   _ => {}
                 }

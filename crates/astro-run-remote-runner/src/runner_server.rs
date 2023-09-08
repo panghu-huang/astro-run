@@ -193,10 +193,10 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
         if let Some(astro_run_signal) = astro_run_signal {
           match astro_run::Signal::from(signal.action.as_str()) {
             astro_run::Signal::Cancel => {
-              astro_run_signal.cancel();
+              astro_run_signal.cancel().ok();
             }
             astro_run::Signal::Timeout => {
-              astro_run_signal.timeout();
+              astro_run_signal.timeout().ok();
             }
           }
         } else {

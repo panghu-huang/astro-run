@@ -55,14 +55,17 @@ async fn test_run() -> Result<()> {
       .build()
       .unwrap();
 
-    let mut cloned_client_runner = client_runner.clone();
-    let handle = tokio::task::spawn(async move {
-      rx.await.unwrap();
+    let handle = tokio::task::spawn({
+      let mut client_runner = client_runner.clone();
 
-      cloned_client_runner
-        .start(vec!["http://127.0.0.1:5001"])
-        .await
-        .unwrap();
+      async move {
+        rx.await.unwrap();
+
+        client_runner
+          .start(vec!["http://127.0.0.1:5001"])
+          .await
+          .unwrap();
+      }
     });
 
     // Wait for server to start and listen for connections
