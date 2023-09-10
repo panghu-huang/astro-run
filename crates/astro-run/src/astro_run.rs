@@ -1,6 +1,6 @@
 use crate::{
-  shared_state::AstroRunSharedState, Action, Actions, AstroRunPlugin, ExecutionContext,
-  ExecutionContextBuilder, GithubAuthorization, JobId, PluginManager, Result, Runner,
+  shared_state::AstroRunSharedState, Action, Actions, ExecutionContext, ExecutionContextBuilder,
+  GithubAuthorization, JobId, Plugin, PluginManager, Result, Runner,
 };
 use std::sync::Arc;
 
@@ -20,7 +20,7 @@ impl AstroRun {
     self.shared_state.cancel(job_id)
   }
 
-  pub fn register_plugin(&self, plugin: AstroRunPlugin) -> &Self {
+  pub fn register_plugin<P: Plugin + 'static>(&self, plugin: P) -> &Self {
     self.shared_state.register_plugin(plugin);
 
     self
@@ -92,7 +92,7 @@ impl AstroRunBuilder {
     self
   }
 
-  pub fn plugin(self, plugin: AstroRunPlugin) -> Self {
+  pub fn plugin<P: Plugin + 'static>(self, plugin: P) -> Self {
     self.shared_state.register_plugin(plugin);
     self
   }

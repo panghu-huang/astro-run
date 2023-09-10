@@ -15,14 +15,15 @@ type OnJobComplete = dyn Fn(JobRunResult) -> () + Send + Sync;
 type OnStepComplete = dyn Fn(StepRunResult) -> () + Send + Sync;
 
 pub trait Plugin: Send {
-  fn on_state_change(&self, event: WorkflowStateEvent) -> ();
-  fn on_log(&self, log: WorkflowLog) -> ();
-  fn on_run_workflow(&self, workflow: Workflow) -> ();
-  fn on_run_job(&self, job: Job) -> ();
-  fn on_run_step(&self, step: Step) -> ();
-  fn on_workflow_completed(&self, result: WorkflowRunResult) -> ();
-  fn on_job_completed(&self, result: JobRunResult) -> ();
-  fn on_step_completed(&self, result: StepRunResult) -> ();
+  fn name(&self) -> &'static str;
+  fn on_state_change(&self, _event: WorkflowStateEvent) {}
+  fn on_log(&self, _log: WorkflowLog) {}
+  fn on_run_workflow(&self, _workflow: Workflow) {}
+  fn on_run_job(&self, _job: Job) {}
+  fn on_run_step(&self, _step: Step) {}
+  fn on_workflow_completed(&self, _result: WorkflowRunResult) {}
+  fn on_job_completed(&self, _result: JobRunResult) {}
+  fn on_step_completed(&self, _result: StepRunResult) {}
 }
 
 pub struct PluginBuilder {
@@ -150,6 +151,10 @@ impl AstroRunPlugin {
 }
 
 impl Plugin for AstroRunPlugin {
+  fn name(&self) -> &'static str {
+    self.name
+  }
+
   fn on_state_change(&self, event: WorkflowStateEvent) {
     if let Some(on_state_change) = &self.on_state_change {
       on_state_change(event);
@@ -201,7 +206,7 @@ impl Plugin for AstroRunPlugin {
 
 #[derive(Clone)]
 pub struct PluginManager {
-  pub(crate) plugins: Arc<Mutex<Vec<AstroRunPlugin>>>,
+  pub(crate) plugins: Arc<Mutex<Vec<Box<dyn Plugin>>>>,
 }
 
 impl PluginManager {
@@ -215,12 +220,16 @@ impl PluginManager {
     self.plugins.lock().len()
   }
 
-  pub fn register(&self, plugin: AstroRunPlugin) {
-    self.plugins.lock().push(plugin);
+  pub fn register<P: Plugin + 'static>(&self, plugin: P) {
+    let mut plugins = self.plugins.lock();
+
+    plugins.retain(|p| p.name() != plugin.name());
+
+    plugins.push(Box::new(plugin));
   }
 
   pub fn unregister(&self, name: &'static str) {
-    self.plugins.lock().retain(|plugin| plugin.name != name);
+    self.plugins.lock().retain(|plugin| plugin.name() != name);
   }
 
   pub fn on_state_change(&self, event: WorkflowStateEvent) {
@@ -337,6 +346,25 @@ mod tests {
       .build();
 
     plugin_manager.register(plugin);
+    plugin_manager.on_log(WorkflowLog {
+      message: "test".to_string(),
+      ..Default::default()
+    });
+  }
+
+  #[test]
+  fn test_plugin_trait() {
+    struct TestPlugin;
+
+    impl Plugin for TestPlugin {
+      fn name(&self) -> &'static str {
+        "test"
+      }
+    }
+
+    let plugin_manager = PluginManager::new();
+
+    plugin_manager.register(TestPlugin);
     plugin_manager.on_log(WorkflowLog {
       message: "test".to_string(),
       ..Default::default()

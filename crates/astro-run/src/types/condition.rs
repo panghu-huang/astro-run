@@ -308,4 +308,35 @@ mod tests {
 
     assert_eq!(pull_request.is_match(&payload), false);
   }
+
+  #[test]
+  fn test_invalid_payload_event() {
+    let condition = Condition::Config(ConditionConfig {
+      push: Some(PushCondition {
+        branches: Some(vec!["master".to_string()]),
+        paths: Some(vec!["src/main.rs".to_string()]),
+      }),
+      pull_request: None,
+    });
+
+    let payload = ConditionPayload {
+      event: "invalid".to_string(),
+      branch: "master".to_string(),
+      paths: vec!["src/main.rs".to_string()],
+    };
+
+    assert_eq!(condition.is_match(&payload), false);
+  }
+
+  #[test]
+  fn test_invalid_glob_pattern() {
+    let v = is_match_patterns(
+      &vec!["a/b".to_string()],
+      &vec![
+        "a**/b".to_string(), // Invalid glob pattern
+      ],
+    );
+
+    assert_eq!(v, false);
+  }
 }

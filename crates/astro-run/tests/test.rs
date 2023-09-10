@@ -1,7 +1,6 @@
 use astro_run::{
-  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Job, JobRunResult, PluginBuilder,
-  RunResult, Runner, Step, StepRunResult, UserActionStep, UserCommandStep, UserStep, Workflow,
-  WorkflowEvent, WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
+  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Plugin, RunResult, Runner,
+  UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowEvent, WorkflowLog, WorkflowState,
 };
 use parking_lot::Mutex;
 
@@ -42,52 +41,66 @@ impl Runner for TestRunner {
     Ok(rx)
   }
 
-  fn on_run_workflow(&self, workflow: Workflow) {
-    println!(
-      "Running workflow: {}",
-      workflow.name.unwrap_or("None".to_string())
-    );
-  }
+  // fn on_run_workflow(&self, workflow: Workflow) {
+  //   println!(
+  //     "Running workflow: {}",
+  //     workflow.name.unwrap_or("None".to_string())
+  //   );
+  // }
 
-  fn on_run_job(&self, job: Job) {
-    println!("Running job: {}", job.name.unwrap_or("None".to_string()));
-  }
+  // fn on_run_job(&self, job: Job) {
+  //   println!("Running job: {}", job.name.unwrap_or("None".to_string()));
+  // }
 
-  fn on_run_step(&self, step: Step) {
-    println!("Running step: {:?}", step);
-  }
+  // fn on_run_step(&self, step: Step) {
+  //   println!("Running step: {:?}", step);
+  // }
 
-  fn on_state_change(&self, event: WorkflowStateEvent) {
-    println!("State changed: {:?}", event);
-  }
+  // fn on_state_change(&self, event: WorkflowStateEvent) {
+  //   println!("State changed: {:?}", event);
+  // }
 
-  fn on_step_completed(&self, result: StepRunResult) {
-    println!("Step completed: {:?}", result);
-  }
+  // fn on_step_completed(&self, result: StepRunResult) {
+  //   println!("Step completed: {:?}", result);
+  // }
 
-  fn on_job_completed(&self, result: JobRunResult) {
-    println!("Job completed: {:?}", result);
-  }
+  // fn on_job_completed(&self, result: JobRunResult) {
+  //   println!("Job completed: {:?}", result);
+  // }
 
-  fn on_log(&self, log: WorkflowLog) {
-    println!("Log: {:?}", log);
-  }
+  // fn on_log(&self, log: WorkflowLog) {
+  //   println!("Log: {:?}", log);
+  // }
 
-  fn on_workflow_completed(&self, result: WorkflowRunResult) {
-    println!("Workflow completed {:?}", result);
+  // fn on_workflow_completed(&self, result: WorkflowRunResult) {
+  //   println!("Workflow completed {:?}", result);
+  // }
+}
+
+struct AssetLogsPlugin {
+  excepted_logs: Vec<&'static str>,
+  index: Mutex<usize>,
+}
+
+impl AssetLogsPlugin {
+  fn new(excepted_logs: Vec<&'static str>) -> Self {
+    AssetLogsPlugin {
+      excepted_logs,
+      index: Mutex::new(0),
+    }
   }
 }
 
-fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
-  let index = Mutex::new(0);
+impl Plugin for AssetLogsPlugin {
+  fn name(&self) -> &'static str {
+    "test-plugin"
+  }
 
-  PluginBuilder::new("test-plugin")
-    .on_log(move |log| {
-      let mut i = index.lock();
-      assert_eq!(log.message, excepted_logs[*i]);
-      *i += 1;
-    })
-    .build()
+  fn on_log(&self, log: WorkflowLog) {
+    let mut i = self.index.lock();
+    assert_eq!(log.message, self.excepted_logs[*i]);
+    *i += 1;
+  }
 }
 
 #[astro_run_test::test]
@@ -102,7 +115,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec!["Hello World"]))
+    .plugin(AssetLogsPlugin::new(vec!["Hello World"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -152,7 +165,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec!["Hello World"]))
+    .plugin(AssetLogsPlugin::new(vec!["Hello World"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -189,7 +202,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec![
+    .plugin(AssetLogsPlugin::new(vec![
       "Hello World1",
       "Hello World2",
       "Hello World3",
@@ -228,7 +241,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec!["Hello World1"]))
+    .plugin(AssetLogsPlugin::new(vec!["Hello World1"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -267,7 +280,7 @@ async fn test_depends_on() {
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec!["Hello World1", "Hello World2"]))
+    .plugin(AssetLogsPlugin::new(vec!["Hello World1", "Hello World2"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -302,7 +315,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec!["Failed step"]))
+    .plugin(AssetLogsPlugin::new(vec!["Failed step"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -337,7 +350,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec!["Failed step", "Hello World"]))
+    .plugin(AssetLogsPlugin::new(vec!["Failed step", "Hello World"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -373,7 +386,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec!["Cancel step"]))
+    .plugin(AssetLogsPlugin::new(vec!["Cancel step"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -424,7 +437,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(assert_logs_plugin(vec!["test", "Hello World"]))
+    .plugin(AssetLogsPlugin::new(vec!["test", "Hello World"]))
     .action("test", TestAction)
     .build();
 
@@ -526,7 +539,11 @@ jobs:
         })
         .build(),
     )
-    .register_plugin(assert_logs_plugin(vec!["pre test", "test", "Hello World"]))
+    .register_plugin(AssetLogsPlugin::new(vec![
+      "pre test",
+      "test",
+      "Hello World",
+    ]))
     .register_action("test", TestAction {});
 
   let workflow = Workflow::builder()
