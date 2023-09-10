@@ -146,9 +146,7 @@ impl ConditionMatcher {
           .app_id(app_id.to_string())
           .private_key(private_key)
           .build()
-          .map_err(|err| {
-            Error::internal_runtime_error(format!("Failed to build github app: {}", err))
-          })?;
+          .unwrap();
 
         let installation = github_app
           .get_repository_installation(repo_owner, repo_name)
@@ -169,5 +167,98 @@ impl ConditionMatcher {
     };
 
     Ok(github_api)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[astro_run_test::test]
+  async fn test_unsupported_event() {
+    let matcher = ConditionMatcher::new(
+      Some(WorkflowEvent {
+        event: "unsupported".to_string(),
+        ..Default::default()
+      }),
+      None,
+    );
+
+    let err = matcher.get_changed_files().await.unwrap_err();
+
+    assert_eq!(
+      err.to_string(),
+      "Unsupported feature: Event unsupported is not supported"
+    );
+  }
+
+  #[astro_run_test::test]
+  async fn invalid_github_app_id() {
+    dotenv::dotenv().ok();
+
+    let private_key = std::env::var("GH_APP_PRIVATE_KEY")
+      .map_err(|err| crate::Error::internal_runtime_error(format!("GH_APP_PRIVATE_KEY: {}", err)))
+      .unwrap();
+
+    let matcher = ConditionMatcher::new(
+      Some(WorkflowEvent {
+        event: "pull_request".to_string(),
+        ..Default::default()
+      }),
+      Some(GithubAuthorization::GithubApp {
+        app_id: 0,
+        private_key,
+      }),
+    );
+
+    let res = matcher
+      .get_github_api(&"panghu-huang".to_string(), &"astro-run".to_string())
+      .await;
+
+    assert!(res.is_err());
+  }
+
+  #[astro_run_test::test]
+  async fn test_pr_number_not_provided() {
+    dotenv::dotenv().ok();
+
+    let matcher = ConditionMatcher::new(
+      Some(WorkflowEvent {
+        event: "pull_request".to_string(),
+        ..Default::default()
+      }),
+      Some(GithubAuthorization::PersonalAccessToken(
+        std::env::var("PERSONAL_ACCESS_TOKEN").unwrap(),
+      )),
+    );
+
+    let err = matcher.get_changed_files().await.unwrap_err();
+
+    assert_eq!(
+      err,
+      Error::workflow_config_error("pr_number is not provided")
+    );
+  }
+
+  #[astro_run_test::test]
+  async fn test_invalid_pr_number() {
+    dotenv::dotenv().ok();
+
+    let matcher = ConditionMatcher::new(
+      Some(WorkflowEvent {
+        event: "pull_request".to_string(),
+        pr_number: Some(0),
+        ..Default::default()
+      }),
+      Some(GithubAuthorization::PersonalAccessToken(
+        std::env::var("PERSONAL_ACCESS_TOKEN").unwrap(),
+      )),
+    );
+
+    let err = matcher.get_changed_files().await.unwrap_err();
+
+    assert!(err
+      .to_string()
+      .starts_with("Error while running workflow: Failed to get pull request files: "));
   }
 }

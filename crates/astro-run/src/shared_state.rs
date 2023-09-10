@@ -1,5 +1,5 @@
 use crate::{
-  Actions, AstroRunPlugin, AstroRunSignal, Error, Job, JobId, JobRunResult, PluginManager, Result,
+  Actions, AstroRunSignal, Error, Job, JobId, JobRunResult, Plugin, PluginManager, Result,
   Workflow, WorkflowRunResult, WorkflowStateEvent,
 };
 use parking_lot::Mutex;
@@ -30,7 +30,7 @@ impl AstroRunSharedState {
     AstroRunSharedState(Arc::new(Mutex::new(SharedState::new())))
   }
 
-  pub fn register_plugin(&self, plugin: AstroRunPlugin) {
+  pub fn register_plugin<P: Plugin + 'static>(&self, plugin: P) {
     self.0.lock().plugins.register(plugin);
   }
 
