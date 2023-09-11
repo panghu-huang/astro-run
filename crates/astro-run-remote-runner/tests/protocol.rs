@@ -1,6 +1,6 @@
 use astro_run::{
-  stream, AstroRun, Context, EnvironmentVariable, Job, JobRunResult, PluginBuilder, Result,
-  RunResult, Runner, StepRunResult, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState,
+  stream, AstroRun, Context, EnvironmentVariable, JobRunResult, PluginBuilder, Result, RunResult,
+  Runner, StepRunResult, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState,
   WorkflowStateEvent,
 };
 use astro_run_remote_runner::{AstroRunRemoteRunnerClient, AstroRunRemoteRunnerServer};
@@ -31,13 +31,18 @@ impl Runner for TestRunner {
     Ok(rx)
   }
 
-  fn on_run_workflow(&self, workflow: Workflow) {
+  fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) {
     self.current_event_count.lock().add_assign(1);
-    assert_eq!(workflow.name.unwrap(), "CI");
+    assert_eq!(event.payload.name.unwrap(), "CI");
+    assert_eq!(event.workflow_event.unwrap().sha, "123456789");
   }
 
-  fn on_run_job(&self, job: Job) {
+  fn on_run_job(&self, event: astro_run::RunJobEvent) {
     self.current_event_count.lock().add_assign(1);
+
+    assert_eq!(event.workflow_event.unwrap().sha, "123456789");
+
+    let job = event.payload;
 
     assert_eq!(job.name.unwrap(), "Test Job");
     let step = job.steps[0].clone();
@@ -150,7 +155,13 @@ async fn test_protocol() -> Result<()> {
       .build(&astro_run)
       .unwrap();
 
-    let ctx = astro_run.execution_context().build();
+    let ctx = astro_run
+      .execution_context()
+      .event(astro_run::WorkflowEvent {
+        sha: "123456789".to_string(),
+        ..Default::default()
+      })
+      .build();
 
     let res = workflow.run(ctx).await;
 

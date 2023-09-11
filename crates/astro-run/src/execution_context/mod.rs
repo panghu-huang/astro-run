@@ -31,8 +31,12 @@ impl ExecutionContext {
 
     let started_at = chrono::Utc::now();
 
-    plugin_manager.on_run_step(step.clone());
-    self.runner.on_run_step(step.clone());
+    let event = crate::RunStepEvent {
+      payload: step.clone(),
+      workflow_event: self.condition_matcher.event.clone(),
+    };
+    plugin_manager.on_run_step(event.clone());
+    self.runner.on_run_step(event.clone());
 
     let event = WorkflowStateEvent::StepStateUpdated {
       id: step_id.clone(),
@@ -184,8 +188,12 @@ impl ExecutionContext {
   }
 
   pub fn on_run_workflow(&self, workflow: Workflow) {
-    self.shared_state.on_run_workflow(workflow.clone());
-    self.runner.on_run_workflow(workflow);
+    let event = crate::RunWorkflowEvent {
+      payload: workflow,
+      workflow_event: self.condition_matcher.event.clone(),
+    };
+    self.shared_state.on_run_workflow(event.clone());
+    self.runner.on_run_workflow(event);
   }
 
   pub fn on_run_job(&self, job: Job) {
@@ -193,8 +201,12 @@ impl ExecutionContext {
       .shared_state
       .add_signal(job.id.clone(), AstroRunSignal::new());
 
-    self.shared_state.on_run_job(job.clone());
-    self.runner.on_run_job(job);
+    let event = crate::RunJobEvent {
+      payload: job,
+      workflow_event: self.condition_matcher.event.clone(),
+    };
+    self.shared_state.on_run_job(event.clone());
+    self.runner.on_run_job(event);
   }
 
   pub fn on_state_change(&self, event: WorkflowStateEvent) {

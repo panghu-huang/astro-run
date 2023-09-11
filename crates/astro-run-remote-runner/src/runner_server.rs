@@ -162,29 +162,29 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
         self.plugins.on_state_change(event.clone());
         self.runner.on_state_change(event);
       }
-      EventPayload::RunStepEvent(step) => {
-        let step: astro_run::Step = step
-          .try_into()
-          .map_err(|e| tonic::Status::internal(format!("Failed to convert step: {}", e)))?;
+      EventPayload::RunStepEvent(event) => {
+        let event: astro_run::RunStepEvent = event.try_into().map_err(|e| {
+          tonic::Status::internal(format!("Failed to convert run step event: {}", e))
+        })?;
 
-        self.plugins.on_run_step(step.clone());
-        self.runner.on_run_step(step);
+        self.plugins.on_run_step(event.clone());
+        self.runner.on_run_step(event);
       }
-      EventPayload::RunJobEvent(job) => {
-        let job: astro_run::Job = job
+      EventPayload::RunJobEvent(event) => {
+        let event: astro_run::RunJobEvent = event
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert job: {}", e)))?;
 
-        self.plugins.on_run_job(job.clone());
-        self.runner.on_run_job(job);
+        self.plugins.on_run_job(event.clone());
+        self.runner.on_run_job(event);
       }
-      EventPayload::RunWorkflowEvent(workflow) => {
-        let workflow: astro_run::Workflow = workflow
+      EventPayload::RunWorkflowEvent(event) => {
+        let event: astro_run::RunWorkflowEvent = event
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert workflow: {}", e)))?;
 
-        self.plugins.on_run_workflow(workflow.clone());
-        self.runner.on_run_workflow(workflow);
+        self.plugins.on_run_workflow(event.clone());
+        self.runner.on_run_workflow(event);
       }
       EventPayload::SignalEvent(signal) => {
         log::trace!("Received signal: {:?}", signal);

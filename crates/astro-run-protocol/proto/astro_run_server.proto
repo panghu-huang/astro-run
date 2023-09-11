@@ -8,9 +8,9 @@ message Event {
   string event_name = 1;
   oneof payload {
     astro_run.Context run = 2;
-    astro_run.Workflow run_workflow_event = 3;
-    astro_run.Job run_job_event = 4;
-    astro_run.Command run_step_event = 5;
+    astro_run.RunWorkflowEvent run_workflow_event = 3;
+    astro_run.RunJobEvent run_job_event = 4;
+    astro_run.RunStepEvent run_step_event = 5;
     astro_run.WorkflowRunResult workflow_completed_event = 6;
     astro_run.JobRunResult job_completed_event = 7;
     astro_run.StepRunResult step_completed_event = 8;

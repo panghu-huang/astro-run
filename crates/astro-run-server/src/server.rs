@@ -211,16 +211,16 @@ impl Runner for AstroRunServer {
     self.send_event_to_clients(result);
   }
 
-  fn on_run_step(&self, step: astro_run::Step) {
-    self.send_event_to_clients(step);
+  fn on_run_step(&self, event: astro_run::RunStepEvent) {
+    self.send_event_to_clients(event);
   }
 
-  fn on_run_job(&self, job: astro_run::Job) {
-    self.send_event_to_clients(job);
+  fn on_run_job(&self, event: astro_run::RunJobEvent) {
+    self.send_event_to_clients(event);
   }
 
-  fn on_run_workflow(&self, workflow: astro_run::Workflow) {
-    self.send_event_to_clients(workflow);
+  fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) {
+    self.send_event_to_clients(event);
   }
 
   fn on_log(&self, log: astro_run::WorkflowLog) {

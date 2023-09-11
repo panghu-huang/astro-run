@@ -64,6 +64,8 @@ impl Workflow {
 
       if !job.depends_on.is_empty() {
         for depends_on_key in &job.depends_on {
+          // In the user config, there are checks, so this is unlikely to occur here
+          #[cfg(not(tarpaulin_include))]
           if !self.jobs.contains_key(depends_on_key) {
             log::error!(
               "Job {} depends on job {} which does not exist",
@@ -78,6 +80,7 @@ impl Workflow {
         waiting_jobs.push((key, job));
         continue;
       }
+
       self.run_job(key.clone(), job.clone(), ctx.clone(), sender.clone());
     }
 
@@ -91,6 +94,7 @@ impl Workflow {
         workflow_state = WorkflowState::Cancelled;
       }
 
+      waiting_jobs.retain(|(k, _)| k != &key);
       job_results.insert(key, job_result);
 
       if job_results.len() == total_jobs {

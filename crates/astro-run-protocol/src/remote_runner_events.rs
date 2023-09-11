@@ -29,7 +29,21 @@ impl RunResponse {
 }
 
 impl Event {
-  pub fn new_log(log: astro_run::WorkflowLog) -> astro_run::Result<Self> {
+  pub fn new_signal(id: String, signal: astro_run::Signal) -> Self {
+    Self {
+      event_name: "signal".to_string(),
+      payload: Some(event::Payload::SignalEvent(Signal {
+        id,
+        action: signal.to_string(),
+      })),
+    }
+  }
+}
+
+impl TryFrom<astro_run::WorkflowLog> for Event {
+  type Error = astro_run::Error;
+
+  fn try_from(log: astro_run::WorkflowLog) -> Result<Self, Self::Error> {
     let workflow_log = WorkflowLog {
       step_id: log.step_id.to_string(),
       message: log.message,
@@ -42,8 +56,12 @@ impl Event {
       payload: Some(event::Payload::LogEvent(workflow_log)),
     })
   }
+}
 
-  pub fn new_step_completed(result: astro_run::StepRunResult) -> astro_run::Result<Self> {
+impl TryFrom<astro_run::StepRunResult> for Event {
+  type Error = astro_run::Error;
+
+  fn try_from(result: astro_run::StepRunResult) -> Result<Self, Self::Error> {
     let event = event::Payload::StepCompletedEvent(result.try_into()?);
 
     Ok(Self {
@@ -51,8 +69,12 @@ impl Event {
       payload: Some(event),
     })
   }
+}
 
-  pub fn new_job_completed(result: astro_run::JobRunResult) -> astro_run::Result<Self> {
+impl TryFrom<astro_run::JobRunResult> for Event {
+  type Error = astro_run::Error;
+
+  fn try_from(result: astro_run::JobRunResult) -> Result<Self, Self::Error> {
     let event = event::Payload::JobCompletedEvent(result.try_into()?);
 
     Ok(Self {
@@ -60,8 +82,12 @@ impl Event {
       payload: Some(event),
     })
   }
+}
 
-  pub fn new_workflow_completed(result: astro_run::WorkflowRunResult) -> astro_run::Result<Self> {
+impl TryFrom<astro_run::WorkflowRunResult> for Event {
+  type Error = astro_run::Error;
+
+  fn try_from(result: astro_run::WorkflowRunResult) -> Result<Self, Self::Error> {
     let event = event::Payload::WorkflowCompletedEvent(result.try_into()?);
 
     Ok(Self {
@@ -69,8 +95,12 @@ impl Event {
       payload: Some(event),
     })
   }
+}
 
-  pub fn new_state_change(event: astro_run::WorkflowStateEvent) -> astro_run::Result<Self> {
+impl TryFrom<astro_run::WorkflowStateEvent> for Event {
+  type Error = astro_run::Error;
+
+  fn try_from(event: astro_run::WorkflowStateEvent) -> Result<Self, Self::Error> {
     let event = event::Payload::WorkflowStateEvent(event.try_into()?);
 
     Ok(Self {
@@ -78,41 +108,43 @@ impl Event {
       payload: Some(event),
     })
   }
+}
 
-  pub fn new_run_step(step: astro_run::Step) -> astro_run::Result<Self> {
-    let step = step.try_into()?;
+impl TryFrom<astro_run::RunStepEvent> for Event {
+  type Error = astro_run::Error;
+
+  fn try_from(event: astro_run::RunStepEvent) -> Result<Self, Self::Error> {
+    let event = event::Payload::RunStepEvent(event.try_into()?);
 
     Ok(Self {
       event_name: "run_step".to_string(),
-      payload: Some(event::Payload::RunStepEvent(step)),
+      payload: Some(event),
     })
   }
+}
 
-  pub fn new_run_job(job: astro_run::Job) -> astro_run::Result<Self> {
-    let job = job.try_into()?;
+impl TryFrom<astro_run::RunJobEvent> for Event {
+  type Error = astro_run::Error;
+
+  fn try_from(event: astro_run::RunJobEvent) -> Result<Self, Self::Error> {
+    let event = event::Payload::RunJobEvent(event.try_into()?);
 
     Ok(Self {
       event_name: "run_job".to_string(),
-      payload: Some(event::Payload::RunJobEvent(job)),
+      payload: Some(event),
     })
   }
+}
 
-  pub fn new_run_workflow(workflow: astro_run::Workflow) -> astro_run::Result<Self> {
-    let workflow = workflow.try_into()?;
+impl TryFrom<astro_run::RunWorkflowEvent> for Event {
+  type Error = astro_run::Error;
+
+  fn try_from(event: astro_run::RunWorkflowEvent) -> Result<Self, Self::Error> {
+    let event = event::Payload::RunWorkflowEvent(event.try_into()?);
 
     Ok(Self {
       event_name: "run_workflow".to_string(),
-      payload: Some(event::Payload::RunWorkflowEvent(workflow)),
+      payload: Some(event),
     })
-  }
-
-  pub fn new_signal(id: String, signal: astro_run::Signal) -> Self {
-    Self {
-      event_name: "signal".to_string(),
-      payload: Some(event::Payload::SignalEvent(Signal {
-        id,
-        action: signal.to_string(),
-      })),
-    }
   }
 }

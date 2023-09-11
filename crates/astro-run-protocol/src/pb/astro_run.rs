@@ -211,6 +211,30 @@ pub struct RunnerMetadata {
     #[prost(bool, tag = "7")]
     pub support_host: bool,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunWorkflowEvent {
+    #[prost(message, optional, tag = "1")]
+    pub payload: ::core::option::Option<Workflow>,
+    #[prost(message, optional, tag = "2")]
+    pub workflow_event: ::core::option::Option<WorkflowEvent>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunJobEvent {
+    #[prost(message, optional, tag = "1")]
+    pub payload: ::core::option::Option<Job>,
+    #[prost(message, optional, tag = "2")]
+    pub workflow_event: ::core::option::Option<WorkflowEvent>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunStepEvent {
+    #[prost(message, optional, tag = "1")]
+    pub payload: ::core::option::Option<Command>,
+    #[prost(message, optional, tag = "2")]
+    pub workflow_event: ::core::option::Option<WorkflowEvent>,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum WorkflowState {

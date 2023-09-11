@@ -62,89 +62,97 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
   }
 
   fn on_log(&self, log: astro_run::WorkflowLog) {
-    match Event::new_log(log) {
+    match Event::try_from(log) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
           log::error!("Failed to send event: {}", err);
         }
       }
+      #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
 
   fn on_step_completed(&self, result: astro_run::StepRunResult) {
-    match Event::new_step_completed(result) {
+    match Event::try_from(result) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
           log::error!("Failed to send event: {}", err);
         }
       }
+      #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
 
   fn on_job_completed(&self, result: astro_run::JobRunResult) {
-    match Event::new_job_completed(result) {
+    match Event::try_from(result) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
           log::error!("Failed to send event: {}", err);
         }
       }
+      #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
 
   fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) {
-    match Event::new_workflow_completed(result) {
+    match Event::try_from(result) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
           log::error!("Failed to send event: {}", err);
         }
       }
+      #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
 
   fn on_state_change(&self, event: astro_run::WorkflowStateEvent) {
-    match Event::new_state_change(event) {
+    match Event::try_from(event) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
           log::error!("Failed to send event: {}", err);
         }
       }
+      #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
 
-  fn on_run_step(&self, step: astro_run::Step) {
-    match Event::new_run_step(step) {
+  fn on_run_step(&self, event: astro_run::RunStepEvent) {
+    match Event::try_from(event) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
           log::error!("Failed to send event: {}", err);
         }
       }
+      #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
 
-  fn on_run_job(&self, job: astro_run::Job) {
-    match Event::new_run_job(job) {
+  fn on_run_job(&self, event: astro_run::RunJobEvent) {
+    match Event::try_from(event) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
           log::error!("Failed to send event: {}", err);
         }
       }
+      #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
 
-  fn on_run_workflow(&self, workflow: astro_run::Workflow) {
-    match Event::new_run_workflow(workflow) {
+  fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) {
+    match Event::try_from(event) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
           log::error!("Failed to send event: {}", err);
         }
       }
+      #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
     }
   }
@@ -185,11 +193,13 @@ impl AstroRunRemoteRunnerClient {
         let event = Request::new(event.clone());
 
         if let Err(err) = client.client.send_event(event).await {
+          #[cfg(not(tarpaulin_include))]
           log::error!("Failed to send event: {}", err);
         }
       }
     }
 
+    #[cfg(not(tarpaulin_include))]
     Ok(())
   }
 

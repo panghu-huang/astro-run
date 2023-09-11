@@ -64,41 +64,41 @@ impl TryFrom<astro_run::Context> for Event {
   }
 }
 
-impl TryFrom<astro_run::Step> for Event {
+impl TryFrom<astro_run::RunStepEvent> for Event {
   type Error = astro_run::Error;
 
-  fn try_from(value: astro_run::Step) -> Result<Self, Self::Error> {
-    let step = value.try_into()?;
+  fn try_from(value: astro_run::RunStepEvent) -> Result<Self, Self::Error> {
+    let event = value.try_into()?;
 
     Ok(Event {
       event_name: "run_step".to_string(),
-      payload: Some(event::Payload::RunStepEvent(step)),
+      payload: Some(event::Payload::RunStepEvent(event)),
     })
   }
 }
 
-impl TryFrom<astro_run::Job> for Event {
+impl TryFrom<astro_run::RunJobEvent> for Event {
   type Error = astro_run::Error;
 
-  fn try_from(value: astro_run::Job) -> Result<Self, Self::Error> {
-    let job = value.try_into()?;
+  fn try_from(value: astro_run::RunJobEvent) -> Result<Self, Self::Error> {
+    let event = value.try_into()?;
 
     Ok(Event {
       event_name: "run_job".to_string(),
-      payload: Some(event::Payload::RunJobEvent(job)),
+      payload: Some(event::Payload::RunJobEvent(event)),
     })
   }
 }
 
-impl TryFrom<astro_run::Workflow> for Event {
+impl TryFrom<astro_run::RunWorkflowEvent> for Event {
   type Error = astro_run::Error;
 
-  fn try_from(value: astro_run::Workflow) -> Result<Self, Self::Error> {
-    let workflow = value.try_into()?;
+  fn try_from(value: astro_run::RunWorkflowEvent) -> Result<Self, Self::Error> {
+    let event = value.try_into()?;
 
     Ok(Event {
       event_name: "run_workflow".to_string(),
-      payload: Some(event::Payload::RunWorkflowEvent(workflow)),
+      payload: Some(event::Payload::RunWorkflowEvent(event)),
     })
   }
 }

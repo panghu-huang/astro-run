@@ -284,21 +284,104 @@ impl TryInto<astro_run_scheduler::RunnerMetadata> for RunnerMetadata {
   }
 }
 
-// impl TryFrom<astro_run_scheduler::RunnerMetadata> for RunnerMetadata {
-//   type Error = astro_run::Error;
+impl TryFrom<astro_run::RunStepEvent> for RunStepEvent {
+  type Error = astro_run::Error;
 
-//   fn try_from(value: astro_run_scheduler::RunnerMetadata) -> Result<Self, Self::Error> {
-//     Ok(RunnerMetadata {
-//       id: value.id,
-//       version: value.version,
-//       os: value.os,
-//       arch: value.arch,
-//       support_docker: value.support_docker,
-//       support_host: value.support_host,
-//       max_runs: value.max_runs,
-//     })
-//   }
-// }
+  fn try_from(value: astro_run::RunStepEvent) -> Result<Self, Self::Error> {
+    let payload = value.payload.try_into()?;
+    let workflow_event = value.workflow_event.map(|e| e.into());
+
+    Ok(Self {
+      payload: Some(payload),
+      workflow_event,
+    })
+  }
+}
+
+impl TryInto<astro_run::RunStepEvent> for RunStepEvent {
+  type Error = astro_run::Error;
+
+  fn try_into(self) -> Result<astro_run::RunStepEvent, Self::Error> {
+    let payload = self
+      .payload
+      .ok_or(astro_run::Error::internal_runtime_error(
+        "Payload is missing",
+      ))?
+      .try_into()?;
+    let workflow_event = self.workflow_event.map(|e| e.into());
+
+    Ok(astro_run::RunStepEvent {
+      payload,
+      workflow_event,
+    })
+  }
+}
+
+impl TryFrom<astro_run::RunJobEvent> for RunJobEvent {
+  type Error = astro_run::Error;
+
+  fn try_from(value: astro_run::RunJobEvent) -> Result<Self, Self::Error> {
+    let payload = value.payload.try_into()?;
+    let workflow_event = value.workflow_event.map(|e| e.into());
+
+    Ok(Self {
+      payload: Some(payload),
+      workflow_event,
+    })
+  }
+}
+
+impl TryInto<astro_run::RunJobEvent> for RunJobEvent {
+  type Error = astro_run::Error;
+
+  fn try_into(self) -> Result<astro_run::RunJobEvent, Self::Error> {
+    let payload = self
+      .payload
+      .ok_or(astro_run::Error::internal_runtime_error(
+        "Payload is missing",
+      ))?
+      .try_into()?;
+    let workflow_event = self.workflow_event.map(|e| e.into());
+
+    Ok(astro_run::RunJobEvent {
+      payload,
+      workflow_event,
+    })
+  }
+}
+
+impl TryFrom<astro_run::RunWorkflowEvent> for RunWorkflowEvent {
+  type Error = astro_run::Error;
+
+  fn try_from(value: astro_run::RunWorkflowEvent) -> Result<Self, Self::Error> {
+    let payload = value.payload.try_into()?;
+    let workflow_event = value.workflow_event.map(|e| e.into());
+
+    Ok(Self {
+      payload: Some(payload),
+      workflow_event,
+    })
+  }
+}
+
+impl TryInto<astro_run::RunWorkflowEvent> for RunWorkflowEvent {
+  type Error = astro_run::Error;
+
+  fn try_into(self) -> Result<astro_run::RunWorkflowEvent, Self::Error> {
+    let payload = self
+      .payload
+      .ok_or(astro_run::Error::internal_runtime_error(
+        "Payload is missing",
+      ))?
+      .try_into()?;
+    let workflow_event = self.workflow_event.map(|e| e.into());
+
+    Ok(astro_run::RunWorkflowEvent {
+      payload,
+      workflow_event,
+    })
+  }
+}
 
 #[cfg(test)]
 mod tests {
@@ -340,5 +423,18 @@ mod tests {
     let astro_state: astro_run::WorkflowState = state.into();
 
     assert_eq!(astro_state, astro_run::WorkflowState::Skipped);
+  }
+
+  #[test]
+  fn test_invalid_workflow_state_event() {
+    let event = WorkflowStateEvent {
+      r#type: "invalid".to_string(),
+      id: "id".to_string(),
+      state: 0,
+    };
+
+    let res: Result<astro_run::WorkflowStateEvent, _> = event.try_into();
+
+    assert!(res.is_err());
   }
 }

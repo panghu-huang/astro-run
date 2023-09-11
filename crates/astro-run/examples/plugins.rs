@@ -25,7 +25,7 @@ impl astro_run::Runner for Runner {
 #[tokio::main]
 async fn main() {
   let plugin = AstroRunPlugin::builder("plugin-name")
-    .on_run_workflow(|workflow| println!("{:?}", workflow))
+    .on_run_workflow(|event| println!("{:?}", event))
     .on_run_job(|job| {
       println!("{:?}", job);
     })

@@ -274,13 +274,21 @@ async fn test_depends_on() {
       name: Depends Test Job
       depends-on: [test]
       steps:
-        - name: Test Step
-          run: Hello World2   
+        - run: Hello World2  
+    depends_test2:
+      name: Depends Test Job
+      depends-on: [test, depends_test]
+      steps:
+        - run: Hello World3 
     "#;
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["Hello World1", "Hello World2"]))
+    .plugin(AssetLogsPlugin::new(vec![
+      "Hello World1",
+      "Hello World2",
+      "Hello World3",
+    ]))
     .build();
 
   let workflow = Workflow::builder()
@@ -298,6 +306,10 @@ async fn test_depends_on() {
   assert_eq!(job_result.steps.len(), 1);
 
   let job_result = res.jobs.get("depends_test").unwrap();
+  assert_eq!(job_result.state, WorkflowState::Succeeded);
+  assert_eq!(job_result.steps.len(), 1);
+
+  let job_result = res.jobs.get("depends_test2").unwrap();
   assert_eq!(job_result.state, WorkflowState::Succeeded);
   assert_eq!(job_result.steps.len(), 1);
 }
@@ -488,12 +500,14 @@ jobs:
   astro_run
     .register_plugin(
       AstroRunPlugin::builder("test")
-        .on_run_workflow(|workflow| {
+        .on_run_workflow(|event| {
+          let workflow = event.payload;
           assert_eq!(workflow.name.unwrap(), "Test Workflow");
           assert_eq!(workflow.jobs.len(), 1);
           assert_eq!(workflow.id.inner(), "id");
         })
-        .on_run_job(|job| {
+        .on_run_job(|event| {
+          let job = event.payload;
           assert_eq!(job.id.job_key(), "test");
           assert_eq!(job.name.unwrap(), "Test Job");
 
@@ -511,7 +525,8 @@ jobs:
           let step = steps[2].clone();
           assert_eq!(step.run, "Hello World");
         })
-        .on_run_step(|step| {
+        .on_run_step(|event| {
+          let step = event.payload;
           let index = step.id.step_number();
           match index {
             0 => {

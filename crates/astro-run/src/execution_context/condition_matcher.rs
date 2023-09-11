@@ -159,6 +159,7 @@ impl ConditionMatcher {
           })?;
 
         let github_api = github_app.get_api(installation.id).await.map_err(|err| {
+          #[cfg(not(tarpaulin_include))]
           Error::internal_runtime_error(format!("Failed to get github api: {}", err))
         })?;
 

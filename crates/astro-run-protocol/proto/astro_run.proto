@@ -129,3 +129,19 @@ message RunnerMetadata {
   bool support_docker = 6;
   bool support_host = 7;
 }
+
+
+message RunWorkflowEvent {
+  Workflow payload = 1;
+  optional WorkflowEvent workflow_event = 2;
+}
+
+message RunJobEvent {
+  Job payload = 1;
+  optional WorkflowEvent workflow_event = 2;
+}
+
+message RunStepEvent {
+  Command payload = 1;
+  optional WorkflowEvent workflow_event = 2;
+}

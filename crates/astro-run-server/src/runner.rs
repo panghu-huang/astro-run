@@ -86,20 +86,20 @@ impl AstroRunRunner {
               self.plugins.on_workflow_completed(result.clone());
               self.runner.on_workflow_completed(result);
             }
-            EventPayload::RunWorkflowEvent(workflow) => {
-              let workflow: astro_run::Workflow = workflow.try_into()?;
-              self.plugins.on_run_workflow(workflow.clone());
-              self.runner.on_run_workflow(workflow);
+            EventPayload::RunWorkflowEvent(event) => {
+              let event: astro_run::RunWorkflowEvent = event.try_into()?;
+              self.plugins.on_run_workflow(event.clone());
+              self.runner.on_run_workflow(event);
             }
-            EventPayload::RunJobEvent(job) => {
-              let job: astro_run::Job = job.try_into()?;
-              self.plugins.on_run_job(job.clone());
-              self.runner.on_run_job(job);
+            EventPayload::RunJobEvent(event) => {
+              let event: astro_run::RunJobEvent = event.try_into()?;
+              self.plugins.on_run_job(event.clone());
+              self.runner.on_run_job(event);
             }
-            EventPayload::RunStepEvent(step) => {
-              let step: astro_run::Step = step.try_into()?;
-              self.plugins.on_run_step(step.clone());
-              self.runner.on_run_step(step);
+            EventPayload::RunStepEvent(event) => {
+              let event: astro_run::RunStepEvent = event.try_into()?;
+              self.plugins.on_run_step(event.clone());
+              self.runner.on_run_step(event);
             }
             EventPayload::Error(error) => {
               log::error!("Received error event: {:?}", error);

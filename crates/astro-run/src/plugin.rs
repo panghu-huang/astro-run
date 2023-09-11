@@ -1,15 +1,34 @@
 use crate::{
-  Job, JobRunResult, Step, StepRunResult, Workflow, WorkflowLog, WorkflowRunResult,
+  Job, JobRunResult, Step, StepRunResult, Workflow, WorkflowEvent, WorkflowLog, WorkflowRunResult,
   WorkflowStateEvent,
 };
 use parking_lot::Mutex;
 use std::sync::Arc;
 
+#[derive(Clone, Debug)]
+pub struct RunEvent<T> {
+  pub payload: T,
+  pub workflow_event: Option<WorkflowEvent>,
+}
+
+#[derive(Clone, Debug)]
+pub struct CompletedEvent<T, R> {
+  pub payload: T,
+  pub workflow_event: Option<WorkflowEvent>,
+  pub result: R,
+}
+
+pub type RunWorkflowEvent = RunEvent<Workflow>;
+
+pub type RunJobEvent = RunEvent<Job>;
+
+pub type RunStepEvent = RunEvent<Step>;
+
 type OnStateChange = dyn Fn(WorkflowStateEvent) -> () + Send + Sync;
 type OnLog = dyn Fn(WorkflowLog) -> () + Send + Sync;
-type OnRunWorkflow = dyn Fn(Workflow) -> () + Send + Sync;
-type OnRunJob = dyn Fn(Job) -> () + Send + Sync;
-type OnRunStep = dyn Fn(Step) -> () + Send + Sync;
+type OnRunWorkflow = dyn Fn(RunWorkflowEvent) -> () + Send + Sync;
+type OnRunJob = dyn Fn(RunJobEvent) -> () + Send + Sync;
+type OnRunStep = dyn Fn(RunStepEvent) -> () + Send + Sync;
 type OnWorkflowComplete = dyn Fn(WorkflowRunResult) -> () + Send + Sync;
 type OnJobComplete = dyn Fn(JobRunResult) -> () + Send + Sync;
 type OnStepComplete = dyn Fn(StepRunResult) -> () + Send + Sync;
@@ -18,9 +37,9 @@ pub trait Plugin: Send {
   fn name(&self) -> &'static str;
   fn on_state_change(&self, _event: WorkflowStateEvent) {}
   fn on_log(&self, _log: WorkflowLog) {}
-  fn on_run_workflow(&self, _workflow: Workflow) {}
-  fn on_run_job(&self, _job: Job) {}
-  fn on_run_step(&self, _step: Step) {}
+  fn on_run_workflow(&self, _event: RunWorkflowEvent) {}
+  fn on_run_job(&self, _event: RunJobEvent) {}
+  fn on_run_step(&self, _event: RunStepEvent) {}
   fn on_workflow_completed(&self, _result: WorkflowRunResult) {}
   fn on_job_completed(&self, _result: JobRunResult) {}
   fn on_step_completed(&self, _result: StepRunResult) {}
@@ -71,7 +90,7 @@ impl PluginBuilder {
 
   pub fn on_run_workflow<T>(mut self, on_run_workflow: T) -> Self
   where
-    T: Fn(Workflow) -> () + 'static + Send + Sync,
+    T: Fn(RunWorkflowEvent) -> () + 'static + Send + Sync,
   {
     self.on_run_workflow = Some(Box::new(on_run_workflow));
     self
@@ -79,7 +98,7 @@ impl PluginBuilder {
 
   pub fn on_run_job<T>(mut self, on_run_job: T) -> Self
   where
-    T: Fn(Job) -> () + 'static + Send + Sync,
+    T: Fn(RunJobEvent) -> () + 'static + Send + Sync,
   {
     self.on_run_job = Some(Box::new(on_run_job));
     self
@@ -87,7 +106,7 @@ impl PluginBuilder {
 
   pub fn on_run_step<T>(mut self, on_run_step: T) -> Self
   where
-    T: Fn(Step) -> () + 'static + Send + Sync,
+    T: Fn(RunStepEvent) -> () + 'static + Send + Sync,
   {
     self.on_run_step = Some(Box::new(on_run_step));
     self
@@ -167,21 +186,21 @@ impl Plugin for AstroRunPlugin {
     }
   }
 
-  fn on_run_workflow(&self, workflow: Workflow) {
+  fn on_run_workflow(&self, event: RunWorkflowEvent) {
     if let Some(on_run_workflow) = &self.on_run_workflow {
-      on_run_workflow(workflow);
+      on_run_workflow(event);
     }
   }
 
-  fn on_run_job(&self, job: Job) {
+  fn on_run_job(&self, event: RunJobEvent) {
     if let Some(on_run_job) = &self.on_run_job {
-      on_run_job(job);
+      on_run_job(event);
     }
   }
 
-  fn on_run_step(&self, step: Step) -> () {
+  fn on_run_step(&self, event: RunStepEvent) -> () {
     if let Some(on_run_step) = &self.on_run_step {
-      on_run_step(step);
+      on_run_step(event);
     }
   }
 
@@ -246,24 +265,24 @@ impl PluginManager {
     }
   }
 
-  pub fn on_run_workflow(&self, workflow: Workflow) {
+  pub fn on_run_workflow(&self, event: RunWorkflowEvent) {
     let plugins = self.plugins.lock();
     for plugin in plugins.iter() {
-      plugin.on_run_workflow(workflow.clone());
+      plugin.on_run_workflow(event.clone());
     }
   }
 
-  pub fn on_run_job(&self, job: Job) {
+  pub fn on_run_job(&self, event: RunJobEvent) {
     let plugins = self.plugins.lock();
     for plugin in plugins.iter() {
-      plugin.on_run_job(job.clone());
+      plugin.on_run_job(event.clone());
     }
   }
 
-  pub fn on_run_step(&self, step: Step) {
+  pub fn on_run_step(&self, event: RunStepEvent) {
     let plugins = self.plugins.lock();
     for plugin in plugins.iter() {
-      plugin.on_run_step(step.clone());
+      plugin.on_run_step(event.clone());
     }
   }
 

@@ -12,11 +12,11 @@ pub mod event {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Payload {
         #[prost(message, tag = "2")]
-        RunWorkflowEvent(super::super::astro_run::Workflow),
+        RunWorkflowEvent(super::super::astro_run::RunWorkflowEvent),
         #[prost(message, tag = "3")]
-        RunJobEvent(super::super::astro_run::Job),
+        RunJobEvent(super::super::astro_run::RunJobEvent),
         #[prost(message, tag = "4")]
-        RunStepEvent(super::super::astro_run::Command),
+        RunStepEvent(super::super::astro_run::RunStepEvent),
         #[prost(message, tag = "5")]
         WorkflowCompletedEvent(super::super::astro_run::WorkflowRunResult),
         #[prost(message, tag = "6")]
