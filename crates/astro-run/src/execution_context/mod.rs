@@ -38,12 +38,14 @@ impl ExecutionContext {
     plugin_manager.on_run_step(event.clone());
     self.runner.on_run_step(event.clone());
 
+    // Queued
     let event = WorkflowStateEvent::StepStateUpdated {
       id: step_id.clone(),
-      state: WorkflowState::InProgress,
+      state: WorkflowState::Queued,
     };
     plugin_manager.on_state_change(event.clone());
     self.runner.on_state_change(event);
+
     // Job signal
     let job_signal = self
       .shared_state
@@ -53,12 +55,16 @@ impl ExecutionContext {
     // Step signal
     let signal = AstroRunSignal::new();
 
-    let mut receiver = match self.runner.run(Context {
-      id: step_id.to_string(),
-      signal: signal.clone(),
-      command: step.into(),
-      event: self.condition_matcher.event.clone(),
-    }) {
+    let mut receiver = match self
+      .runner
+      .run(Context {
+        id: step_id.to_string(),
+        signal: signal.clone(),
+        command: step.into(),
+        event: self.condition_matcher.event.clone(),
+      })
+      .await
+    {
       Ok(receiver) => receiver,
       Err(err) => {
         let completed_at = chrono::Utc::now();
@@ -91,6 +97,13 @@ impl ExecutionContext {
         return result;
       }
     };
+
+    let event = WorkflowStateEvent::StepStateUpdated {
+      id: step_id.clone(),
+      state: WorkflowState::InProgress,
+    };
+    plugin_manager.on_state_change(event.clone());
+    self.runner.on_state_change(event);
 
     loop {
       tokio::select! {

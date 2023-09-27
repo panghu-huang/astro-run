@@ -9,8 +9,9 @@ impl TestScheduler {
   }
 }
 
+#[astro_run::async_trait]
 impl Scheduler for TestScheduler {
-  fn schedule<'a, 'b: 'a>(
+  async fn schedule<'a, 'b: 'a>(
     &'b self,
     runners: &'a Vec<RunnerMetadata>,
     _ctx: &astro_run::Context,

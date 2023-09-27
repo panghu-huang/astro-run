@@ -10,7 +10,7 @@ async fn main() -> Result<()> {
   // Start server in background
   let handle = tokio::spawn(async move {
     println!("Starting server");
-    cloned_server.serve("127.0.0.1:5001").await.unwrap();
+    cloned_server.serve("127.0.0.1:5338").await.unwrap();
   });
 
   let astro_run = AstroRun::builder().runner(server).build();

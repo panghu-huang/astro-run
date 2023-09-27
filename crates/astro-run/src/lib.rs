@@ -22,4 +22,6 @@ pub use types::*;
 pub use user_config::*;
 pub use workflow::*;
 
+pub use async_trait::async_trait;
+
 pub type Result<T> = std::result::Result<T, Error>;

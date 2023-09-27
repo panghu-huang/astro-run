@@ -133,8 +133,9 @@ impl AstroRunService for AstroRunServer {
   }
 }
 
+#[astro_run::async_trait]
 impl Runner for AstroRunServer {
-  fn run(&self, ctx: Context) -> RunResponse {
+  async fn run(&self, ctx: Context) -> RunResponse {
     let (sender, receiver) = stream();
     let id = ctx.command.id.to_string();
 
@@ -145,7 +146,7 @@ impl Runner for AstroRunServer {
       .map(|c| c.metadata.clone())
       .collect::<Vec<_>>();
 
-    let runner = match self.scheduler.schedule(&runners, &ctx) {
+    let runner = match self.scheduler.schedule(&runners, &ctx).await {
       Some(runner) => runner,
       None => {
         sender.error("No runner available");

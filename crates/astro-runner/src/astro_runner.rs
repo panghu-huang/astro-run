@@ -20,6 +20,7 @@ impl AstroRunner {
   }
 }
 
+#[astro_run::async_trait]
 impl Runner for AstroRunner {
   fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) {
     if let Err(err) = self.cleanup_workflow_working_directory(result) {
@@ -27,7 +28,7 @@ impl Runner for AstroRunner {
     }
   }
 
-  fn run(&self, ctx: Context) -> RunResponse {
+  async fn run(&self, ctx: Context) -> RunResponse {
     let (sender, receiver) = stream();
 
     let executor = self.create_executor(&ctx);

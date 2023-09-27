@@ -12,8 +12,9 @@ impl TestRunner {
   }
 }
 
+#[astro_run::async_trait]
 impl Runner for TestRunner {
-  fn run(&self, ctx: Context) -> astro_run::RunResponse {
+  async fn run(&self, ctx: Context) -> astro_run::RunResponse {
     let (tx, rx) = stream();
 
     if let Some(container) = ctx.command.container {

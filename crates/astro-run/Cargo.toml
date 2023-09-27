@@ -39,6 +39,7 @@ chrono = { workspace = true, features = ["serde"] }
 tokio-stream = { workspace = true }
 glob = "0.3.1"
 octocrate = "0.1.5"
+async-trait = "0.1.73"
 
 [dev-dependencies]
 astro-run-test = { path = "../astro-run-test" }

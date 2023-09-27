@@ -26,8 +26,9 @@ pub struct AstroRunRemoteRunnerClient {
   event_sender: broadcast::Sender<Event>,
 }
 
+#[astro_run::async_trait]
 impl astro_run::Runner for AstroRunRemoteRunnerClient {
-  fn run(&self, context: Context) -> astro_run::RunResponse {
+  async fn run(&self, context: Context) -> astro_run::RunResponse {
     let (sender, receiver) = astro_run::stream();
 
     let clients = self.clients.lock().clone();
@@ -36,7 +37,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
       .map(|(_, client)| client.metadata.clone())
       .collect();
 
-    let runner = match self.scheduler.schedule(&runners, &context) {
+    let runner = match self.scheduler.schedule(&runners, &context).await {
       Some(runner) => runner,
       None => {
         sender.error("No runner available");
@@ -243,6 +244,7 @@ impl AstroRunRemoteRunnerClient {
       .await
       .map_err(|e| {
         let error = format!("Failed to run: {}", e.to_string());
+        log::error!("{}", error);
         sender.error(error.clone());
         sender.end(astro_run::RunResult::Failed { exit_code: 1 });
         Error::internal_runtime_error(error)

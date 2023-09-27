@@ -47,7 +47,7 @@ impl AstroRunRemoteRunnerServer {
     let id = ctx.id.clone();
 
     tokio::spawn(async move {
-      let mut stream = runner.run(ctx).unwrap();
+      let mut stream = runner.run(ctx).await?;
 
       while let Some(log) = stream.next().await {
         if let Err(err) = sender

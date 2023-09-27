@@ -170,7 +170,7 @@ impl AstroRunRunner {
 
     tokio::task::spawn(async move {
       let step_id = ctx.command.id.clone();
-      let mut receiver = runner.run(ctx)?;
+      let mut receiver = runner.run(ctx).await?;
 
       while let Some(log) = receiver.next().await {
         let request = WorkflowLog::try_from(astro_run::WorkflowLog {

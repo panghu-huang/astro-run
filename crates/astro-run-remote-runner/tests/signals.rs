@@ -8,8 +8,9 @@ struct TimeoutRunner {
   delay: Duration,
 }
 
+#[astro_run::async_trait]
 impl astro_run::Runner for TimeoutRunner {
-  fn run(&self, config: Context) -> astro_run::RunResponse {
+  async fn run(&self, config: Context) -> astro_run::RunResponse {
     let (sender, receiver) = stream();
     let delay = self.delay;
 
@@ -49,7 +50,7 @@ async fn test_signal() -> Result<()> {
       rx.await.unwrap();
 
       cloned_client_runner
-        .start(vec!["http://127.0.0.1:5001"])
+        .start(vec!["http://127.0.0.1:5338"])
         .await
         .unwrap();
     });
@@ -110,7 +111,7 @@ async fn test_signal() -> Result<()> {
 
     tokio::select! {
       _ = rx.recv() => {}
-      _ = runner_server.serve("127.0.0.1:5001") => {}
+      _ = runner_server.serve("127.0.0.1:5338") => {}
     }
   });
 
@@ -132,7 +133,7 @@ async fn test_timeout() -> Result<()> {
       rx.await.unwrap();
 
       cloned_client_runner
-        .start(vec!["http://127.0.0.1:5001"])
+        .start(vec!["http://127.0.0.1:5338"])
         .await
         .unwrap();
     });
@@ -198,7 +199,7 @@ async fn test_timeout() -> Result<()> {
 
     tokio::select! {
       _ = rx.recv() => {}
-      _ = runner_server.serve("127.0.0.1:5001") => {}
+      _ = runner_server.serve("127.0.0.1:5338") => {}
     }
   });
 
@@ -220,7 +221,7 @@ async fn test_cancel() -> Result<()> {
       rx.await.unwrap();
 
       cloned_client_runner
-        .start(vec!["http://127.0.0.1:5001"])
+        .start(vec!["http://127.0.0.1:5338"])
         .await
         .unwrap();
     });
@@ -295,7 +296,7 @@ async fn test_cancel() -> Result<()> {
 
     tokio::select! {
       _ = rx.recv() => {}
-      _ = runner_server.serve("127.0.0.1:5001") => {}
+      _ = runner_server.serve("127.0.0.1:5338") => {}
     }
   });
 

@@ -14,6 +14,7 @@ pub struct RunnerMetadata {
   pub max_runs: i32,
 }
 
+#[astro_run::async_trait]
 pub trait Scheduler: Send + Sync {
   fn on_run_workflow(&self, _workflow: Workflow) {}
   fn on_run_job(&self, _job: Job) {}
@@ -21,7 +22,7 @@ pub trait Scheduler: Send + Sync {
   fn on_step_completed(&self, _result: StepRunResult) {}
   fn on_job_completed(&self, _result: JobRunResult) {}
   fn on_workflow_completed(&self, _result: WorkflowRunResult) {}
-  fn schedule<'a, 'b: 'a>(
+  async fn schedule<'a, 'b: 'a>(
     &'b self,
     runners: &'a Vec<RunnerMetadata>,
     ctx: &Context,
