@@ -1,5 +1,5 @@
 [alias]
-coverage = "tarpaulin --all-features --engine Llvm --timeout 600 --workspace --exclude-files crates/astro-run-test/* --out Xml"
+coverage = "tarpaulin --all-features --engine llvm --timeout 600 --workspace --exclude-files crates/astro-run-test/* --out Xml"
 
 [env]
 RUST_TEST_THREADS = "1"
