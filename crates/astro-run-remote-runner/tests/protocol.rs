@@ -21,8 +21,9 @@ impl TestRunner {
   }
 }
 
+#[astro_run::async_trait]
 impl Runner for TestRunner {
-  fn run(&self, ctx: Context) -> astro_run::RunResponse {
+  async fn run(&self, ctx: Context) -> astro_run::RunResponse {
     let (tx, rx) = stream();
 
     tx.error(ctx.command.run);
@@ -115,7 +116,7 @@ async fn test_protocol() -> Result<()> {
     let handle = tokio::task::spawn(async move {
       rx.await.unwrap();
       cloned_client_runner
-        .start(vec!["http://127.0.0.1:5001"])
+        .start(vec!["http://127.0.0.1:5338"])
         .await
         .unwrap();
     });
@@ -174,7 +175,7 @@ async fn test_protocol() -> Result<()> {
 
   let server_thread_handle = tokio::spawn(async {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
-    let runner = TestRunner::new(16);
+    let runner = TestRunner::new(18);
 
     let runner_server = AstroRunRemoteRunnerServer::builder()
       .id("test-runner")
@@ -195,7 +196,7 @@ async fn test_protocol() -> Result<()> {
 
     tokio::select! {
       _ = rx.recv() => {}
-      _ = runner_server.serve("127.0.0.1:5001") => {}
+      _ = runner_server.serve("127.0.0.1:5338") => {}
     }
   });
 

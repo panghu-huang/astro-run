@@ -29,7 +29,7 @@ async fn main() -> Result<()> {
     // Start the server in the background
     let handle = tokio::spawn(async move {
         // Server listening address
-        cloned_server.serve("127.0.0.1:5001").await.unwrap();
+        cloned_server.serve("127.0.0.1:5338").await.unwrap();
     });
 
     let astro_run = AstroRun::builder().runner(server).build();
@@ -94,7 +94,7 @@ async fn main() -> Result<()> {
     let mut astro_run_runner = AstroRunRunner::builder()
         .runner(runner)
         // Remote server address
-        .url("http://127.0.0.1:5001")
+        .url("http://127.0.0.1:5338")
         // Runner ID
         .id("test-runner")
         .build()

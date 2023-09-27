@@ -8,8 +8,9 @@ struct TimeoutRunner {
   delay: Duration,
 }
 
+#[astro_run::async_trait]
 impl astro_run::Runner for TimeoutRunner {
-  fn run(&self, config: Context) -> astro_run::RunResponse {
+  async fn run(&self, config: Context) -> astro_run::RunResponse {
     let (sender, receiver) = stream();
     let delay = self.delay;
 
@@ -47,7 +48,7 @@ async fn test_signal() -> Result<()> {
     let cloned_server = server.clone();
     let handle = tokio::task::spawn(async move {
       tx.send(()).unwrap();
-      cloned_server.serve("127.0.0.1:5001").await.unwrap();
+      cloned_server.serve("127.0.0.1:5338").await.unwrap();
     });
 
     let astro_run = AstroRun::builder().runner(server).build();
@@ -101,7 +102,7 @@ async fn test_signal() -> Result<()> {
           })
           .build(),
       )
-      .url("http://127.0.0.1:5001")
+      .url("http://127.0.0.1:5338")
       .build()
       .await
       .unwrap();
@@ -128,7 +129,7 @@ async fn test_timeout() -> Result<()> {
     let handle = tokio::task::spawn(async move {
       tx.send(()).unwrap();
 
-      cloned_server.serve("127.0.0.1:5001").await.unwrap();
+      cloned_server.serve("127.0.0.1:5338").await.unwrap();
     });
 
     let astro_run = AstroRun::builder().runner(server).build();
@@ -187,7 +188,7 @@ async fn test_timeout() -> Result<()> {
           })
           .build(),
       )
-      .url("http://127.0.0.1:5001")
+      .url("http://127.0.0.1:5338")
       .build()
       .await
       .unwrap();
@@ -214,7 +215,7 @@ async fn test_cancel() -> Result<()> {
     let handle = tokio::task::spawn(async move {
       tx.send(()).unwrap();
 
-      cloned_server.serve("127.0.0.1:5001").await.unwrap();
+      cloned_server.serve("127.0.0.1:5338").await.unwrap();
     });
 
     let astro_run = AstroRun::builder().runner(server).build();
@@ -283,7 +284,7 @@ async fn test_cancel() -> Result<()> {
           })
           .build(),
       )
-      .url("http://127.0.0.1:5001")
+      .url("http://127.0.0.1:5338")
       .build()
       .await
       .unwrap();

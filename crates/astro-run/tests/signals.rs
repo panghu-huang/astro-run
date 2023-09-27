@@ -5,8 +5,9 @@ struct TimeoutRunner {
   delay: Duration,
 }
 
+#[astro_run::async_trait]
 impl astro_run::Runner for TimeoutRunner {
-  fn run(&self, config: Context) -> astro_run::RunResponse {
+  async fn run(&self, config: Context) -> astro_run::RunResponse {
     let (sender, receiver) = stream();
     let delay = self.delay;
 

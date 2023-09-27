@@ -10,14 +10,15 @@ where
   expected_runners: Vec<Option<&'static str>>,
 }
 
+#[astro_run::async_trait]
 impl<T> Runner for RunnerController<T>
 where
   T: Scheduler,
 {
-  fn run(&self, ctx: Context) -> astro_run::RunResponse {
+  async fn run(&self, ctx: Context) -> astro_run::RunResponse {
     let (tx, rx) = stream();
 
-    let runner = self.scheduler.schedule(&self.runners, &ctx);
+    let runner = self.scheduler.schedule(&self.runners, &ctx).await;
     let index = ctx.command.id.step_number();
     let expected_runner = self.expected_runners[index];
 

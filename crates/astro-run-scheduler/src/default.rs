@@ -30,8 +30,9 @@ impl DefaultScheduler {
   }
 }
 
+#[astro_run::async_trait]
 impl Scheduler for DefaultScheduler {
-  fn schedule<'a, 'b: 'a>(
+  async fn schedule<'a, 'b: 'a>(
     &'b self,
     runners: &'a Vec<RunnerMetadata>,
     ctx: &Context,

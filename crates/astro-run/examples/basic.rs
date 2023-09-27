@@ -1,4 +1,4 @@
-use astro_run::{stream, AstroRun, Context, RunResult, Workflow};
+use astro_run::{stream, AstroRun, RunResult, Workflow};
 
 struct Runner;
 
@@ -8,15 +8,18 @@ impl Runner {
   }
 }
 
+#[astro_run::async_trait]
 impl astro_run::Runner for Runner {
-  fn run(&self, ctx: Context) -> astro_run::RunResponse {
+  async fn run(&self, ctx: astro_run::Context) -> astro_run::RunResponse {
     let (tx, rx) = stream();
 
-    // Send running log
-    tx.log(ctx.command.run);
+    tokio::task::spawn(async move {
+      // Send running log
+      tx.log(ctx.command.run);
 
-    // Send success log
-    tx.end(RunResult::Succeeded);
+      // Send success log
+      tx.end(RunResult::Succeeded);
+    });
 
     Ok(rx)
   }
