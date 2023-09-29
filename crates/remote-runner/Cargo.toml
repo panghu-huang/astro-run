@@ -13,7 +13,7 @@ license.workspace = true
 
 [dependencies]
 astro-run = { path = "../astro-run", version = "0.1.2" }
-astro-run-protocol = { path = "../astro-run-protocol", version = "0.1.3", features = [
+astro-run-protocol = { path = "../protocol", version = "0.1.3", features = [
   "astro-run-remote-runner",
 ] }
 
@@ -31,8 +31,8 @@ tokio = { workspace = true, features = [
   "time",
 ] }
 
-astro-run-scheduler = { path = "../astro-run-scheduler", version = "0.1.1" }
+astro-run-scheduler = { path = "../scheduler", version = "0.1.1" }
 
 [dev-dependencies]
-astro-run-test = { path = "../astro-run-test" }
-astro-run-logger = { path = "../astro-run-logger" }
+astro-run-test = { path = "../test" }
+astro-run-logger = { path = "../logger" }

@@ -42,7 +42,7 @@ octocrate = "0.1.5"
 async-trait = "0.1.73"
 
 [dev-dependencies]
-astro-run-test = { path = "../astro-run-test" }
-astro-run-logger = { path = "../astro-run-logger" }
+astro-run-test = { path = "../test" }
+astro-run-logger = { path = "../logger" }
 
 dotenv = { workspace = true }

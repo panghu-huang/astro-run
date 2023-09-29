@@ -1,6 +1,6 @@
 [package]
-name = "astro-runner"
-version = "0.1.2"
+name = "astro-run-scheduler"
+version = "0.1.1"
 edition.workspace = true
 repository.workspace = true
 homepage.workspace = true
@@ -12,8 +12,11 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio-stream = { workspace = true }
 astro-run = { path = "../astro-run", version = "0.1.1" }
+parking_lot = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
 tokio = { workspace = true, features = [
   "sync",
   "macros",
@@ -23,11 +26,5 @@ tokio = { workspace = true, features = [
   "rt-multi-thread",
   "time",
 ] }
-parking_lot = { workspace = true }
-serde = { workspace = true }
-log = { workspace = true }
-async-trait = "0.1.73"
-
-[dev-dependencies]
-astro-run-test = { path = "../astro-run-test" }
-astro-run-logger = { path = "../astro-run-logger" }
+astro-run-test = { path = "../test" }
+astro-run-logger = { path = "../logger" }
