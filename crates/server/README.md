@@ -22,19 +22,20 @@ use astro_run_server::AstroRunServer;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let server = AstroRunServer::new();
+  let server = AstroRunServer::new();
 
-    let cloned_server = server.clone();
+  // Start server in background
+  let handle = tokio::spawn({
+    let server = server.clone();
 
-    // Start the server in the background
-    let handle = tokio::spawn(async move {
-        // Server listening address
-        cloned_server.serve("127.0.0.1:5338").await.unwrap();
-    });
+    async move {
+      server.serve("127.0.0.1:5338").await.unwrap();
+    }
+  });
 
-    let astro_run = AstroRun::builder().runner(server).build();
+  let astro_run = AstroRun::builder().runner(server).build();
 
-    let workflow = r#"
+  let workflow = r#"
     jobs:
       test:
         name: Test Job
@@ -42,22 +43,22 @@ async fn main() -> Result<()> {
           - timeout: 60m
             continue-on-error: false
             run: Hello World
-    "#;
+      "#;
 
-    let workflow = Workflow::builder()
-        .config(workflow)
-        .build(&astro_run)
-        .unwrap();
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
 
-    let ctx = astro_run.execution_context().build();
+  let ctx = astro_run.execution_context().build();
 
-    // Run the workflow
-    let _res = workflow.run(ctx).await;
+  // Run workflow
+  let _res = workflow.run(ctx).await;
 
-    // Wait for the server to stop
-    handle.await.unwrap();
+  // Wait for server to stop
+  handle.await.unwrap();
 
-    Ok(())
+  Ok(())
 }
 ```
 
@@ -67,44 +68,42 @@ async fn main() -> Result<()> {
 use astro_run::{stream, Context, Result, RunResult};
 use astro_run_server::AstroRunRunner;
 
-// Simulated implementation of a Runner
 struct Runner {}
 
 impl Runner {
-    fn new() -> Self {
-        Runner {}
-    }
+  fn new() -> Self {
+    Runner {}
+  }
 }
 
+#[astro_run::async_trait]
 impl astro_run::Runner for Runner {
-    fn run(&self, ctx: Context) -> astro_run::RunResponse {
-        let (tx, rx) = stream();
+  async fn run(&self, ctx: Context) -> astro_run::RunResponse {
+    let (tx, rx) = stream();
 
-        tx.log(ctx.command.run);
-        tx.end(RunResult::Succeeded);
+    tx.log(ctx.command.run);
+    tx.end(RunResult::Succeeded);
 
-        Ok(rx)
-    }
+    Ok(rx)
+  }
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let runner = Runner::new();
+  let runner = Runner::new();
 
-    let mut astro_run_runner = AstroRunRunner::builder()
-        .runner(runner)
-        // Remote server address
-        .url("http://127.0.0.1:5338")
-        // Runner ID
-        .id("test-runner")
-        .build()
-        .await
-        .unwrap();
+  let mut astro_run_runner = AstroRunRunner::builder()
+    .runner(runner)
+    .url("http://127.0.0.1:5338")
+    .id("test-runner")
+    .build()
+    .await
+    .unwrap();
 
-    astro_run_runner.start().await.unwrap();
+  astro_run_runner.start().await.unwrap();
 
-    Ok(())
+  Ok(())
 }
 ```
 
-In the above example, you can replace the runner with a specific implementation from [astro-runner](../astro-runner).
+In the above example, you can replace the runner with a specific implementation from [astro-runner](../runner).

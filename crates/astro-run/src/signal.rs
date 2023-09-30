@@ -152,11 +152,12 @@ mod tests {
 
     let receiver = signal.recv();
 
-    let cloned_signal = signal.clone();
-
-    tokio::spawn(async move {
-      tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-      cloned_signal.cancel().unwrap();
+    tokio::spawn({
+      let signal = signal.clone();
+      async move {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        signal.cancel().unwrap();
+      }
     });
 
     assert_eq!(receiver.await, Signal::Cancel);
@@ -172,11 +173,12 @@ mod tests {
 
     let receiver = signal.recv();
 
-    let cloned_signal = signal.clone();
-
-    tokio::spawn(async move {
-      tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-      cloned_signal.timeout().unwrap();
+    tokio::spawn({
+      let signal = signal.clone();
+      async move {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        signal.timeout().unwrap();
+      }
     });
 
     assert_eq!(receiver.await, Signal::Timeout);

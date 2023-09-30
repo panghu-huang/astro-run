@@ -2,7 +2,7 @@
 
 `astro-run-runner` is a specific runner implementation within [astro-run](https://github.com/panghu-huang/astro-run). It supports running the smallest execution unit of workflow steps in both local and Dockerfile environments.
 
-It can also be used in conjunction with other components of the `astro-run` ecosystem, such as [astro-run-server](../astro-run-server) and [astro-run-remote-runner](../astro-run-remote-runner).
+It can also be used in conjunction with other components of the `astro-run` ecosystem, such as [astro-run-server](../server) and [astro-run-remote-runner](../remote-runner).
 
 ## Example
 

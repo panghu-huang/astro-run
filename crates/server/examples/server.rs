@@ -5,12 +5,13 @@ use astro_run_server::AstroRunServer;
 async fn main() -> Result<()> {
   let server = AstroRunServer::new();
 
-  let cloned_server = server.clone();
-
   // Start server in background
-  let handle = tokio::spawn(async move {
-    println!("Starting server");
-    cloned_server.serve("127.0.0.1:5338").await.unwrap();
+  let handle = tokio::spawn({
+    let server = server.clone();
+
+    async move {
+      server.serve("127.0.0.1:5338").await.unwrap();
+    }
   });
 
   let astro_run = AstroRun::builder().runner(server).build();

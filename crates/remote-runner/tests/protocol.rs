@@ -112,13 +112,15 @@ async fn test_protocol() -> Result<()> {
 
     let client_runner = AstroRunRemoteRunnerClient::builder().build().unwrap();
 
-    let mut cloned_client_runner = client_runner.clone();
-    let handle = tokio::task::spawn(async move {
-      rx.await.unwrap();
-      cloned_client_runner
-        .start(vec!["http://127.0.0.1:5338"])
-        .await
-        .unwrap();
+    let handle = tokio::task::spawn({
+      let mut client_runner = client_runner.clone();
+      async move {
+        rx.await.unwrap();
+        client_runner
+          .start(vec!["http://127.0.0.1:5338"])
+          .await
+          .unwrap();
+      }
     });
 
     let astro_run = AstroRun::builder().runner(client_runner).build();
