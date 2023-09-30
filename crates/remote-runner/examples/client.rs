@@ -5,13 +5,15 @@ use astro_run_remote_runner::AstroRunRemoteRunnerClient;
 async fn main() -> Result<()> {
   let client_runner = AstroRunRemoteRunnerClient::builder().build().unwrap();
 
-  let mut cloned_client_runner = client_runner.clone();
-  let handle = tokio::task::spawn(async move {
-    // Run the client runner in background
-    cloned_client_runner
-      .start(vec!["http://127.0.0.1:5002"])
-      .await
-      .unwrap();
+  let handle = tokio::task::spawn({
+    let mut client_runner = client_runner.clone();
+    async move {
+      // Run the client runner in background
+      client_runner
+        .start(vec!["http://127.0.0.1:5002"])
+        .await
+        .unwrap();
+    }
   });
 
   // Wait for the client runner to start

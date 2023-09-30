@@ -9,9 +9,9 @@ Astro Run is a highly extensible runner that can execute any workflow.
 
 ## Features
 
-* [Workflow runtime for Docker](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-runner)
-* Support for [gRPC server](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run-server) to coordinate multiple runner clients
-* Support for [connecting to remote runners](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run-remote-runner)
+* [Workflow runtime for Docker](https://github.com/panghu-huang/astro-run/blob/main/crates/runner)
+* Support for [gRPC server](https://github.com/panghu-huang/astro-run/blob/main/crates/server) to coordinate multiple runner clients
+* Support for [connecting to remote runners](https://github.com/panghu-huang/astro-run/blob/main/crates/remote-runner)
 
 ## Example
 
@@ -27,7 +27,7 @@ astro-run = "0.1"
 ### Code Example
 
 ```rust
-use astro_run::{stream, AstroRun, Context, RunResult, Workflow};
+use astro_run::{stream, AstroRun, RunResult, Workflow};
 
 struct Runner;
 
@@ -37,15 +37,18 @@ impl Runner {
   }
 }
 
+#[astro_run::async_trait]
 impl astro_run::Runner for Runner {
-  fn run(&self, ctx: Context) -> astro_run::RunResponse {
+  async fn run(&self, ctx: astro_run::Context) -> astro_run::RunResponse {
     let (tx, rx) = stream();
 
-    // Send running log
-    tx.log(ctx.command.run);
+    tokio::task::spawn(async move {
+      // Send running log
+      tx.log(ctx.command.run);
 
-    // Send success log
-    tx.end(RunResult::Succeeded);
+      // Send success log
+      tx.end(RunResult::Succeeded);
+    });
 
     Ok(rx)
   }
@@ -83,11 +86,11 @@ Astro Run only defines the interface for Runners. Users can implement their own 
 
 ## More Examples
 
-* [Workflow runtime for Docker](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-runner/examples/basic.rs)
+* [Workflow runtime for Docker](https://github.com/panghu-huang/astro-run/blob/main/crates/runner/examples/basic.rs)
 * [Astro Run Plugins](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run/examples/plugins.rs)
-* [Astro run gRPC Server](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run-server/examples/server.rs)
-* [gRPC Runner Client](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run-server/examples/client.rs)
-* [Remote Runner](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run-remote-runner/examples/runner-server.rs)
+* [Astro run gRPC Server](https://github.com/panghu-huang/astro-run/blob/main/crates/server/examples/server.rs)
+* [gRPC Runner Client](https://github.com/panghu-huang/astro-run/blob/main/crates/server/examples/client.rs)
+* [Remote Runner](https://github.com/panghu-huang/astro-run/blob/main/crates/remote-runner/examples/runner-server.rs)
 
 ## Contributing
 

@@ -31,13 +31,15 @@ async fn main() -> Result<()> {
     .build()
     .unwrap();
 
-  let mut cloned_client_runner = client_runner.clone();
-  let handle = tokio::task::spawn(async move {
-    // Run the client runner in background
-    cloned_client_runner
-      .start(vec!["http://127.0.0.1:5002"])
-      .await
-      .unwrap();
+  let handle = tokio::task::spawn({
+    let mut client_runner = client_runner.clone();
+    async move {
+      // Run the client runner in background
+      client_runner
+        .start(vec!["http://127.0.0.1:5002"])
+        .await
+        .unwrap();
+    }
   });
 
   let astro_run = AstroRun::builder().runner(client_runner).build();

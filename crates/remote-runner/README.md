@@ -27,8 +27,9 @@ impl Runner {
   }
 }
 
+#[astro_run::async_trait]
 impl astro_run::Runner for Runner {
-  fn run(&self, ctx: Context) -> astro_run::RunResponse {
+  async fn run(&self, ctx: Context) -> astro_run::RunResponse {
     let (tx, rx) = stream();
 
     tx.log(ctx.command.run);
@@ -63,13 +64,15 @@ use astro_run_remote_runner::AstroRunRemoteRunnerClient;
 async fn main() -> Result<()> {
   let client_runner = AstroRunRemoteRunnerClient::builder().build().unwrap();
 
-  let mut cloned_client_runner = client_runner.clone();
-  let handle = tokio::task::spawn(async move {
-    // Run the client runner in background
-    cloned_client_runner
-      .start(vec!["http://127.0.0.1:5002"])
-      .await
-      .unwrap();
+  let handle = tokio::task::spawn({
+    let mut client_runner = client_runner.clone();
+    async move {
+      // Run the client runner in background
+      client_runner
+        .start(vec!["http://127.0.0.1:5002"])
+        .await
+        .unwrap();
+    }
   });
 
   let astro_run = AstroRun::builder().runner(client_runner).build();
@@ -99,4 +102,4 @@ async fn main() -> Result<()> {
 }
 ```
 
-In the above example, you can replace the runner with a specific implementation from [astro-runner](../astro-runner).
+In the above example, you can replace the runner with a specific implementation from [astro-runner](../runner).
