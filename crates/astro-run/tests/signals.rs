@@ -19,10 +19,10 @@ impl astro_run::Runner for TimeoutRunner {
         signal = config.signal.recv() => {
           match signal {
             Signal::Timeout => {
-              sender.end(RunResult::Failed { exit_code: 123 });
+              sender.failed(123);
             }
             Signal::Cancel => {
-              sender.end(RunResult::Cancelled);
+              sender.cancelled();
             }
           }
         }

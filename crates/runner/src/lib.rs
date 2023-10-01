@@ -7,7 +7,7 @@ mod metadata;
 mod plugin;
 mod utils;
 
-pub use crate::astro_runner::AstroRunner;
+pub use crate::astro_runner::{AstroRunner, AstroRunnerBuilder};
 pub use command::Command;
 pub use executors::{DockerExecutor, HostExecutor};
 pub use plugin::*;

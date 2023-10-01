@@ -86,7 +86,29 @@ impl StreamSender {
     }
   }
 
+  pub fn succeeded(&self) {
+    self.end(RunResult::Succeeded)
+  }
+
+  pub fn cancelled(&self) {
+    self.end(RunResult::Cancelled)
+  }
+
+  pub fn failed(&self, exit_code: i32) {
+    self.end(RunResult::Failed { exit_code })
+  }
+
+  pub fn timeout(&self) {
+    // TODO: use a different exit code
+    self.end(RunResult::Failed { exit_code: 123 })
+  }
+
   pub fn end(&self, result: RunResult) {
+    if self.is_ended() {
+      log::trace!("StreamSender: already ended");
+      return;
+    }
+
     let mut state = self.state.lock();
     state.result = Some(result);
 
@@ -124,7 +146,7 @@ mod tests {
 
     sender.log("test");
     sender.error("error");
-    sender.end(RunResult::Succeeded);
+    sender.succeeded();
 
     let mut logs = Vec::new();
     while let Some(log) = receiver.next().await {
@@ -132,6 +154,15 @@ mod tests {
     }
 
     assert_eq!(logs, vec![Log::log("test"), Log::error("error"),]);
+    assert_eq!(receiver.result().unwrap(), RunResult::Succeeded);
+  }
+
+  #[tokio::test]
+  async fn test_stream_twice() {
+    let (sender, receiver) = stream();
+
+    sender.succeeded();
+    sender.cancelled();
     assert_eq!(receiver.result().unwrap(), RunResult::Succeeded);
   }
 }

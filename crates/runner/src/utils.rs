@@ -2,7 +2,7 @@ use astro_run::Result;
 use std::path::PathBuf;
 use tokio::{fs, io::AsyncWriteExt};
 
-pub async fn create_executable_file(file_path: &PathBuf, content: String) -> Result<()> {
+pub async fn create_executable_file(file_path: &PathBuf, content: &String) -> Result<()> {
   let mut file;
   #[cfg(unix)]
   {

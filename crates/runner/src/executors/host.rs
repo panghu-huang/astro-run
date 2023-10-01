@@ -26,38 +26,53 @@ impl Executor for HostExecutor {
 
     let metadata = builder.build();
 
-    // Create step working directory
-    fs::create_dir_all(&metadata.job_data_directory).await?;
-    // utils::create_executable_file(&metadata.entrypoint_path, ctx.command.run).await?;
-
     // Generate docker command
-    let mut command = self.into_command(ctx, metadata.clone())?;
+    let mut command = Self::into_command(&ctx, &metadata);
 
-    // Run the command
-    if let Err(err) = command.run(sender).await {
-      log::error!("Step run error: {}", err);
+    let is_completed = ctx.signal.is_cancelled() || ctx.signal.is_timeout();
+
+    if !is_completed {
+      // Create step working directory
+      fs::create_dir_all(&metadata.job_data_directory).await?;
+
+      tokio::select! {
+        // Run the command
+        Err(err) = command.run(sender.clone()) => {
+          log::error!("Step run error: {}", err);
+        }
+        signal = ctx.signal.recv() => {
+          // TODO: cancel the command
+          log::trace!("Step run received signal: {:?}", signal);
+          if let astro_run::Signal::Cancel = signal {
+            sender.cancelled();
+          } else {
+            sender.timeout();
+          }
+        }
+      }
+
+      // Clean up working directory
+      fs::remove_dir_all(&metadata.job_data_directory).await?;
+
+      log::trace!("Step run finished");
+    } else {
+      log::trace!("Step run has been completed before it started");
     }
-
-    // Clean up working directory
-    // fs::remove_dir_all(&metadata.step_host_working_directory).await?;
-
-    log::trace!("Step run finished");
 
     Ok(())
   }
 }
 
 impl HostExecutor {
-  fn into_command(&self, ctx: Context, metadata: Metadata) -> Result<Command> {
-    let original_command = ctx.command.clone();
-    let mut command = Command::new(original_command.run);
+  fn into_command(ctx: &Context, metadata: &Metadata) -> Command {
+    let mut command = Command::new(ctx.command.run.clone());
 
     command.dir(&metadata.job_data_directory);
 
-    for (key, env) in original_command.environments {
+    for (key, env) in &ctx.command.environments {
       command.env(key, env.to_string());
     }
 
-    Ok(command)
+    command
   }
 }
