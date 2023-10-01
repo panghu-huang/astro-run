@@ -156,4 +156,13 @@ mod tests {
     assert_eq!(logs, vec![Log::log("test"), Log::error("error"),]);
     assert_eq!(receiver.result().unwrap(), RunResult::Succeeded);
   }
+
+  #[tokio::test]
+  async fn test_stream_twice() {
+    let (sender, receiver) = stream();
+
+    sender.succeeded();
+    sender.cancelled();
+    assert_eq!(receiver.result().unwrap(), RunResult::Succeeded);
+  }
 }

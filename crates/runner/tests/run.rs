@@ -85,13 +85,6 @@ async fn test_docker_volume() {
 
   drop(file);
 
-  println!("File content: ");
-  let content = Command::new("cat /tmp/astro-run/test.txt")
-    .exec()
-    .await
-    .unwrap();
-  println!("{}", content);
-
   let workflow = r#"
 jobs:
   test:
@@ -109,13 +102,6 @@ jobs:
   let astro_run = AstroRun::builder()
     .runner(runner)
     .plugin(assert_logs_plugin(vec!["Hello World"]))
-    .plugin(
-      AstroRunPlugin::builder("logs")
-        .on_log(|log| {
-          log::debug!("Log: {}", log.message);
-        })
-        .build(),
-    )
     .build();
 
   let workflow = Workflow::builder()
