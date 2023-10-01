@@ -35,6 +35,13 @@ async fn test_docker() {
 
   drop(file);
 
+  println!("File content: ");
+  let content = Command::new("cat /tmp/astro-run/test.txt")
+    .exec()
+    .await
+    .unwrap();
+  println!("{}", content);
+
   let workflow = r#"
 jobs:
   test:

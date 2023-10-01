@@ -112,6 +112,7 @@ impl DockerExecutor {
     if let Some(Some(volumes)) = ctx.command.container.map(|c| c.volumes) {
       for volume in volumes {
         if let [host_path, container_path] = volume.split(':').collect::<Vec<&str>>()[..] {
+          log::trace!("Volume: {} -> {}", host_path, container_path);
           docker = docker.volume(host_path, container_path);
         }
       }
