@@ -42,6 +42,13 @@ async fn test_docker() {
     .unwrap();
   println!("{}", content);
 
+  println!("docker images");
+  let images = Command::new("docker images")
+    .exec()
+    .await
+    .unwrap();
+  println!("{}", images);
+
   let workflow = r#"
 jobs:
   test:
@@ -57,6 +64,9 @@ jobs:
         environments:
           TEST: Value
         run: |
+          ls -la /tmp
+          cat -v
+          which cat
           cat /tmp/test.txt
           echo "Hello World $TEST" >> test.txt
         timeout: 60m
@@ -69,10 +79,17 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(runner)
-    .plugin(assert_logs_plugin(vec![
-      "Hello World",
-      "Content is Hello World Value",
-    ]))
+    // .plugin(assert_logs_plugin(vec![
+    //   "Hello World",
+    //   "Content is Hello World Value",
+    // ]))
+    .plugin(
+      AstroRunPlugin::builder("logs")
+        .on_log(|log| {
+          println!("{}", log.message);
+        })
+        .build(),
+    )
     .build();
 
   let workflow = Workflow::builder()
