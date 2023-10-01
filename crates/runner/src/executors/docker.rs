@@ -36,10 +36,63 @@ impl Executor for DockerExecutor {
 
     let metadata = builder.build();
 
-    // Create step working directory
-    fs::create_dir_all(&metadata.step_host_working_directory).await?;
-    utils::create_executable_file(&metadata.entrypoint_path, ctx.command.run).await?;
+    // Generate docker command
+    let mut command = Self::into_command(ctx.clone(), metadata.clone())?;
 
+    let is_completed = ctx.signal.is_cancelled() || ctx.signal.is_timeout();
+
+    if !is_completed {
+      let kill_running_docker = || async {
+        log::trace!("Killing running docker: {}", metadata.docker_name);
+        // Kill the container on step run error
+        Command::new(format!("docker kill {}", metadata.docker_name))
+          .exec()
+          .await
+          .ok();
+      };
+
+      // Create step working directory
+      fs::create_dir_all(&metadata.step_host_working_directory).await?;
+      utils::create_executable_file(&metadata.entrypoint_path, &ctx.command.run).await?;
+
+      // Run the command
+      tokio::select! {
+        res = command.run(sender.clone()) => {
+          kill_running_docker().await;
+
+          if let Err(err) = res {
+            log::error!("Step run error: {}", err);
+            sender.failed(1);
+          } else {
+            sender.succeeded();
+          }
+        }
+        signal = ctx.signal.recv() => {
+          kill_running_docker().await;
+
+          log::info!("Step received signal: {:?}", signal);
+          if let astro_run::Signal::Cancel = signal {
+            sender.cancelled();
+          } else {
+            log::info!("Step received signal: None");
+            sender.timeout();
+          }
+        }
+      }
+
+      // Clean up working directory
+      fs::remove_dir_all(&metadata.step_host_working_directory).await?;
+      log::trace!("Step run finished");
+    } else {
+      log::trace!("Step is already completed");
+    }
+
+    Ok(())
+  }
+}
+
+impl DockerExecutor {
+  fn into_command(ctx: Context, metadata: Metadata) -> Result<Command> {
     let image = ctx
       .command
       .container
@@ -47,29 +100,7 @@ impl Executor for DockerExecutor {
       .map(|c| c.name)
       .unwrap_or("ubuntu".to_string());
 
-    // Generate docker command
-    let mut command = self.into_command(image, metadata.clone())?;
-
-    // Run the command
-    if let Err(err) = command.run(sender).await {
-      log::error!("Step run error: {}", err);
-      // Kill the container on step run error
-      Command::new(format!("docker kill {}", metadata.docker_name))
-        .exec()
-        .await?;
-    }
-
-    // Clean up working directory
-    fs::remove_dir_all(&metadata.step_host_working_directory).await?;
-
-    log::trace!("Step run finished");
-    Ok(())
-  }
-}
-
-impl DockerExecutor {
-  fn into_command(&self, image: String, metadata: Metadata) -> Result<Command> {
-    let docker = Docker::new(image)
+    let mut docker = Docker::new(image)
       .name(&metadata.docker_name)
       .working_dir(metadata.docker_working_directory.clone())
       .volume(
@@ -84,6 +115,18 @@ impl DockerExecutor {
       .volume(metadata.cache_directory.to_string()?, "/home/work/caches")
       .entrypoint("/home/work/runner/entrypoint.sh")
       .auto_remove(true);
+
+    for (key, env) in ctx.command.environments {
+      docker = docker.environment(key, env.to_string());
+    }
+
+    if let Some(Some(volumes)) = ctx.command.container.map(|c| c.volumes) {
+      for volume in volumes {
+        if let [host_path, container_path] = volume.split(':').collect::<Vec<&str>>()[..] {
+          docker = docker.volume(host_path, container_path);
+        }
+      }
+    }
 
     Ok(docker.into())
   }

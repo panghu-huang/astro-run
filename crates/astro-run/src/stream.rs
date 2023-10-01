@@ -86,6 +86,23 @@ impl StreamSender {
     }
   }
 
+  pub fn succeeded(&self) {
+    self.end(RunResult::Succeeded)
+  }
+
+  pub fn cancelled(&self) {
+    self.end(RunResult::Cancelled)
+  }
+
+  pub fn failed(&self, exit_code: i32) {
+    self.end(RunResult::Failed { exit_code })
+  }
+
+  pub fn timeout(&self) {
+    // TODO: use a different exit code
+    self.end(RunResult::Failed { exit_code: 123 })
+  }
+
   pub fn end(&self, result: RunResult) {
     let mut state = self.state.lock();
     state.result = Some(result);
@@ -124,7 +141,7 @@ mod tests {
 
     sender.log("test");
     sender.error("error");
-    sender.end(RunResult::Succeeded);
+    sender.succeeded();
 
     let mut logs = Vec::new();
     while let Some(log) = receiver.next().await {

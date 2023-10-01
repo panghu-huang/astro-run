@@ -50,9 +50,7 @@ pub fn test(attr: TokenStream, item: TokenStream) -> TokenStream {
 
   // Check if docker is installed and running
   // This value will only change when `astro_run_test` is rebuilt
-  let is_support_docker = is_support_docker();
-
-  let ignore = if args.is_docker && !is_support_docker {
+  let ignore = if args.is_docker && !is_support_docker() {
     quote! { #[ignore] }
   } else {
     quote! {}
