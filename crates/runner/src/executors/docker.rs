@@ -42,33 +42,22 @@ impl Executor for DockerExecutor {
     let is_completed = ctx.signal.is_cancelled() || ctx.signal.is_timeout();
 
     if !is_completed {
-      let kill_running_docker = || async {
-        log::trace!("Killing running docker: {}", metadata.docker_name);
-        // Kill the container on step run error
-        Command::new(format!("docker kill {}", metadata.docker_name))
-          .exec()
-          .await
-          .ok();
-      };
-
       // Create step working directory
       fs::create_dir_all(&metadata.step_host_working_directory).await?;
       utils::create_executable_file(&metadata.entrypoint_path, &ctx.command.run).await?;
 
       // Run the command
       tokio::select! {
-        res = command.run(sender.clone()) => {
-          kill_running_docker().await;
-
-          if let Err(err) = res {
-            log::error!("Step run error: {}", err);
-            sender.failed(1);
-          } else {
-            sender.succeeded();
-          }
+        Err(err) = command.run(sender.clone()) => {
+          log::error!("Step run error: {}", err);
         }
         signal = ctx.signal.recv() => {
-          kill_running_docker().await;
+          log::trace!("Killing running docker: {}", metadata.docker_name);
+          // Kill the container on step run error
+          Command::new(format!("docker kill {}", metadata.docker_name))
+            .exec()
+            .await
+            .ok();
 
           log::info!("Step received signal: {:?}", signal);
           if let astro_run::Signal::Cancel = signal {

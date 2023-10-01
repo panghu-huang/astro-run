@@ -37,13 +37,8 @@ impl Executor for HostExecutor {
 
       tokio::select! {
         // Run the command
-        res = command.run(sender.clone()) => {
-          if let Err(err) = res {
-            log::error!("Step run error: {}", err);
-            sender.failed(1);
-          } else {
-            sender.succeeded();
-          }
+        Err(err) = command.run(sender.clone()) => {
+          log::error!("Step run error: {}", err);
         }
         signal = ctx.signal.recv() => {
           // TODO: cancel the command

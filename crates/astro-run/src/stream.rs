@@ -104,6 +104,11 @@ impl StreamSender {
   }
 
   pub fn end(&self, result: RunResult) {
+    if self.is_ended() {
+      log::trace!("StreamSender: already ended");
+      return;
+    }
+
     let mut state = self.state.lock();
     state.result = Some(result);
 

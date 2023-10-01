@@ -27,7 +27,8 @@ async fn test_docker() {
   // Pull the image before running the test
   Command::new("docker pull ubuntu").exec().await.unwrap();
 
-  let mut file = fs::File::create("/tmp/test.txt").unwrap();
+  fs::create_dir_all("/tmp/astro-run").unwrap();
+  let mut file = fs::File::create("/tmp/astro-run/test.txt").unwrap();
 
   file.write_all(b"Hello World").unwrap();
   file.flush().unwrap();
@@ -44,7 +45,7 @@ jobs:
           security-opts: 
             - seccomp=unconfined
           volumes:
-            - /tmp/test.txt:/tmp/test.txt
+            - /tmp/astro-run/test.txt:/tmp/test.txt
         continue-on-error: false
         environments:
           TEST: Value
@@ -84,7 +85,7 @@ jobs:
   assert_eq!(job_result.steps[0].state, WorkflowState::Succeeded);
   assert_eq!(job_result.steps[1].state, WorkflowState::Succeeded);
 
-  fs::remove_file("/tmp/test.txt").unwrap();
+  fs::remove_dir_all("/tmp/astro-run").unwrap();
 }
 
 #[astro_run_test::test]
