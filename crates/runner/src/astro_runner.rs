@@ -64,14 +64,18 @@ impl Runner for AstroRunner {
         .insert(ctx.command.id.workflow_id(), event.clone());
     }
 
+    let plugins = self.plugins.clone();
+
     tokio::spawn(async move {
-      if let Err(err) = executor.execute(ctx, sender.clone(), event).await {
+      if let Err(err) = executor.execute(ctx.clone(), sender.clone(), event).await {
         log::error!("AstroRunner: execute error: {}", err);
       }
 
       if !sender.is_ended() {
         sender.end(RunResult::Failed { exit_code: 1 });
       }
+
+      plugins.on_after_run(ctx);
     });
 
     Ok(receiver)

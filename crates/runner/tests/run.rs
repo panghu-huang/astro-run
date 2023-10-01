@@ -177,7 +177,10 @@ async fn test_before_run() {
     .build(&astro_run)
     .unwrap();
 
-  let ctx = astro_run.execution_context().build();
+  let ctx = astro_run
+    .execution_context()
+    .event(astro_run::WorkflowEvent::default())
+    .build();
 
   let res = workflow.run(ctx).await;
 
@@ -228,13 +231,12 @@ async fn test_before_run_error() {
 
   let runner = AstroRunner::builder()
     .working_directory(working_dir)
-    .plugin(TestPlugin)
     .build()
     .unwrap();
 
-  let astro_run = AstroRun::builder()
-    .runner(runner)
-    .build();
+  runner.register_plugin(TestPlugin);
+
+  let astro_run = AstroRun::builder().runner(runner.clone()).build();
 
   let workflow = Workflow::builder()
     .config(workflow)
@@ -251,4 +253,6 @@ async fn test_before_run_error() {
   assert_eq!(job_result.steps.len(), 1);
 
   assert_eq!(job_result.steps[0].state, WorkflowState::Failed);
+
+  runner.unregister_plugin("test-plugin");
 }
