@@ -27,28 +27,6 @@ async fn test_docker() {
   // Pull the image before running the test
   Command::new("docker pull ubuntu").exec().await.unwrap();
 
-  fs::create_dir_all("/tmp/astro-run").unwrap();
-  let mut file = fs::File::create("/tmp/astro-run/test.txt").unwrap();
-
-  file.write_all(b"Hello World").unwrap();
-  file.flush().unwrap();
-
-  drop(file);
-
-  println!("File content: ");
-  let content = Command::new("cat /tmp/astro-run/test.txt")
-    .exec()
-    .await
-    .unwrap();
-  println!("{}", content);
-
-  println!("docker images");
-  let images = Command::new("docker images")
-    .exec()
-    .await
-    .unwrap();
-  println!("{}", images);
-
   let workflow = r#"
 jobs:
   test:
@@ -58,16 +36,10 @@ jobs:
           name: ubuntu
           security-opts: 
             - seccomp=unconfined
-          volumes:
-            - /tmp/astro-run/test.txt:/tmp/test.txt
         continue-on-error: false
         environments:
           TEST: Value
         run: |
-          ls -la /tmp
-          cat -v
-          which cat
-          cat /tmp/test.txt
           echo "Hello World $TEST" >> test.txt
         timeout: 60m
       - run: |
@@ -79,17 +51,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(runner)
-    // .plugin(assert_logs_plugin(vec![
-    //   "Hello World",
-    //   "Content is Hello World Value",
-    // ]))
-    .plugin(
-      AstroRunPlugin::builder("logs")
-        .on_log(|log| {
-          println!("{}", log.message);
-        })
-        .build(),
-    )
+    .plugin(assert_logs_plugin(vec!["Content is Hello World Value"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -108,6 +70,69 @@ jobs:
 
   assert_eq!(job_result.steps[0].state, WorkflowState::Succeeded);
   assert_eq!(job_result.steps[1].state, WorkflowState::Succeeded);
+}
+
+#[astro_run_test::test(docker)]
+async fn test_docker_volume() {
+  // Pull the image before running the test
+  Command::new("docker pull ubuntu").exec().await.unwrap();
+
+  fs::create_dir_all("/tmp/astro-run").unwrap();
+  let mut file = fs::File::create("/tmp/astro-run/test.txt").unwrap();
+
+  file.write_all(b"Hello World").unwrap();
+  file.flush().unwrap();
+
+  drop(file);
+
+  println!("File content: ");
+  let content = Command::new("cat /tmp/astro-run/test.txt")
+    .exec()
+    .await
+    .unwrap();
+  println!("{}", content);
+
+  let workflow = r#"
+jobs:
+  test:
+    name: Test Job
+    steps:
+      - container:
+          name: ubuntu
+          volumes:
+            - /tmp/astro-run/test.txt:/tmp/test.txt
+        run: cat /tmp/test.txt
+  "#;
+
+  let runner = AstroRunner::builder().build().unwrap();
+
+  let astro_run = AstroRun::builder()
+    .runner(runner)
+    .plugin(assert_logs_plugin(vec!["Hello World"]))
+    .plugin(
+      AstroRunPlugin::builder("logs")
+        .on_log(|log| {
+          log::debug!("Log: {}", log.message);
+        })
+        .build(),
+    )
+    .build();
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
+
+  let ctx = astro_run.execution_context().build();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Succeeded);
+  let job_result = res.jobs.get("test").unwrap();
+  assert_eq!(job_result.state, WorkflowState::Succeeded);
+  assert_eq!(job_result.steps.len(), 1);
+
+  assert_eq!(job_result.steps[0].state, WorkflowState::Succeeded);
 
   fs::remove_dir_all("/tmp/astro-run").unwrap();
 }
