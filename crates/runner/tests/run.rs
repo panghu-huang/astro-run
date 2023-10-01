@@ -30,6 +30,8 @@ async fn test_docker() {
   let mut file = fs::File::create("/tmp/test.txt").unwrap();
 
   file.write_all(b"Hello World").unwrap();
+  file.flush().unwrap();
+
   drop(file);
 
   let workflow = r#"
