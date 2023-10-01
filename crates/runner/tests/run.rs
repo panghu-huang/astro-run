@@ -117,3 +117,138 @@ async fn test_host() {
 
   assert_eq!(job_result.steps[0].state, WorkflowState::Succeeded);
 }
+
+#[astro_run_test::test]
+async fn test_before_run() {
+  struct TestPlugin;
+
+  impl astro_runner::Plugin for TestPlugin {
+    fn name(&self) -> &'static str {
+      "test-plugin"
+    }
+
+    fn on_before_run(
+      &self,
+      mut ctx: astro_run::Context,
+    ) -> Result<astro_run::Context, Box<dyn std::error::Error>> {
+      ctx.command.run = "echo \"My custom run\"".to_string();
+
+      Ok(ctx)
+    }
+
+    fn on_after_run(&self, ctx: astro_run::Context) {
+      assert_eq!(ctx.command.run, "echo \"My custom run\"");
+    }
+  }
+
+  let workflow = format!(
+    r#"
+  jobs:
+    test:
+      name: Test Job
+      steps:
+        - container: host/{}
+          run: echo "Hello world"
+          environments:
+            TEST: Value
+
+    "#,
+    std::env::consts::OS
+  );
+
+  #[allow(deprecated)]
+  let working_dir = std::env::home_dir()
+    .map(|home| home.join("astro-run"))
+    .unwrap();
+
+  let runner = AstroRunner::builder()
+    .working_directory(working_dir)
+    .plugin(TestPlugin)
+    .build()
+    .unwrap();
+
+  let astro_run = AstroRun::builder()
+    .runner(runner)
+    .plugin(assert_logs_plugin(vec!["My custom run".to_string()]))
+    .build();
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
+
+  let ctx = astro_run.execution_context().build();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Succeeded);
+  let job_result = res.jobs.get("test").unwrap();
+  assert_eq!(job_result.state, WorkflowState::Succeeded);
+  assert_eq!(job_result.steps.len(), 1);
+
+  assert_eq!(job_result.steps[0].state, WorkflowState::Succeeded);
+}
+
+#[astro_run_test::test]
+async fn test_before_run_error() {
+  struct TestPlugin;
+
+  impl astro_runner::Plugin for TestPlugin {
+    fn name(&self) -> &'static str {
+      "test-plugin"
+    }
+
+    fn on_before_run(
+      &self,
+      _ctx: astro_run::Context,
+    ) -> Result<astro_run::Context, Box<dyn std::error::Error>> {
+      Err("Error".into())
+    }
+  }
+
+  let workflow = format!(
+    r#"
+  jobs:
+    test:
+      name: Test Job
+      steps:
+        - container: host/{}
+          run: echo "Hello world"
+          environments:
+            TEST: Value
+
+    "#,
+    std::env::consts::OS
+  );
+
+  #[allow(deprecated)]
+  let working_dir = std::env::home_dir()
+    .map(|home| home.join("astro-run"))
+    .unwrap();
+
+  let runner = AstroRunner::builder()
+    .working_directory(working_dir)
+    .plugin(TestPlugin)
+    .build()
+    .unwrap();
+
+  let astro_run = AstroRun::builder()
+    .runner(runner)
+    .build();
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
+
+  let ctx = astro_run.execution_context().build();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Failed);
+  let job_result = res.jobs.get("test").unwrap();
+  assert_eq!(job_result.state, WorkflowState::Failed);
+  assert_eq!(job_result.steps.len(), 1);
+
+  assert_eq!(job_result.steps[0].state, WorkflowState::Failed);
+}

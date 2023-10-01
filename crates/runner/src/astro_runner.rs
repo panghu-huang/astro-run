@@ -1,4 +1,7 @@
-use crate::executors::{DockerExecutor, Executor, HostExecutor};
+use crate::{
+  executors::{DockerExecutor, Executor, HostExecutor},
+  Plugin, PluginManager,
+};
 use astro_run::{
   stream, Context, Error, Result, RunResponse, RunResult, Runner, WorkflowEvent, WorkflowId,
 };
@@ -9,14 +12,28 @@ struct RunnerState {
   workflow_events: HashMap<WorkflowId, WorkflowEvent>,
 }
 
+#[derive(Clone)]
 pub struct AstroRunner {
   working_directory: PathBuf,
   state: Arc<Mutex<RunnerState>>,
+  plugins: PluginManager,
 }
 
 impl AstroRunner {
   pub fn builder() -> AstroRunnerBuilder {
     AstroRunnerBuilder::new()
+  }
+
+  pub fn register_plugin<P: Plugin + 'static>(&self, plugin: P) -> &Self {
+    self.plugins.register(plugin);
+
+    self
+  }
+
+  pub fn unregister_plugin(&self, plugin_name: &'static str) -> &Self {
+    self.plugins.unregister(plugin_name);
+
+    self
   }
 }
 
@@ -30,6 +47,11 @@ impl Runner for AstroRunner {
 
   async fn run(&self, ctx: Context) -> RunResponse {
     let (sender, receiver) = stream();
+
+    let ctx = self
+      .plugins
+      .on_before_run(ctx)
+      .map_err(|err| Error::error(format!("AstroRunner: on_before_run error: {}", err)))?;
 
     let executor = self.create_executor(&ctx);
 
@@ -84,7 +106,6 @@ impl AstroRunner {
   }
 
   fn cleanup_workflow_working_directory(&self, result: astro_run::WorkflowRunResult) -> Result<()> {
-    log::trace!("AstroRunner: workflow completed: {:?}", result);
     let event = self.state.lock().workflow_events.get(&result.id).cloned();
 
     let mut directory = self.working_directory.clone();
@@ -95,7 +116,9 @@ impl AstroRunner {
 
     directory = directory.join(&result.id.inner());
 
-    fs::remove_dir_all(directory)?;
+    if directory.exists() {
+      fs::remove_dir_all(directory)?;
+    }
 
     Ok(()) as Result<()>
   }
@@ -103,13 +126,21 @@ impl AstroRunner {
 
 pub struct AstroRunnerBuilder {
   working_directory: Option<PathBuf>,
+  plugins: PluginManager,
 }
 
 impl AstroRunnerBuilder {
   pub fn new() -> Self {
     Self {
       working_directory: None,
+      plugins: PluginManager::new(),
     }
+  }
+
+  pub fn plugin<P: Plugin + 'static>(self, plugin: P) -> Self {
+    self.plugins.register(plugin);
+
+    self
   }
 
   pub fn working_directory(mut self, working_directory: PathBuf) -> Self {
@@ -130,6 +161,7 @@ impl AstroRunnerBuilder {
       state: Arc::new(Mutex::new(RunnerState {
         workflow_events: HashMap::new(),
       })),
+      plugins: self.plugins,
     };
 
     Ok(runner)
