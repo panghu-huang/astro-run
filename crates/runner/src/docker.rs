@@ -135,11 +135,12 @@ mod tests {
       .working_dir("/home/runner/work".to_string())
       .entrypoint("entrypoint".to_string())
       .volume("/app".to_string(), "/home/runner/work".to_string())
+      .security_opt("seccomp=unconfined".to_string())
       .generate_docker_command();
 
     assert_eq!(
       common,
-      "docker run --tty --rm -v \"/app:/home/runner/work\" -e key=\"value\" -w /home/runner/work --entrypoint entrypoint --name test ubuntu"
+      "docker run --tty --rm --security-opt seccomp=unconfined -v \"/app:/home/runner/work\" -e key=\"value\" -w /home/runner/work --entrypoint entrypoint --name test ubuntu"
     );
   }
 }

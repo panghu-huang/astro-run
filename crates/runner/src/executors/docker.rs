@@ -108,11 +108,17 @@ impl DockerExecutor {
       docker = docker.environment(key, env.to_string());
     }
 
-    if let Some(Some(volumes)) = ctx.command.container.map(|c| c.volumes) {
+    if let Some(Some(volumes)) = ctx.command.container.as_ref().map(|c| c.volumes.clone()) {
       for volume in volumes {
         if let [host_path, container_path] = volume.split(':').collect::<Vec<&str>>()[..] {
           docker = docker.volume(host_path, container_path);
         }
+      }
+    }
+
+    if let Some(Some(security_opts)) = ctx.command.container.map(|c| c.security_opts) {
+      for security_opt in security_opts {
+        docker = docker.security_opt(security_opt);
       }
     }
 
