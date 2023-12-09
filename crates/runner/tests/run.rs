@@ -85,6 +85,10 @@ async fn test_docker_volume() {
 
   drop(file);
 
+  let content = fs::read_to_string("/tmp/astro-run/test.txt").unwrap();
+
+  assert_eq!(content, "Hello World");
+
   let workflow = r#"
 jobs:
   test:
