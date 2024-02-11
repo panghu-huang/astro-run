@@ -262,3 +262,76 @@ jobs:
   assert_eq!(job.state, WorkflowState::Skipped);
   assert_eq!(job.steps.len(), 0);
 }
+
+#[astro_run_test::test]
+async fn test_only_pull_request_event() {
+  dotenv::dotenv().ok();
+
+  let workflow = r#"
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    steps:
+      - run: Skipped
+  "#;
+
+  let astro_run = AstroRun::builder()
+    .runner(TestRunner::new())
+    .github_personal_token(std::env::var("PERSONAL_ACCESS_TOKEN").unwrap())
+    .build();
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
+
+  let ctx = astro_run
+    .execution_context()
+    .event(get_push_event())
+    .build();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Skipped);
+}
+
+
+#[astro_run_test::test]
+async fn test_only_push_event() {
+  dotenv::dotenv().ok();
+
+  let workflow = r#"
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    steps:
+      - run: Skipped
+  "#;
+
+  let astro_run = AstroRun::builder()
+    .runner(TestRunner::new())
+    .github_personal_token(std::env::var("PERSONAL_ACCESS_TOKEN").unwrap())
+    .build();
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
+
+  let ctx = astro_run
+    .execution_context()
+    .event(get_pull_request_event())
+    .build();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Skipped);
+}
