@@ -75,7 +75,7 @@ jobs:
 #[astro_run_test::test(docker)]
 async fn test_docker_volume() {
   // Pull the image before running the test
-  Command::new("docker pull ubuntu").exec().await.unwrap();
+  Command::new("docker pull ubuntu:22.04").exec().await.unwrap();
 
   fs::create_dir_all("/tmp/astro-run").unwrap();
   let mut file = fs::File::create("/tmp/astro-run/test.txt").unwrap();
@@ -91,17 +91,20 @@ jobs:
     name: Test Job
     steps:
       - container:
-          name: ubuntu
+          name: ubuntu:22.04
           volumes:
-            - /tmp/astro-run/test.txt:/tmp/test.txt
-        run: cat /tmp/test.txt
+            - /tmp/astro-run/test.txt:/home/runner/work/test.txt
+        run: |
+          ls /home/runner/work
+          content=$(cat /home/runner/work/test.txt)
+          echo $content
   "#;
 
   let runner = AstroRunner::builder().build().unwrap();
 
   let astro_run = AstroRun::builder()
     .runner(runner)
-    .plugin(assert_logs_plugin(vec!["Hello World"]))
+    .plugin(assert_logs_plugin(vec!["test.txt", "Hello World"]))
     .build();
 
   let workflow = Workflow::builder()
