@@ -1,6 +1,6 @@
 use crate::{
-  Job, JobRunResult, Step, StepRunResult, Workflow, WorkflowEvent, WorkflowLog, WorkflowRunResult,
-  WorkflowStateEvent,
+  Action, Job, JobRunResult, Step, StepRunResult, UserActionStep, Workflow, WorkflowEvent,
+  WorkflowLog, WorkflowRunResult, WorkflowStateEvent,
 };
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -32,6 +32,7 @@ type OnRunStep = dyn Fn(RunStepEvent) -> () + Send + Sync;
 type OnWorkflowComplete = dyn Fn(WorkflowRunResult) -> () + Send + Sync;
 type OnJobComplete = dyn Fn(JobRunResult) -> () + Send + Sync;
 type OnStepComplete = dyn Fn(StepRunResult) -> () + Send + Sync;
+type OnResolveDynamicAction = dyn Fn(UserActionStep) -> Option<Box<dyn Action>> + Send + Sync;
 
 pub trait Plugin: Send {
   fn name(&self) -> &'static str;
@@ -43,6 +44,9 @@ pub trait Plugin: Send {
   fn on_workflow_completed(&self, _result: WorkflowRunResult) {}
   fn on_job_completed(&self, _result: JobRunResult) {}
   fn on_step_completed(&self, _result: StepRunResult) {}
+  fn on_resolve_dynamic_action(&self, _step: UserActionStep) -> Option<Box<dyn Action>> {
+    None
+  }
 }
 
 pub struct PluginBuilder {
@@ -55,6 +59,7 @@ pub struct PluginBuilder {
   on_workflow_completed: Option<Box<OnWorkflowComplete>>,
   on_job_completed: Option<Box<OnJobComplete>>,
   on_step_completed: Option<Box<OnStepComplete>>,
+  on_resolve_dynamic_action: Option<Box<OnResolveDynamicAction>>,
 }
 
 impl PluginBuilder {
@@ -69,6 +74,7 @@ impl PluginBuilder {
       on_workflow_completed: None,
       on_job_completed: None,
       on_step_completed: None,
+      on_resolve_dynamic_action: None,
     }
   }
 
@@ -136,6 +142,14 @@ impl PluginBuilder {
     self
   }
 
+  pub fn on_resolve_dynamic_action<T>(mut self, on_resolve_dynamic_action: T) -> Self
+  where
+    T: Fn(UserActionStep) -> Option<Box<dyn Action>> + 'static + Send + Sync,
+  {
+    self.on_resolve_dynamic_action = Some(Box::new(on_resolve_dynamic_action));
+    self
+  }
+
   pub fn build(self) -> AstroRunPlugin {
     AstroRunPlugin {
       name: self.name,
@@ -147,6 +161,7 @@ impl PluginBuilder {
       on_workflow_completed: self.on_workflow_completed,
       on_job_completed: self.on_job_completed,
       on_step_completed: self.on_step_completed,
+      on_resolve_dynamic_action: self.on_resolve_dynamic_action,
     }
   }
 }
@@ -161,6 +176,7 @@ pub struct AstroRunPlugin {
   on_workflow_completed: Option<Box<OnWorkflowComplete>>,
   on_job_completed: Option<Box<OnJobComplete>>,
   on_step_completed: Option<Box<OnStepComplete>>,
+  on_resolve_dynamic_action: Option<Box<OnResolveDynamicAction>>,
 }
 
 impl AstroRunPlugin {
@@ -220,6 +236,14 @@ impl Plugin for AstroRunPlugin {
     if let Some(on_step_completed) = &self.on_step_completed {
       on_step_completed(result);
     }
+  }
+
+  fn on_resolve_dynamic_action(&self, step: UserActionStep) -> Option<Box<dyn Action>> {
+    if let Some(on_resolve_dynamic_action) = &self.on_resolve_dynamic_action {
+      return on_resolve_dynamic_action(step);
+    }
+
+    None
   }
 }
 
@@ -305,6 +329,17 @@ impl PluginManager {
     for plugin in plugins.iter() {
       plugin.on_step_completed(result.clone());
     }
+  }
+
+  pub fn on_resolve_dynamic_action(&self, step: UserActionStep) -> Option<Box<dyn Action>> {
+    let plugins = self.plugins.lock();
+    for plugin in plugins.iter() {
+      if let Some(action) = plugin.on_resolve_dynamic_action(step.clone()) {
+        return Some(action);
+      }
+    }
+
+    None
   }
 }
 

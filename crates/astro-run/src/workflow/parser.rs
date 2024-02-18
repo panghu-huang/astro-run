@@ -1,24 +1,66 @@
 use super::{job::Job, Step, Workflow};
 use crate::{
-  Actions, Error, Id, JobId, Result, StepId, UserCommandStep, UserStep, UserWorkflow, WorkflowId,
+  ActionSteps, Actions, AstroRun, Error, Id, JobId, Result, StepId, UserActionStep,
+  UserCommandStep, UserStep, UserWorkflow, WorkflowId,
 };
 use std::collections::HashMap;
 
-pub struct WorkflowParser {
+pub struct WorkflowParser<'a> {
   pub id: Id,
   pub user_workflow: UserWorkflow,
-  pub actions: Actions,
+  pub astro_run: &'a AstroRun,
 }
 
-impl WorkflowParser {
-  fn normalize_user_steps(&self, user_steps: Vec<UserStep>) -> crate::Result<Vec<UserStep>> {
+impl<'a> WorkflowParser<'a> {
+  fn try_normalize_action(
+    &self,
+    actions: &Actions,
+    user_action_step: UserActionStep,
+  ) -> crate::Result<ActionSteps> {
+    let action_steps = match actions.try_normalize(user_action_step.clone())? {
+      Some(steps) => {
+        log::trace!("Action `{}` is found and normalized", user_action_step.uses);
+        steps
+      }
+      None => {
+        log::trace!(
+          "Action `{}` is not found in the local cache",
+          user_action_step.uses
+        );
+
+        let action = self
+          .astro_run
+          .plugins()
+          .on_resolve_dynamic_action(user_action_step.clone());
+
+        match action {
+          Some(action) => action.normalize(user_action_step)?,
+          None => {
+            return Err(Error::workflow_config_error(&format!(
+              "Action `{}` is not found",
+              user_action_step.uses
+            )));
+          }
+        }
+      }
+    };
+
+    Ok(action_steps)
+  }
+
+  fn try_normalize_user_steps(
+    &self,
+    actions: &Actions,
+    user_steps: Vec<UserStep>,
+  ) -> crate::Result<Vec<UserStep>> {
     let mut pre_steps = vec![];
     let mut steps = vec![];
     let mut post_steps = vec![];
 
     for step in user_steps {
       if let UserStep::Action(user_action_step) = &step {
-        let action_steps = self.actions.normalize(user_action_step.clone())?;
+        let action_steps = self.try_normalize_action(actions, user_action_step.clone())?;
+
         if let Some(pre) = action_steps.pre {
           pre_steps.push(pre);
         }
@@ -47,6 +89,7 @@ impl WorkflowParser {
   pub fn parse(self) -> Result<Workflow> {
     let id = self.id.clone();
     let user_workflow = self.user_workflow.clone();
+    let actions = self.astro_run.actions();
 
     let mut jobs = HashMap::new();
 
@@ -55,7 +98,7 @@ impl WorkflowParser {
       let job_container = job.container;
       let job_working_dirs = job.working_dirs.unwrap_or_default();
 
-      let job_steps = self.normalize_user_steps(job.steps)?;
+      let job_steps = self.try_normalize_user_steps(&actions, job.steps)?;
 
       for (idx, step) in job_steps.iter().enumerate() {
         if let UserStep::Command(UserCommandStep {
@@ -120,14 +163,26 @@ impl WorkflowParser {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::{Action, ActionSteps, EnvironmentVariable, Result, UserActionStep};
+  use crate::{
+    async_trait, Action, ActionSteps, AstroRun, Context, EnvironmentVariable, Result, RunResponse,
+    Runner, UserActionStep,
+  };
   use serde::{Deserialize, Serialize};
+
+  struct TestRunner;
+
+  #[async_trait]
+  impl Runner for TestRunner {
+    async fn run(&self, _ctx: Context) -> RunResponse {
+      unreachable!("TestRunner should not be called")
+    }
+  }
 
   #[test]
   fn test_parse() {
     let yaml = r#"
 name: Test Workflow
-on: 
+on:
   push:
     branches:
       - master
@@ -148,10 +203,12 @@ jobs:
 
     let user_workflow: UserWorkflow = serde_yaml::from_str(yaml).unwrap();
 
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
+
     let parser = WorkflowParser {
       id: "test-id".to_string(),
       user_workflow,
-      actions: Actions::new(),
+      astro_run: &astro_run,
     };
 
     let workflow = parser.parse().unwrap();
@@ -188,11 +245,12 @@ jobs:
   "#;
 
     let user_workflow: UserWorkflow = serde_yaml::from_str(yaml).unwrap();
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
 
     let parser = WorkflowParser {
       id: "test-id".to_string(),
       user_workflow,
-      actions: Actions::new(),
+      astro_run: &astro_run,
     };
 
     let workflow = parser.parse();
@@ -244,14 +302,14 @@ jobs:
       }
     }
 
-    let actions = Actions::new();
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
 
-    actions.register("caches", CacheAction {});
+    astro_run.register_action("caches", CacheAction {});
 
     let parser = WorkflowParser {
       id: "test-id".to_string(),
       user_workflow: serde_yaml::from_str(workflow).unwrap(),
-      actions,
+      astro_run: &astro_run,
     };
 
     let workflow = parser.parse().unwrap();
@@ -297,14 +355,14 @@ jobs:
       }
     }
 
-    let actions = Actions::new();
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
 
-    actions.register("nested", NestedAction);
+    astro_run.register_action("nested", NestedAction);
 
     let parser = WorkflowParser {
       id: "test-id".to_string(),
       user_workflow: serde_yaml::from_str(workflow).unwrap(),
-      actions,
+      astro_run: &astro_run,
     };
 
     let error = parser.parse().unwrap_err();

@@ -41,41 +41,6 @@ impl Runner for TestRunner {
 
     Ok(rx)
   }
-
-  // fn on_run_workflow(&self, workflow: Workflow) {
-  //   println!(
-  //     "Running workflow: {}",
-  //     workflow.name.unwrap_or("None".to_string())
-  //   );
-  // }
-
-  // fn on_run_job(&self, job: Job) {
-  //   println!("Running job: {}", job.name.unwrap_or("None".to_string()));
-  // }
-
-  // fn on_run_step(&self, step: Step) {
-  //   println!("Running step: {:?}", step);
-  // }
-
-  // fn on_state_change(&self, event: WorkflowStateEvent) {
-  //   println!("State changed: {:?}", event);
-  // }
-
-  // fn on_step_completed(&self, result: StepRunResult) {
-  //   println!("Step completed: {:?}", result);
-  // }
-
-  // fn on_job_completed(&self, result: JobRunResult) {
-  //   println!("Job completed: {:?}", result);
-  // }
-
-  // fn on_log(&self, log: WorkflowLog) {
-  //   println!("Log: {:?}", log);
-  // }
-
-  // fn on_workflow_completed(&self, result: WorkflowRunResult) {
-  //   println!("Workflow completed {:?}", result);
-  // }
 }
 
 struct AssetLogsPlugin {
@@ -275,12 +240,12 @@ async fn test_depends_on() {
       name: Depends Test Job
       depends-on: [test]
       steps:
-        - run: Hello World2  
+        - run: Hello World2
     depends_test2:
       name: Depends Test Job
       depends-on: [test, depends_test]
       steps:
-        - run: Hello World3 
+        - run: Hello World3
     "#;
 
   let astro_run = AstroRun::builder()
