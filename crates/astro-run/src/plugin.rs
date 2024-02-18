@@ -423,5 +423,12 @@ mod tests {
       message: "test".to_string(),
       ..Default::default()
     });
+
+    let action = plugin_manager.on_resolve_dynamic_action(UserActionStep {
+      name: Some("test".to_string()),
+      ..Default::default()
+    });
+
+    assert_eq!(action.is_none(), true);
   }
 }

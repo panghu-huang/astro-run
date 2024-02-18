@@ -23,11 +23,6 @@ impl<'a> WorkflowParser<'a> {
         steps
       }
       None => {
-        log::trace!(
-          "Action `{}` is not found in the local cache",
-          user_action_step.uses
-        );
-
         let action = self
           .astro_run
           .plugins()
@@ -199,6 +194,12 @@ jobs:
         environments:
           TEST_ENV: test
         run: echo "Hello World"
+
+  test-job2:
+    container: alpine:latest
+    steps:
+      - run: echo "Hello World2"
+      - run: echo "Hello World3"
   "#;
 
     let user_workflow: UserWorkflow = serde_yaml::from_str(yaml).unwrap();
@@ -215,7 +216,7 @@ jobs:
 
     assert_eq!(workflow.id, WorkflowId::new("test-id"));
     assert_eq!(workflow.name.unwrap(), "Test Workflow");
-    assert_eq!(workflow.jobs.len(), 1);
+    assert_eq!(workflow.jobs.len(), 2);
 
     let job = workflow.jobs.get("test-job").unwrap();
     assert_eq!(job.name.clone().unwrap(), "Test Job");
@@ -231,6 +232,15 @@ jobs:
       &EnvironmentVariable::String("test".to_string())
     );
     assert_eq!(step.run, "echo \"Hello World\"");
+
+    let job = workflow.jobs.get("test-job2").unwrap();
+    assert_eq!(job.steps.len(), 2);
+
+    let step = job.steps.get(0).unwrap();
+    assert_eq!(step.run, "echo \"Hello World2\"");
+
+    let step = job.steps.get(1).unwrap();
+    assert_eq!(step.run, "echo \"Hello World3\"");
   }
 
   #[test]
@@ -287,7 +297,11 @@ jobs:
       fn normalize(&self, step: UserActionStep) -> Result<ActionSteps> {
         let options: CacheOptions = serde_yaml::from_value(step.with.unwrap()).unwrap();
         Ok(ActionSteps {
-          pre: None,
+          pre: Some(UserStep::Command(UserCommandStep {
+            name: Some("Pre cache".to_string()),
+            run: format!("pre cache {} {}", options.path, options.key),
+            ..Default::default()
+          })),
           run: UserStep::Command(UserCommandStep {
             name: Some("Restore cache".to_string()),
             run: format!("restore cache {} {}", options.path, options.key),
@@ -316,17 +330,21 @@ jobs:
 
     let steps = workflow.jobs.get("test").unwrap().steps.clone();
 
-    assert_eq!(steps.len(), 3);
+    assert_eq!(steps.len(), 4);
 
     let step = steps.get(0).unwrap();
+    assert_eq!(step.name, Some("Pre cache".to_string()));
+    assert_eq!(step.run, "pre cache /tmp test".to_string());
+
+    let step = steps.get(1).unwrap();
     assert_eq!(step.name, Some("Restore cache".to_string()));
     assert_eq!(step.run, "restore cache /tmp test".to_string());
 
-    let step = steps.get(1).unwrap();
+    let step = steps.get(2).unwrap();
     assert_eq!(step.name, None);
     assert_eq!(step.run, "Hello World".to_string());
 
-    let step = steps.get(2).unwrap();
+    let step = steps.get(3).unwrap();
     assert_eq!(step.name, Some("Save cache".to_string()));
     assert_eq!(step.run, "save cache /tmp test".to_string());
   }
