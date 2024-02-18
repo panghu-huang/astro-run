@@ -1,6 +1,6 @@
 use super::{job::Job, Step, Workflow};
 use crate::{
-  ActionSteps, Actions, AstroRun, Error, Id, JobId, Result, StepId, UserActionStep,
+  ActionSteps, Actions, AstroRun, Error, Id, JobId, PluginManager, Result, StepId, UserActionStep,
   UserCommandStep, UserStep, UserWorkflow, WorkflowId,
 };
 use std::collections::HashMap;
@@ -14,6 +14,7 @@ pub struct WorkflowParser<'a> {
 impl<'a> WorkflowParser<'a> {
   fn try_normalize_action(
     &self,
+    plugins: &PluginManager,
     actions: &Actions,
     user_action_step: UserActionStep,
   ) -> crate::Result<ActionSteps> {
@@ -23,10 +24,7 @@ impl<'a> WorkflowParser<'a> {
         steps
       }
       None => {
-        let action = self
-          .astro_run
-          .plugins()
-          .on_resolve_dynamic_action(user_action_step.clone());
+        let action = plugins.on_resolve_dynamic_action(user_action_step.clone());
 
         match action {
           Some(action) => action.normalize(user_action_step)?,
@@ -45,6 +43,7 @@ impl<'a> WorkflowParser<'a> {
 
   fn try_normalize_user_steps(
     &self,
+    plugins: &PluginManager,
     actions: &Actions,
     user_steps: Vec<UserStep>,
   ) -> crate::Result<Vec<UserStep>> {
@@ -54,7 +53,7 @@ impl<'a> WorkflowParser<'a> {
 
     for step in user_steps {
       if let UserStep::Action(user_action_step) = &step {
-        let action_steps = self.try_normalize_action(actions, user_action_step.clone())?;
+        let action_steps = self.try_normalize_action(plugins, actions, user_action_step.clone())?;
 
         if let Some(pre) = action_steps.pre {
           pre_steps.push(pre);
@@ -85,6 +84,7 @@ impl<'a> WorkflowParser<'a> {
     let id = self.id.clone();
     let user_workflow = self.user_workflow.clone();
     let actions = self.astro_run.actions();
+    let plugins = self.astro_run.plugins();
 
     let mut jobs = HashMap::new();
 
@@ -93,7 +93,7 @@ impl<'a> WorkflowParser<'a> {
       let job_container = job.container;
       let job_working_dirs = job.working_dirs.unwrap_or_default();
 
-      let job_steps = self.try_normalize_user_steps(&actions, job.steps)?;
+      let job_steps = self.try_normalize_user_steps(&plugins, &actions, job.steps)?;
 
       for (idx, step) in job_steps.iter().enumerate() {
         if let UserStep::Command(UserCommandStep {
@@ -388,6 +388,31 @@ jobs:
     assert_eq!(
       error,
       Error::unsupported_feature("Only command step is supported")
+    );
+  }
+
+  #[test]
+  fn test_not_defined_action() {
+    let workflow = r#"
+      jobs:
+        test:
+          steps:
+            - uses: not_defined
+      "#;
+
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
+
+    let parser = WorkflowParser {
+      id: "test-id".to_string(),
+      user_workflow: serde_yaml::from_str(workflow).unwrap(),
+      astro_run: &astro_run,
+    };
+
+    let error = parser.parse().unwrap_err();
+
+    assert_eq!(
+      error,
+      Error::workflow_config_error("Action `not_defined` is not found")
     );
   }
 }

@@ -1,6 +1,6 @@
 use astro_run::{
-  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, PluginBuilder, Result, RunResult,
-  Runner, UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowState,
+  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Error, PluginBuilder, Result,
+  RunResult, Runner, UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowState,
 };
 use parking_lot::Mutex;
 use serde::Deserialize;
@@ -123,7 +123,7 @@ jobs:
   let res = Workflow::builder().config(yaml).build(&astro_run);
 
   assert_eq!(
-    res.unwrap_err().to_string(),
-    "Failed to parse user config: Action `dynamic-action` is not found"
+    res.unwrap_err(),
+    Error::workflow_config_error("Action `dynamic-action` is not found")
   );
 }
