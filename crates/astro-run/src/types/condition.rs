@@ -78,15 +78,15 @@ impl Condition {
     log::trace!("Matching condition {:#?} with payload {:#?}", self, payload);
     match self {
       Condition::Event(events) => events.contains(&payload.event),
-      Condition::Config(config) => match &payload.event {
-        event if event == "push" => {
+      Condition::Config(config) => match payload.event.as_str() {
+        "push" => {
           if let Some(push) = &config.push {
             push.is_match(payload)
           } else {
             false
           }
         }
-        event if event == "pull_request" => {
+        "pull_request" => {
           if let Some(pull_request) = &config.pull_request {
             pull_request.is_match(payload)
           } else {

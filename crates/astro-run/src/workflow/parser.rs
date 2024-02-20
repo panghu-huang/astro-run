@@ -1,24 +1,60 @@
 use super::{job::Job, Step, Workflow};
 use crate::{
-  Actions, Error, Id, JobId, Result, StepId, UserCommandStep, UserStep, UserWorkflow, WorkflowId,
+  ActionSteps, Actions, AstroRun, Error, Id, JobId, PluginManager, Result, StepId, UserActionStep,
+  UserCommandStep, UserStep, UserWorkflow, WorkflowId,
 };
 use std::collections::HashMap;
 
-pub struct WorkflowParser {
+pub struct WorkflowParser<'a> {
   pub id: Id,
   pub user_workflow: UserWorkflow,
-  pub actions: Actions,
+  pub astro_run: &'a AstroRun,
 }
 
-impl WorkflowParser {
-  fn normalize_user_steps(&self, user_steps: Vec<UserStep>) -> crate::Result<Vec<UserStep>> {
+impl<'a> WorkflowParser<'a> {
+  fn try_normalize_action(
+    &self,
+    plugins: &PluginManager,
+    actions: &Actions,
+    user_action_step: UserActionStep,
+  ) -> crate::Result<ActionSteps> {
+    let action_steps = match actions.try_normalize(user_action_step.clone())? {
+      Some(steps) => {
+        log::trace!("Action `{}` is found and normalized", user_action_step.uses);
+        steps
+      }
+      None => {
+        let action = plugins.on_resolve_dynamic_action(user_action_step.clone());
+
+        match action {
+          Some(action) => action.normalize(user_action_step)?,
+          None => {
+            return Err(Error::workflow_config_error(&format!(
+              "Action `{}` is not found",
+              user_action_step.uses
+            )));
+          }
+        }
+      }
+    };
+
+    Ok(action_steps)
+  }
+
+  fn try_normalize_user_steps(
+    &self,
+    plugins: &PluginManager,
+    actions: &Actions,
+    user_steps: Vec<UserStep>,
+  ) -> crate::Result<Vec<UserStep>> {
     let mut pre_steps = vec![];
     let mut steps = vec![];
     let mut post_steps = vec![];
 
     for step in user_steps {
       if let UserStep::Action(user_action_step) = &step {
-        let action_steps = self.actions.normalize(user_action_step.clone())?;
+        let action_steps = self.try_normalize_action(plugins, actions, user_action_step.clone())?;
+
         if let Some(pre) = action_steps.pre {
           pre_steps.push(pre);
         }
@@ -47,6 +83,8 @@ impl WorkflowParser {
   pub fn parse(self) -> Result<Workflow> {
     let id = self.id.clone();
     let user_workflow = self.user_workflow.clone();
+    let actions = self.astro_run.actions();
+    let plugins = self.astro_run.plugins();
 
     let mut jobs = HashMap::new();
 
@@ -55,7 +93,7 @@ impl WorkflowParser {
       let job_container = job.container;
       let job_working_dirs = job.working_dirs.unwrap_or_default();
 
-      let job_steps = self.normalize_user_steps(job.steps)?;
+      let job_steps = self.try_normalize_user_steps(&plugins, &actions, job.steps)?;
 
       for (idx, step) in job_steps.iter().enumerate() {
         if let UserStep::Command(UserCommandStep {
@@ -120,14 +158,26 @@ impl WorkflowParser {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::{Action, ActionSteps, EnvironmentVariable, Result, UserActionStep};
+  use crate::{
+    async_trait, Action, ActionSteps, AstroRun, Context, EnvironmentVariable, Result, RunResponse,
+    Runner, UserActionStep,
+  };
   use serde::{Deserialize, Serialize};
+
+  struct TestRunner;
+
+  #[async_trait]
+  impl Runner for TestRunner {
+    async fn run(&self, _ctx: Context) -> RunResponse {
+      unreachable!("TestRunner should not be called")
+    }
+  }
 
   #[test]
   fn test_parse() {
     let yaml = r#"
 name: Test Workflow
-on: 
+on:
   push:
     branches:
       - master
@@ -144,21 +194,29 @@ jobs:
         environments:
           TEST_ENV: test
         run: echo "Hello World"
+
+  test-job2:
+    container: alpine:latest
+    steps:
+      - run: echo "Hello World2"
+      - run: echo "Hello World3"
   "#;
 
     let user_workflow: UserWorkflow = serde_yaml::from_str(yaml).unwrap();
 
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
+
     let parser = WorkflowParser {
       id: "test-id".to_string(),
       user_workflow,
-      actions: Actions::new(),
+      astro_run: &astro_run,
     };
 
     let workflow = parser.parse().unwrap();
 
     assert_eq!(workflow.id, WorkflowId::new("test-id"));
     assert_eq!(workflow.name.unwrap(), "Test Workflow");
-    assert_eq!(workflow.jobs.len(), 1);
+    assert_eq!(workflow.jobs.len(), 2);
 
     let job = workflow.jobs.get("test-job").unwrap();
     assert_eq!(job.name.clone().unwrap(), "Test Job");
@@ -174,6 +232,15 @@ jobs:
       &EnvironmentVariable::String("test".to_string())
     );
     assert_eq!(step.run, "echo \"Hello World\"");
+
+    let job = workflow.jobs.get("test-job2").unwrap();
+    assert_eq!(job.steps.len(), 2);
+
+    let step = job.steps.get(0).unwrap();
+    assert_eq!(step.run, "echo \"Hello World2\"");
+
+    let step = job.steps.get(1).unwrap();
+    assert_eq!(step.run, "echo \"Hello World3\"");
   }
 
   #[test]
@@ -188,11 +255,12 @@ jobs:
   "#;
 
     let user_workflow: UserWorkflow = serde_yaml::from_str(yaml).unwrap();
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
 
     let parser = WorkflowParser {
       id: "test-id".to_string(),
       user_workflow,
-      actions: Actions::new(),
+      astro_run: &astro_run,
     };
 
     let workflow = parser.parse();
@@ -229,7 +297,11 @@ jobs:
       fn normalize(&self, step: UserActionStep) -> Result<ActionSteps> {
         let options: CacheOptions = serde_yaml::from_value(step.with.unwrap()).unwrap();
         Ok(ActionSteps {
-          pre: None,
+          pre: Some(UserStep::Command(UserCommandStep {
+            name: Some("Pre cache".to_string()),
+            run: format!("pre cache {} {}", options.path, options.key),
+            ..Default::default()
+          })),
           run: UserStep::Command(UserCommandStep {
             name: Some("Restore cache".to_string()),
             run: format!("restore cache {} {}", options.path, options.key),
@@ -244,31 +316,35 @@ jobs:
       }
     }
 
-    let actions = Actions::new();
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
 
-    actions.register("caches", CacheAction {});
+    astro_run.register_action("caches", CacheAction {});
 
     let parser = WorkflowParser {
       id: "test-id".to_string(),
       user_workflow: serde_yaml::from_str(workflow).unwrap(),
-      actions,
+      astro_run: &astro_run,
     };
 
     let workflow = parser.parse().unwrap();
 
     let steps = workflow.jobs.get("test").unwrap().steps.clone();
 
-    assert_eq!(steps.len(), 3);
+    assert_eq!(steps.len(), 4);
 
     let step = steps.get(0).unwrap();
+    assert_eq!(step.name, Some("Pre cache".to_string()));
+    assert_eq!(step.run, "pre cache /tmp test".to_string());
+
+    let step = steps.get(1).unwrap();
     assert_eq!(step.name, Some("Restore cache".to_string()));
     assert_eq!(step.run, "restore cache /tmp test".to_string());
 
-    let step = steps.get(1).unwrap();
+    let step = steps.get(2).unwrap();
     assert_eq!(step.name, None);
     assert_eq!(step.run, "Hello World".to_string());
 
-    let step = steps.get(2).unwrap();
+    let step = steps.get(3).unwrap();
     assert_eq!(step.name, Some("Save cache".to_string()));
     assert_eq!(step.run, "save cache /tmp test".to_string());
   }
@@ -297,14 +373,14 @@ jobs:
       }
     }
 
-    let actions = Actions::new();
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
 
-    actions.register("nested", NestedAction);
+    astro_run.register_action("nested", NestedAction);
 
     let parser = WorkflowParser {
       id: "test-id".to_string(),
       user_workflow: serde_yaml::from_str(workflow).unwrap(),
-      actions,
+      astro_run: &astro_run,
     };
 
     let error = parser.parse().unwrap_err();
@@ -312,6 +388,31 @@ jobs:
     assert_eq!(
       error,
       Error::unsupported_feature("Only command step is supported")
+    );
+  }
+
+  #[test]
+  fn test_not_defined_action() {
+    let workflow = r#"
+      jobs:
+        test:
+          steps:
+            - uses: not_defined
+      "#;
+
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
+
+    let parser = WorkflowParser {
+      id: "test-id".to_string(),
+      user_workflow: serde_yaml::from_str(workflow).unwrap(),
+      astro_run: &astro_run,
+    };
+
+    let error = parser.parse().unwrap_err();
+
+    assert_eq!(
+      error,
+      Error::workflow_config_error("Action `not_defined` is not found")
     );
   }
 }

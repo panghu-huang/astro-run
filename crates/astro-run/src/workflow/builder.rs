@@ -35,7 +35,7 @@ impl WorkflowBuilder {
     let parser = WorkflowParser {
       id,
       user_workflow,
-      actions: astro_run.shared_state.actions(),
+      astro_run,
     };
 
     parser.parse()

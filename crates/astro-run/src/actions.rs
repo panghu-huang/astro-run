@@ -1,4 +1,4 @@
-use crate::{Error, Result, UserActionStep, UserStep};
+use crate::{Result, UserActionStep, UserStep};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
@@ -42,13 +42,15 @@ impl Actions {
     self.actions.lock().remove(name);
   }
 
-  pub fn normalize(&self, step: UserActionStep) -> Result<ActionSteps> {
+  pub fn try_normalize(&self, step: UserActionStep) -> Result<Option<ActionSteps>> {
     let actions = self.actions.lock();
-    let action = actions.get(&step.uses).ok_or_else(|| {
-      Error::workflow_config_error(format!("Action `{}` is not found", step.uses))
-    })?;
+    if let Some(action) = actions.get(&step.uses) {
+      let normalized = action.normalize(step)?;
 
-    action.normalize(step)
+      Ok(Some(normalized))
+    } else {
+      Ok(None)
+    }
   }
 
   pub fn size(&self) -> usize {
@@ -92,7 +94,7 @@ mod tests {
       ..Default::default()
     };
 
-    let steps = actions.normalize(test_step)?;
+    let steps = actions.try_normalize(test_step)?.unwrap();
 
     assert!(steps.pre.is_none());
 
@@ -122,14 +124,9 @@ mod tests {
       ..Default::default()
     };
 
-    let result = actions.normalize(step);
+    let result = actions.try_normalize(step).unwrap();
 
-    let err = result.unwrap_err();
-
-    assert_eq!(
-      err,
-      Error::workflow_config_error("Action `not-exists-action` is not found")
-    );
+    assert!(result.is_none(),);
 
     Ok(())
   }
