@@ -43,14 +43,15 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
 async fn test_run() -> Result<()> {
   let (oneshot_tx, rx) = tokio::sync::oneshot::channel();
 
-  let client_thread_handle = tokio::spawn(async {
+  // Check if docker is installed and running
+  let is_support_docker = std::process::Command::new("docker")
+    .arg("ps")
+    .status()
+    .map_or(false, |status| status.success());
+
+  let client_thread_handle = tokio::spawn(async move {
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-    // Check if docker is installed and running
-    let is_support_docker = std::process::Command::new("docker")
-      .arg("ps")
-      .status()
-      .map_or(false, |status| status.success());
     let client_runner = AstroRunRemoteRunnerClient::builder()
       .scheduler(DefaultScheduler::new())
       .build()
@@ -116,7 +117,7 @@ async fn test_run() -> Result<()> {
     handle.abort();
   });
 
-  let server_thread_handle = tokio::spawn(async {
+  let server_thread_handle = tokio::spawn(async move {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     let runner = TestRunner::new();
 
@@ -131,6 +132,14 @@ async fn test_run() -> Result<()> {
           })
           .build(),
       )
+      .plugin(assert_logs_plugin(vec![
+        "Hello World",
+        if is_support_docker {
+          "Hello World1"
+        } else {
+          "No runner available"
+        },
+      ]))
       .build()
       .unwrap();
 

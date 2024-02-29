@@ -1,6 +1,6 @@
 [package]
 name = "astro-run-server"
-version = "0.1.4"
+version = "0.1.5"
 edition.workspace = true
 repository.workspace = true
 homepage.workspace = true
@@ -12,7 +12,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-astro-run = { path = "../astro-run", version = "0.1.3" }
+astro-run = { path = "../astro-run", version = "0.1.4" }
 astro-run-protocol = { path = "../protocol", version = "0.1.4", features = [
   "astro-run-server",
 ] }

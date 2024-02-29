@@ -34,7 +34,7 @@ jobs:
     steps:
       - container:
           name: ubuntu
-          security-opts: 
+          security-opts:
             - seccomp=unconfined
         continue-on-error: false
         environments:
@@ -75,7 +75,10 @@ jobs:
 #[astro_run_test::test(docker)]
 async fn test_docker_volume() {
   // Pull the image before running the test
-  Command::new("docker pull ubuntu:22.04").exec().await.unwrap();
+  Command::new("docker pull ubuntu:22.04")
+    .exec()
+    .await
+    .unwrap();
 
   fs::create_dir_all("/tmp/astro-run").unwrap();
   let mut file = fs::File::create("/tmp/astro-run/test.txt").unwrap();
@@ -378,4 +381,44 @@ async fn test_docker_timeout() {
 
   assert_eq!(job_result.steps[0].state, WorkflowState::Failed);
   assert_eq!(job_result.steps[0].exit_code.unwrap(), 123);
+}
+
+#[astro_run_test::test]
+async fn test_node_entrypoint() {
+  // Pull the image before running the test
+  Command::new("docker pull node:alpine")
+    .exec()
+    .await
+    .unwrap();
+
+  let workflow = r#"
+jobs:
+  test:
+    steps:
+      - container: node:alpine
+        environments:
+          NAME: Node
+        run: |
+          #!/usr/local/bin/node
+
+          console.log(`Hello ${process.env.NAME}`);
+  "#;
+
+  let runner = AstroRunner::builder().build().unwrap();
+
+  let astro_run = AstroRun::builder()
+    .runner(runner)
+    .plugin(assert_logs_plugin(vec!["Hello Node"]))
+    .build();
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .unwrap();
+
+  let ctx = astro_run.execution_context().build();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Succeeded);
 }

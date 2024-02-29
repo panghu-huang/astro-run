@@ -93,7 +93,7 @@ impl MetadataBuilder {
       .join(&job_key)
       .join(step_number.to_string());
 
-    let entrypoint_path = step_host_working_directory.join("entrypoint.sh");
+    let entrypoint_path = step_host_working_directory.join("entrypoint");
     let docker_name = format!("{}-{}-{}", workflow_id, job_key, step_number);
     let docker_working_directory = String::from("/home/runner/work");
 
