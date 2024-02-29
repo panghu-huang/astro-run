@@ -138,7 +138,7 @@ mod tests {
     );
     assert_eq!(
       directories.entrypoint_path,
-      PathBuf::from("/home/runner/work/panghu-huang/astro-run/workflow-id/job-key/1/entrypoint.sh")
+      PathBuf::from("/home/runner/work/panghu-huang/astro-run/workflow-id/job-key/1/entrypoint")
     );
     assert_eq!(directories.docker_name, "workflow-id-job-key-1");
     assert_eq!(directories.docker_working_directory, "/home/runner/work");
