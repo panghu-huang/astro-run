@@ -679,6 +679,10 @@ jobs:
     .build(&astro_run)
     .unwrap();
 
+  let payload = workflow.payload::<WorkflowPayload>().unwrap();
+
+  assert_eq!(payload.0, "Test payload");
+
   let ctx = astro_run.execution_context().build();
 
   let res = workflow.run(ctx).await;

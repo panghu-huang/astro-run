@@ -195,6 +195,40 @@ mod tests {
   }
 
   #[test]
+  fn test_workflow_payload() {
+    struct WorkflowPayload;
+
+    impl crate::Payload for WorkflowPayload {
+      fn try_into(&self) -> Result<String> {
+        Ok("Hello World".to_string())
+      }
+
+      fn try_from(_payload: &String) -> Result<Self> {
+        Ok(WorkflowPayload)
+      }
+    }
+
+    let workflow = r#"
+      jobs:
+        test:
+          steps:
+            - run: echo "Hello World"
+      "#;
+
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
+
+    let workflow = Workflow::builder()
+      .config(workflow)
+      .payload(WorkflowPayload)
+      .build(&astro_run)
+      .unwrap();
+
+    let result = workflow.payload::<WorkflowPayload>();
+
+    assert!(result.is_ok());
+  }
+
+  #[test]
   fn test_workflow_payload_to_string_error() {
     struct WorkflowPayload;
 
