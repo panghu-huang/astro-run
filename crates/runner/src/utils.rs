@@ -18,7 +18,11 @@ pub async fn create_executable_file(file_path: &PathBuf, content: &String) -> Re
     file = fs::File::create(file_path).await?;
   }
 
-  file.write(b"#!/bin/sh\n").await?;
+  if !content.starts_with("#!") {
+    // Add shebang
+    file.write(b"#!/bin/sh\n").await?;
+  }
+
   file.write_all(content.as_bytes()).await?;
 
   // Fix Text file busy

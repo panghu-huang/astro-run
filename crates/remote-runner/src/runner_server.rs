@@ -1,4 +1,4 @@
-use astro_run::{Error, PluginManager, Runner};
+use astro_run::{Error, Plugin, PluginManager, Runner};
 use astro_run_protocol::{
   astro_run_remote_runner::{self, event::Payload as EventPayload, RunResponse, SendEventResponse},
   tonic, AstroRunRemoteRunner, RunnerMetadata,
@@ -267,7 +267,10 @@ impl AstroRunRemoteRunnerServerBuilder {
     self
   }
 
-  pub fn plugin(self, plugin: astro_run::AstroRunPlugin) -> Self {
+  pub fn plugin<P>(self, plugin: P) -> Self
+  where
+    P: Plugin + 'static,
+  {
     self.plugins.register(plugin);
 
     self

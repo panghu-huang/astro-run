@@ -93,7 +93,7 @@ impl DockerExecutor {
       .working_dir(metadata.docker_working_directory.clone())
       .volume(
         metadata.entrypoint_path.to_string()?,
-        "/home/work/runner/entrypoint.sh",
+        "/home/work/runner/entrypoint",
       )
       // Working directory, such as /home/work/{repo}
       .volume(
@@ -101,7 +101,7 @@ impl DockerExecutor {
         metadata.docker_working_directory,
       )
       .volume(metadata.cache_directory.to_string()?, "/home/work/caches")
-      .entrypoint("/home/work/runner/entrypoint.sh")
+      .entrypoint("/home/work/runner/entrypoint")
       .auto_remove(true);
 
     for (key, env) in ctx.command.environments {

@@ -1,4 +1,4 @@
-use astro_run::{AstroRunPlugin, Context, Error, PluginManager, Result, Runner};
+use astro_run::{AstroRunPlugin, Context, Error, Plugin, PluginManager, Result, Runner};
 use astro_run_protocol::{
   astro_run_server::{self, event::Payload as EventPayload},
   tonic, AstroRunServiceClient, RunnerMetadata, WorkflowLog,
@@ -269,7 +269,10 @@ impl AstroRunRunnerBuilder {
     self
   }
 
-  pub fn plugin(self, plugin: AstroRunPlugin) -> Self {
+  pub fn plugin<P>(self, plugin: P) -> Self
+  where
+    P: Plugin + 'static,
+  {
     self.plugins.register(plugin);
 
     self
