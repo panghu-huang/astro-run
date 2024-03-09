@@ -125,6 +125,11 @@ jobs:
       tx.send(()).unwrap();
       tokio::time::sleep(Duration::from_secs(1)).await;
       astro_run.cancel(&job_id).unwrap();
+
+      // Cancel again
+      let err = astro_run.cancel(&job_id).unwrap_err();
+
+      assert_eq!(Error::error("Signal has been cancelled or timeout."), err);
     }
   });
 

@@ -38,7 +38,6 @@ impl log::Log for Logger {
 
     let prefix = match (record.module_path(), record.line()) {
       (Some(module_path), Some(line)) => format!("{}:{}", module_path, line).cyan(),
-      (Some(module_path), None) => module_path.cyan(),
       _ => "".cyan(),
     };
 

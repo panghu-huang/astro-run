@@ -48,7 +48,7 @@ impl AstroRunSignal {
   pub fn cancel(&self) -> Result<()> {
     let mut state = self.state.lock();
     if state.signal.is_some() {
-      return Err(Error::error("Signal can only be set once."));
+      return Err(Error::error("Signal has been cancelled or timeout."));
     }
 
     state.signal = Some(Signal::Cancel);
@@ -62,7 +62,7 @@ impl AstroRunSignal {
     let mut state = self.state.lock();
 
     if state.signal.is_some() {
-      return Err(Error::error("Signal can only be set once."));
+      return Err(Error::error("Signal has been cancelled or timeout."));
     }
 
     state.signal = Some(Signal::Timeout);
@@ -138,10 +138,10 @@ mod tests {
 
     let err = signal.timeout().unwrap_err();
 
-    assert_eq!(err, Error::error("Signal can only be set once."));
+    assert_eq!(err, Error::error("Signal has been cancelled or timeout."));
 
     let err = signal.cancel().unwrap_err();
-    assert_eq!(err, Error::error("Signal can only be set once."));
+    assert_eq!(err, Error::error("Signal has been cancelled or timeout."));
   }
 
   #[astro_run_test::test]
