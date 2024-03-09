@@ -300,20 +300,32 @@ jobs:
     impl Action for CacheAction {
       fn normalize(&self, step: UserActionStep) -> Result<ActionSteps> {
         let options: CacheOptions = serde_yaml::from_value(step.with.unwrap()).unwrap();
+
+        let mut environments = std::collections::HashMap::new();
+
+        environments.insert(
+          "CACHE_ENV".to_string(),
+          EnvironmentVariable::String("test".to_string()),
+        );
+
         Ok(ActionSteps {
           pre: Some(UserStep::Command(UserCommandStep {
             name: Some("Pre cache".to_string()),
             run: format!("pre cache {} {}", options.path, options.key),
+            timeout: Some("10m".to_string()),
+            environments: Some(environments),
             ..Default::default()
           })),
           run: UserStep::Command(UserCommandStep {
             name: Some("Restore cache".to_string()),
             run: format!("restore cache {} {}", options.path, options.key),
+            secrets: Some(vec!["SECRET".to_string()]),
             ..Default::default()
           }),
           post: Some(UserStep::Command(UserCommandStep {
             name: Some("Save cache".to_string()),
             run: format!("save cache {} {}", options.path, options.key),
+            continue_on_error: Some(true),
             ..Default::default()
           })),
         })
@@ -340,10 +352,16 @@ jobs:
     let step = steps.get(0).unwrap();
     assert_eq!(step.name, Some("Pre cache".to_string()));
     assert_eq!(step.run, "pre cache /tmp test".to_string());
+    assert_eq!(step.timeout, std::time::Duration::from_secs(600));
+    assert_eq!(
+      step.environments.get("CACHE_ENV").unwrap(),
+      &EnvironmentVariable::String("test".to_string())
+    );
 
     let step = steps.get(1).unwrap();
     assert_eq!(step.name, Some("Restore cache".to_string()));
     assert_eq!(step.run, "restore cache /tmp test".to_string());
+    assert_eq!(step.secrets, vec!["SECRET".to_string()]);
 
     let step = steps.get(2).unwrap();
     assert_eq!(step.name, None);
@@ -352,6 +370,7 @@ jobs:
     let step = steps.get(3).unwrap();
     assert_eq!(step.name, Some("Save cache".to_string()));
     assert_eq!(step.run, "save cache /tmp test".to_string());
+    assert_eq!(step.continue_on_error, true);
   }
 
   #[test]
