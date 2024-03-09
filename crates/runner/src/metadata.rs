@@ -93,7 +93,7 @@ impl MetadataBuilder {
       .join(&job_key)
       .join(step_number.to_string());
 
-    let entrypoint_path = step_host_working_directory.join("entrypoint.sh");
+    let entrypoint_path = step_host_working_directory.join("entrypoint");
     let docker_name = format!("{}-{}-{}", workflow_id, job_key, step_number);
     let docker_working_directory = String::from("/home/runner/work");
 
@@ -138,7 +138,7 @@ mod tests {
     );
     assert_eq!(
       directories.entrypoint_path,
-      PathBuf::from("/home/runner/work/panghu-huang/astro-run/workflow-id/job-key/1/entrypoint.sh")
+      PathBuf::from("/home/runner/work/panghu-huang/astro-run/workflow-id/job-key/1/entrypoint")
     );
     assert_eq!(directories.docker_name, "workflow-id-job-key-1");
     assert_eq!(directories.docker_working_directory, "/home/runner/work");
