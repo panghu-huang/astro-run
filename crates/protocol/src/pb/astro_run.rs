@@ -81,6 +81,8 @@ pub struct Workflow {
     pub name: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(map = "string, message", tag = "3")]
     pub jobs: ::std::collections::HashMap<::prost::alloc::string::String, Job>,
+    #[prost(string, optional, tag = "4")]
+    pub payload: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

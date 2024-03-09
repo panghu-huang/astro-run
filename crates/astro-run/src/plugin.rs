@@ -11,12 +11,12 @@ pub struct RunEvent<T> {
   pub workflow_event: Option<WorkflowEvent>,
 }
 
-#[derive(Clone, Debug)]
-pub struct CompletedEvent<T, R> {
-  pub payload: T,
-  pub workflow_event: Option<WorkflowEvent>,
-  pub result: R,
-}
+// #[derive(Clone, Debug)]
+// pub struct CompletedEvent<T, R> {
+//   pub payload: T,
+//   pub workflow_event: Option<WorkflowEvent>,
+//   pub result: R,
+// }
 
 pub type RunWorkflowEvent = RunEvent<Workflow>;
 

@@ -118,6 +118,7 @@ impl TryInto<astro_run::Workflow> for Workflow {
         .map(|(id, job)| Ok::<(String, astro_run::Job), Self::Error>((id, job.try_into()?)))
         .collect::<Result<_, _>>()?,
       on: None,
+      payload: self.payload,
     })
   }
 }
@@ -134,6 +135,7 @@ impl TryFrom<astro_run::Workflow> for Workflow {
         .into_iter()
         .map(|(id, job)| Ok::<(String, Job), Self::Error>((id, job.try_into()?)))
         .collect::<Result<_, _>>()?,
+      payload: value.payload,
     })
   }
 }

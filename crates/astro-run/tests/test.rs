@@ -1,6 +1,7 @@
 use astro_run::{
-  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Plugin, RunResult, Runner,
-  UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowEvent, WorkflowLog, WorkflowState,
+  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Payload, Plugin, RunResult,
+  Runner, UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowEvent, WorkflowLog,
+  WorkflowState,
 };
 use parking_lot::Mutex;
 
@@ -629,4 +630,58 @@ jobs:
   assert_eq!(res.state, WorkflowState::Succeeded);
 
   Ok(())
+}
+
+struct WorkflowPayload(String);
+
+impl Payload for WorkflowPayload {
+  fn try_from(payload: &String) -> astro_run::Result<Self>
+  where
+    Self: Sized,
+  {
+    Ok(WorkflowPayload(payload.clone()))
+  }
+
+  fn try_into(&self) -> astro_run::Result<String> {
+    Ok(self.0.clone())
+  }
+}
+
+#[astro_run_test::test]
+async fn test_workflow_payload() {
+  let yaml = r#"
+jobs:
+  test:
+    steps:
+      - name: Hello World
+        run: Hello World
+"#;
+
+  let astro_run = AstroRun::builder()
+    .runner(TestRunner)
+    .plugin(AssetLogsPlugin::new(vec!["Hello World"]))
+    .plugin(
+      AstroRunPlugin::builder("test-plugin")
+        .on_run_workflow(|event| {
+          let payload: WorkflowPayload = event.payload.payload().unwrap();
+
+          assert_eq!(payload.0, "Test payload");
+        })
+        .build(),
+    )
+    .build();
+
+  let workflow_payload = WorkflowPayload("Test payload".to_string());
+
+  let workflow = Workflow::builder()
+    .config(yaml)
+    .payload(workflow_payload)
+    .build(&astro_run)
+    .unwrap();
+
+  let ctx = astro_run.execution_context().build();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Succeeded);
 }

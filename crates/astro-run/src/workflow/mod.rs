@@ -6,8 +6,8 @@ mod step;
 pub use self::job::Job;
 pub use self::step::Step;
 use crate::{
-  Condition, ExecutionContext, Id, JobRunResult, WorkflowId, WorkflowRunResult, WorkflowState,
-  WorkflowStateEvent,
+  Condition, Error, ExecutionContext, Id, JobRunResult, WorkflowId, WorkflowRunResult,
+  WorkflowState, WorkflowStateEvent,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -16,12 +16,20 @@ use tokio::sync::mpsc::{channel, Sender};
 // Job key, JobRunResult
 type Result = (Id, JobRunResult);
 
+pub trait Payload {
+  fn try_from(payload: &String) -> crate::Result<Self>
+  where
+    Self: Sized;
+  fn try_into(&self) -> crate::Result<String>;
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Workflow {
   pub id: WorkflowId,
   pub name: Option<String>,
   pub on: Option<Condition>,
   pub jobs: HashMap<String, Job>,
+  pub payload: Option<String>,
 }
 
 impl Workflow {
@@ -154,6 +162,17 @@ impl Workflow {
         log::error!("Failed to send job result for job {}: {}", key, err);
       }
     });
+  }
+
+  pub fn payload<T>(&self) -> crate::Result<T>
+  where
+    T: Payload,
+  {
+    if let Some(payload) = &self.payload {
+      T::try_from(&payload)
+    } else {
+      Err(Error::error("Payload is not set for this workflow"))
+    }
   }
 
   pub fn builder() -> builder::WorkflowBuilder {
