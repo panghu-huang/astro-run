@@ -6,8 +6,8 @@ mod step;
 pub use self::job::Job;
 pub use self::step::Step;
 use crate::{
-  Condition, ExecutionContext, Id, JobRunResult, WorkflowId, WorkflowRunResult, WorkflowState,
-  WorkflowStateEvent,
+  Condition, Error, ExecutionContext, Id, JobRunResult, WorkflowId, WorkflowRunResult,
+  WorkflowState, WorkflowStateEvent,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -16,12 +16,20 @@ use tokio::sync::mpsc::{channel, Sender};
 // Job key, JobRunResult
 type Result = (Id, JobRunResult);
 
+pub trait Payload {
+  fn try_from(payload: &String) -> crate::Result<Self>
+  where
+    Self: Sized;
+  fn try_into(&self) -> crate::Result<String>;
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Workflow {
   pub id: WorkflowId,
   pub name: Option<String>,
   pub on: Option<Condition>,
   pub jobs: HashMap<String, Job>,
+  pub payload: Option<String>,
 }
 
 impl Workflow {
@@ -156,7 +164,173 @@ impl Workflow {
     });
   }
 
+  pub fn payload<T>(&self) -> crate::Result<T>
+  where
+    T: Payload,
+  {
+    if let Some(payload) = &self.payload {
+      T::try_from(&payload)
+    } else {
+      Err(Error::error("Payload is not set for this workflow"))
+    }
+  }
+
   pub fn builder() -> builder::WorkflowBuilder {
     builder::WorkflowBuilder::new()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::{async_trait, AstroRun, Context, Error, Result, RunResponse, Runner};
+
+  struct TestRunner;
+
+  #[async_trait]
+  impl Runner for TestRunner {
+    async fn run(&self, _ctx: Context) -> RunResponse {
+      unreachable!("TestRunner should not be called")
+    }
+  }
+
+  #[test]
+  fn test_workflow_payload() {
+    struct WorkflowPayload;
+
+    impl crate::Payload for WorkflowPayload {
+      fn try_into(&self) -> Result<String> {
+        Ok("Hello World".to_string())
+      }
+
+      fn try_from(_payload: &String) -> Result<Self> {
+        Ok(WorkflowPayload)
+      }
+    }
+
+    let workflow = r#"
+      jobs:
+        test:
+          steps:
+            - run: echo "Hello World"
+      "#;
+
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
+
+    let workflow = Workflow::builder()
+      .config(workflow)
+      .payload(WorkflowPayload)
+      .build(&astro_run)
+      .unwrap();
+
+    let result = workflow.payload::<WorkflowPayload>();
+
+    assert!(result.is_ok());
+  }
+
+  #[test]
+  fn test_workflow_payload_to_string_error() {
+    struct WorkflowPayload;
+
+    impl crate::Payload for WorkflowPayload {
+      fn try_into(&self) -> Result<String> {
+        Err(Error::workflow_config_error("Payload error"))
+      }
+
+      fn try_from(_payload: &String) -> Result<Self> {
+        unimplemented!()
+      }
+    }
+
+    let workflow = r#"
+      jobs:
+        test:
+          steps:
+            - run: echo "Hello World"
+      "#;
+
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
+
+    let workflow = Workflow::builder()
+      .config(workflow)
+      .payload(WorkflowPayload)
+      .build(&astro_run);
+
+    assert_eq!(
+      workflow.unwrap_err(),
+      Error::workflow_config_error("Payload error")
+    );
+  }
+
+  #[test]
+  fn test_workflow_payload_not_set() {
+    #[derive(Debug)]
+    struct WorkflowPayload;
+
+    impl crate::Payload for WorkflowPayload {
+      fn try_into(&self) -> Result<String> {
+        unimplemented!()
+      }
+
+      fn try_from(_payload: &String) -> Result<Self> {
+        unimplemented!()
+      }
+    }
+
+    let workflow = r#"
+      jobs:
+        test:
+          steps:
+            - run: echo "Hello World"
+      "#;
+
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
+
+    let workflow = Workflow::builder()
+      .config(workflow)
+      .build(&astro_run)
+      .unwrap();
+
+    let result = workflow.payload::<WorkflowPayload>();
+
+    assert_eq!(
+      result.unwrap_err(),
+      Error::error("Payload is not set for this workflow")
+    );
+  }
+
+  #[test]
+  fn test_parse_workflow_payload_error() {
+    #[derive(Debug)]
+    struct WorkflowPayload;
+
+    impl crate::Payload for WorkflowPayload {
+      fn try_into(&self) -> Result<String> {
+        Ok("".to_string())
+      }
+
+      fn try_from(_payload: &String) -> Result<Self> {
+        Err(Error::error("Payload error"))
+      }
+    }
+
+    let workflow = r#"
+        jobs:
+          test:
+            steps:
+              - run: echo "Hello World"
+        "#;
+
+    let astro_run = AstroRun::builder().runner(TestRunner).build();
+
+    let workflow = Workflow::builder()
+      .config(workflow)
+      .payload(WorkflowPayload)
+      .build(&astro_run)
+      .unwrap();
+
+    let result = workflow.payload::<WorkflowPayload>();
+
+    assert_eq!(result.unwrap_err(), Error::error("Payload error"));
   }
 }

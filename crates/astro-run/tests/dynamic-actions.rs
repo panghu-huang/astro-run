@@ -42,6 +42,10 @@ impl Action for DynamicAction {
   fn normalize(&self, step: UserActionStep) -> Result<ActionSteps> {
     let with: DynamicActionConfig = serde_yaml::from_value(step.with.unwrap()).unwrap();
 
+    if with.name == "Error" {
+      return Err(Error::error("Test Error"));
+    }
+
     Ok(ActionSteps {
       pre: None,
       run: UserStep::Command(UserCommandStep {
@@ -59,7 +63,7 @@ fn dynamic_action_plugin() -> AstroRunPlugin {
     .on_resolve_dynamic_action(|step| {
       let with: DynamicActionConfig = serde_yaml::from_value(step.with.unwrap()).unwrap();
 
-      if with.name == "Hello World" {
+      if with.name == "Hello World" || with.name == "Error" {
         Some(Box::new(DynamicAction))
       } else {
         None
@@ -126,4 +130,27 @@ jobs:
     res.unwrap_err(),
     Error::workflow_config_error("Action `dynamic-action` is not found")
   );
+}
+
+#[astro_run_test::test]
+async fn test_dynamic_action_error() {
+  let yaml = r#"
+jobs:
+  test:
+    steps:
+      - uses: dynamic-action
+        with:
+          name: Error
+"#;
+
+  let plugin = dynamic_action_plugin();
+
+  let astro_run = AstroRun::builder()
+    .runner(TestRunner)
+    .plugin(plugin)
+    .build();
+
+  let res = Workflow::builder().config(yaml).build(&astro_run);
+
+  assert_eq!(res.unwrap_err(), Error::error("Test Error"));
 }

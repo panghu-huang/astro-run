@@ -46,6 +46,7 @@ message Workflow {
   string id = 1;
   optional string name = 2;
   map<string, Job> jobs = 3;
+  optional string payload = 4;
 }
 
 enum WorkflowState {

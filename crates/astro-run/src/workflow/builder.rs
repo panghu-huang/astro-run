@@ -1,9 +1,10 @@
 use super::{parser::WorkflowParser, Workflow};
-use crate::{AstroRun, Error, Id, Result, UserWorkflow};
+use crate::{AstroRun, Error, Id, Payload, Result, UserWorkflow};
 
 pub struct WorkflowBuilder {
   id: Option<Id>,
   config: Option<String>,
+  payload: Option<Box<dyn Payload>>,
 }
 
 impl WorkflowBuilder {
@@ -11,6 +12,7 @@ impl WorkflowBuilder {
     Self {
       id: None,
       config: None,
+      payload: None,
     }
   }
 
@@ -24,10 +26,28 @@ impl WorkflowBuilder {
     self
   }
 
+  pub fn payload<T>(mut self, payload: T) -> Self
+  where
+    T: Payload + 'static,
+  {
+    self.payload = Some(Box::new(payload));
+
+    self
+  }
+
   pub fn build(self, astro_run: &AstroRun) -> Result<Workflow> {
     let config = self
       .config
       .ok_or(Error::init_error("Workflow config is required".to_string()))?;
+
+    let payload = match self.payload {
+      Some(payload) => {
+        let payload = payload.as_ref().try_into()?;
+
+        Some(payload)
+      }
+      None => None,
+    };
 
     let user_workflow = UserWorkflow::try_from(config)?;
     let id = self.id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
@@ -36,6 +56,7 @@ impl WorkflowBuilder {
       id,
       user_workflow,
       astro_run,
+      payload,
     };
 
     parser.parse()
