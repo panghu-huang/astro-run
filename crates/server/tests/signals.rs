@@ -71,6 +71,7 @@ async fn test_signal() -> Result<()> {
     let workflow = Workflow::builder()
       .config(workflow)
       .build(&astro_run)
+      .await
       .unwrap();
 
     let ctx = astro_run.execution_context().build();
@@ -152,6 +153,7 @@ async fn test_timeout() -> Result<()> {
     let workflow = Workflow::builder()
       .config(workflow)
       .build(&astro_run)
+      .await
       .unwrap();
 
     let ctx = astro_run.execution_context().build();
@@ -237,6 +239,7 @@ async fn test_cancel() -> Result<()> {
     let workflow = Workflow::builder()
       .config(workflow)
       .build(&astro_run)
+      .await
       .unwrap();
 
     let ctx = astro_run.execution_context().build();

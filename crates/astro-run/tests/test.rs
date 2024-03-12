@@ -88,6 +88,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -138,6 +139,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -179,6 +181,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -214,6 +217,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -261,6 +265,7 @@ async fn test_depends_on() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -300,6 +305,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -335,6 +341,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -371,6 +378,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -423,6 +431,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -532,6 +541,7 @@ jobs:
     .id("id")
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -560,6 +570,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -597,6 +608,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -671,6 +683,7 @@ jobs:
     .config(yaml)
     .payload(workflow_payload)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let payload = workflow.payload::<WorkflowPayload>().unwrap();

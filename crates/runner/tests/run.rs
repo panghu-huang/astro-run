@@ -57,6 +57,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -113,6 +114,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -162,6 +164,7 @@ async fn test_host() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -224,6 +227,7 @@ async fn test_before_run() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -280,6 +284,7 @@ async fn test_before_run_error() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -315,6 +320,7 @@ async fn test_docker_cancel() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -363,6 +369,7 @@ async fn test_docker_timeout() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -412,6 +419,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();

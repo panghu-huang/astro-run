@@ -114,7 +114,7 @@ impl Job {
       steps,
     };
 
-    ctx.on_job_completed(result.clone());
+    ctx.on_job_completed(result.clone()).await;
 
     result
   }

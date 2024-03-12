@@ -24,6 +24,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();

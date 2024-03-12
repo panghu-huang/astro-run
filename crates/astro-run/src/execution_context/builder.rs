@@ -8,6 +8,7 @@ use std::sync::Arc;
 pub struct ExecutionContextBuilder {
   runner: Option<Arc<Box<dyn Runner>>>,
   plugin_driver: Option<SharedPluginDriver>,
+  signal_manager: Option<SignalManager>,
   event: Option<WorkflowEvent>,
   github_auth: Option<GithubAuthorization>,
 }
@@ -17,6 +18,7 @@ impl ExecutionContextBuilder {
     ExecutionContextBuilder {
       runner: None,
       plugin_driver: None,
+      signal_manager: None,
       event: None,
       github_auth: None,
     }
@@ -30,6 +32,11 @@ impl ExecutionContextBuilder {
   pub fn plugin_driver(mut self, plugin_driver: SharedPluginDriver) -> Self {
     self.plugin_driver = Some(plugin_driver);
 
+    self
+  }
+
+  pub fn signal_manager(mut self, signal_manager: SignalManager) -> Self {
+    self.signal_manager = Some(signal_manager);
     self
   }
 
@@ -58,11 +65,18 @@ impl ExecutionContextBuilder {
       ))
       .unwrap();
 
+    let signal_manager = self
+      .signal_manager
+      .ok_or(Error::init_error(
+        "Signal manager is not set in execution context builder",
+      ))
+      .unwrap();
+
     let ctx = ExecutionContext {
       runner,
+      signal_manager,
       plugin_driver,
       condition_matcher: ConditionMatcher::new(self.event, self.github_auth),
-      signal_manager: SignalManager::new(),
     };
 
     ctx

@@ -122,7 +122,10 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           tonic::Status::internal(format!("Failed to convert workflow completed event: {}", e))
         })?;
 
-        self.plugin_driver.on_workflow_completed(result.clone());
+        self
+          .plugin_driver
+          .on_workflow_completed(result.clone())
+          .await;
         self.runner.on_workflow_completed(result);
       }
       EventPayload::JobCompletedEvent(event) => {
@@ -130,7 +133,7 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           tonic::Status::internal(format!("Failed to convert job completed event: {}", e))
         })?;
 
-        self.plugin_driver.on_job_completed(result.clone());
+        self.plugin_driver.on_job_completed(result.clone()).await;
         self.runner.on_job_completed(result);
       }
       EventPayload::StepCompletedEvent(event) => {
@@ -143,7 +146,7 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
         self.signals.lock().remove(&step_id);
 
         // Dispatch event to plugins and runner
-        self.plugin_driver.on_step_completed(result.clone());
+        self.plugin_driver.on_step_completed(result.clone()).await;
         self.runner.on_step_completed(result);
       }
       EventPayload::LogEvent(event) => {

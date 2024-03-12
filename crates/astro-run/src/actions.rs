@@ -9,10 +9,7 @@ pub struct ActionSteps {
   pub post: Option<UserStep>,
 }
 
-pub trait Action
-where
-  Self: Send + Sync,
-{
+pub trait Action: Send + Sync {
   fn normalize(&self, step: UserActionStep) -> Result<ActionSteps>;
 }
 

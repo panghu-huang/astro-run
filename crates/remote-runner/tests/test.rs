@@ -100,6 +100,7 @@ async fn test_run() -> Result<()> {
     let workflow = Workflow::builder()
       .config(workflow)
       .build(&astro_run)
+      .await
       .unwrap();
 
     let ctx = astro_run.execution_context().build();
@@ -175,6 +176,7 @@ async fn no_available_runners() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -211,6 +213,7 @@ async fn connect_to_invalid_url() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -297,6 +300,7 @@ async fn test_remote_runner_workflow_payload() -> Result<()> {
       .config(workflow)
       .payload(WorkflowPayload("This is a payload".to_string()))
       .build(&astro_run)
+      .await
       .unwrap();
 
     let ctx = astro_run.execution_context().build();

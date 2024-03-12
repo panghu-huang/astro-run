@@ -98,6 +98,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -156,6 +157,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -232,6 +234,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -287,6 +290,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -298,7 +302,6 @@ jobs:
 
   assert_eq!(res.state, WorkflowState::Skipped);
 }
-
 
 #[astro_run_test::test]
 async fn test_only_push_event() {
@@ -324,6 +327,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run

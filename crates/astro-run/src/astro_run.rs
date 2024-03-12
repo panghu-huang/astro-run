@@ -23,9 +23,9 @@ impl AstroRun {
   }
 
   pub fn execution_context(&self) -> ExecutionContextBuilder {
-    // let shared_state = self.shared_state.clone();
     let mut builder = ExecutionContext::builder()
       .runner(self.runner.clone())
+      .signal_manager(self.signal_manager.clone())
       .plugin_driver(self.plugin_driver());
 
     if let Some(github_auth) = &self.github_auth {

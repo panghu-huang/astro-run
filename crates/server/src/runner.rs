@@ -73,17 +73,17 @@ impl AstroRunRunner {
             }
             EventPayload::StepCompletedEvent(result) => {
               let result: astro_run::StepRunResult = result.try_into()?;
-              self.plugin_driver.on_step_completed(result.clone());
+              self.plugin_driver.on_step_completed(result.clone()).await;
               self.runner.on_step_completed(result);
             }
             EventPayload::JobCompletedEvent(result) => {
               let result: astro_run::JobRunResult = result.try_into()?;
-              self.plugin_driver.on_job_completed(result.clone());
+              self.plugin_driver.on_job_completed(result.clone()).await;
               self.runner.on_job_completed(result);
             }
             EventPayload::WorkflowCompletedEvent(result) => {
               let result: astro_run::WorkflowRunResult = result.try_into()?;
-              self.plugin_driver.on_workflow_completed(result.clone());
+              self.plugin_driver.on_workflow_completed(result.clone()).await;
               self.runner.on_workflow_completed(result);
             }
             EventPayload::RunWorkflowEvent(event) => {

@@ -35,7 +35,7 @@ impl WorkflowBuilder {
     self
   }
 
-  pub fn build(self, astro_run: &AstroRun) -> Result<Workflow> {
+  pub async fn build(self, astro_run: &AstroRun) -> Result<Workflow> {
     let config = self
       .config
       .ok_or(Error::init_error("Workflow config is required".to_string()))?;
@@ -59,6 +59,6 @@ impl WorkflowBuilder {
       payload,
     };
 
-    parser.parse()
+    parser.parse().await
   }
 }

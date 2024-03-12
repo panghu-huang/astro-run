@@ -31,6 +31,7 @@ async fn main() -> Result<()> {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   // Create a new execution context

@@ -101,6 +101,7 @@ async fn test_default_schedule() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -160,6 +161,7 @@ async fn test_default_schedule1() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -215,6 +217,7 @@ async fn test_default_schedule_none() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();

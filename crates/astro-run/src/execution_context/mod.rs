@@ -89,7 +89,7 @@ impl ExecutionContext {
           completed_at: Some(completed_at),
         };
 
-        self.plugin_driver.on_step_completed(result.clone());
+        self.plugin_driver.on_step_completed(result.clone()).await;
         self.runner.on_step_completed(result.clone());
 
         return result;
@@ -186,7 +186,7 @@ impl ExecutionContext {
     self.plugin_driver.on_state_change(event.clone());
     self.runner.on_state_change(event);
 
-    self.plugin_driver.on_step_completed(res.clone());
+    self.plugin_driver.on_step_completed(res.clone()).await;
     self.runner.on_step_completed(res.clone());
 
     log::trace!("Step {:?} completed", step_id);
@@ -225,15 +225,18 @@ impl ExecutionContext {
     self.runner.on_state_change(event);
   }
 
-  pub fn on_job_completed(&self, result: JobRunResult) {
+  pub async fn on_job_completed(&self, result: JobRunResult) {
     self.signal_manager.unregister_signal(&result.id);
 
-    self.plugin_driver.on_job_completed(result.clone());
+    self.plugin_driver.on_job_completed(result.clone()).await;
     self.runner.on_job_completed(result);
   }
 
-  pub fn on_workflow_completed(&self, result: WorkflowRunResult) {
-    self.plugin_driver.on_workflow_completed(result.clone());
+  pub async fn on_workflow_completed(&self, result: WorkflowRunResult) {
+    self
+      .plugin_driver
+      .on_workflow_completed(result.clone())
+      .await;
     self.runner.on_workflow_completed(result);
   }
 

@@ -1,5 +1,5 @@
 use crate::{
-  Action, Job, JobRunResult, Step, StepRunResult, UserActionStep, Workflow, WorkflowEvent,
+  Action, Job, JobRunResult, Plugin, Step, StepRunResult, UserActionStep, Workflow, WorkflowEvent,
   WorkflowLog, WorkflowRunResult, WorkflowStateEvent,
 };
 
@@ -8,13 +8,6 @@ pub struct RunEvent<T> {
   pub payload: T,
   pub workflow_event: Option<WorkflowEvent>,
 }
-
-// #[derive(Clone, Debug)]
-// pub struct CompletedEvent<T, R> {
-//   pub payload: T,
-//   pub workflow_event: Option<WorkflowEvent>,
-//   pub result: R,
-// }
 
 pub type RunWorkflowEvent = RunEvent<Workflow>;
 
@@ -31,21 +24,6 @@ type OnWorkflowComplete = dyn Fn(WorkflowRunResult) -> () + Send + Sync;
 type OnJobComplete = dyn Fn(JobRunResult) -> () + Send + Sync;
 type OnStepComplete = dyn Fn(StepRunResult) -> () + Send + Sync;
 type OnResolveDynamicAction = dyn Fn(UserActionStep) -> Option<Box<dyn Action>> + Send + Sync;
-
-pub trait Plugin: Send + Sync {
-  fn name(&self) -> &'static str;
-  fn on_state_change(&self, _event: WorkflowStateEvent) {}
-  fn on_log(&self, _log: WorkflowLog) {}
-  fn on_run_workflow(&self, _event: RunWorkflowEvent) {}
-  fn on_run_job(&self, _event: RunJobEvent) {}
-  fn on_run_step(&self, _event: RunStepEvent) {}
-  fn on_workflow_completed(&self, _result: WorkflowRunResult) {}
-  fn on_job_completed(&self, _result: JobRunResult) {}
-  fn on_step_completed(&self, _result: StepRunResult) {}
-  fn on_resolve_dynamic_action(&self, _step: UserActionStep) -> Option<Box<dyn Action>> {
-    None
-  }
-}
 
 pub struct PluginBuilder {
   name: &'static str,
@@ -118,33 +96,37 @@ impl PluginBuilder {
 
   pub fn on_workflow_completed<T>(mut self, on_workflow_completed: T) -> Self
   where
-    T: Fn(WorkflowRunResult) -> () + 'static + Send + Sync,
+    T: Fn(WorkflowRunResult) -> () + Send + Sync + 'static,
   {
     self.on_workflow_completed = Some(Box::new(on_workflow_completed));
+
     self
   }
 
   pub fn on_job_completed<T>(mut self, on_job_completed: T) -> Self
   where
-    T: Fn(JobRunResult) -> () + 'static + Send + Sync,
+    T: Fn(JobRunResult) -> () + Send + Sync + 'static,
   {
     self.on_job_completed = Some(Box::new(on_job_completed));
+
     self
   }
 
   pub fn on_step_completed<T>(mut self, on_step_completed: T) -> Self
   where
-    T: Fn(StepRunResult) -> () + 'static + Send + Sync,
+    T: Fn(StepRunResult) -> () + Send + Sync + 'static,
   {
     self.on_step_completed = Some(Box::new(on_step_completed));
+
     self
   }
 
   pub fn on_resolve_dynamic_action<T>(mut self, on_resolve_dynamic_action: T) -> Self
   where
-    T: Fn(UserActionStep) -> Option<Box<dyn Action>> + 'static + Send + Sync,
+    T: Fn(UserActionStep) -> Option<Box<dyn Action>> + Send + Sync + 'static,
   {
     self.on_resolve_dynamic_action = Some(Box::new(on_resolve_dynamic_action));
+
     self
   }
 
@@ -164,6 +146,8 @@ impl PluginBuilder {
   }
 }
 
+/// `AstroRunPlugin` enables rapid definition of a synchronous astro-run plugin
+/// without the need to declare a new struct to implement the `Plugin` trait.
 pub struct AstroRunPlugin {
   name: &'static str,
   on_state_change: Option<Box<OnStateChange>>,
@@ -183,6 +167,7 @@ impl AstroRunPlugin {
   }
 }
 
+#[async_trait::async_trait]
 impl Plugin for AstroRunPlugin {
   fn name(&self) -> &'static str {
     self.name
@@ -218,25 +203,25 @@ impl Plugin for AstroRunPlugin {
     }
   }
 
-  fn on_workflow_completed(&self, result: WorkflowRunResult) {
+  async fn on_workflow_completed(&self, result: WorkflowRunResult) {
     if let Some(on_workflow_completed) = &self.on_workflow_completed {
       on_workflow_completed(result);
     }
   }
 
-  fn on_job_completed(&self, result: JobRunResult) {
+  async fn on_job_completed(&self, result: JobRunResult) {
     if let Some(on_job_completed) = &self.on_job_completed {
       on_job_completed(result);
     }
   }
 
-  fn on_step_completed(&self, result: StepRunResult) {
+  async fn on_step_completed(&self, result: StepRunResult) {
     if let Some(on_step_completed) = &self.on_step_completed {
       on_step_completed(result);
     }
   }
 
-  fn on_resolve_dynamic_action(&self, step: UserActionStep) -> Option<Box<dyn Action>> {
+  async fn on_resolve_dynamic_action(&self, step: UserActionStep) -> Option<Box<dyn Action>> {
     if let Some(on_resolve_dynamic_action) = &self.on_resolve_dynamic_action {
       return on_resolve_dynamic_action(step);
     }

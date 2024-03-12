@@ -156,6 +156,7 @@ async fn test_protocol() -> Result<()> {
     let workflow = Workflow::builder()
       .config(workflow)
       .build(&astro_run)
+      .await
       .unwrap();
 
     let ctx = astro_run
@@ -176,7 +177,7 @@ async fn test_protocol() -> Result<()> {
   });
 
   let server_thread_handle = tokio::spawn(async {
-    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<()>(1);
     let runner = TestRunner::new(18);
 
     let runner_server = AstroRunRemoteRunnerServer::builder()

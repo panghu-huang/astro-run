@@ -16,7 +16,7 @@ use tokio::sync::mpsc::{channel, Sender};
 // Job key, JobRunResult
 type Result = (Id, JobRunResult);
 
-pub trait Payload {
+pub trait Payload: Send + Sync {
   fn try_from(payload: &String) -> crate::Result<Self>
   where
     Self: Sized;
@@ -149,7 +149,7 @@ impl Workflow {
       jobs: job_results,
     };
 
-    ctx.on_workflow_completed(result.clone());
+    ctx.on_workflow_completed(result.clone()).await;
 
     result
   }
@@ -194,8 +194,8 @@ mod tests {
     }
   }
 
-  #[test]
-  fn test_workflow_payload() {
+  #[astro_run_test::test]
+  async fn test_workflow_payload() {
     struct WorkflowPayload;
 
     impl crate::Payload for WorkflowPayload {
@@ -221,6 +221,7 @@ mod tests {
       .config(workflow)
       .payload(WorkflowPayload)
       .build(&astro_run)
+      .await
       .unwrap();
 
     let result = workflow.payload::<WorkflowPayload>();
@@ -228,8 +229,8 @@ mod tests {
     assert!(result.is_ok());
   }
 
-  #[test]
-  fn test_workflow_payload_to_string_error() {
+  #[astro_run_test::test]
+  async fn test_workflow_payload_to_string_error() {
     struct WorkflowPayload;
 
     impl crate::Payload for WorkflowPayload {
@@ -254,7 +255,8 @@ mod tests {
     let workflow = Workflow::builder()
       .config(workflow)
       .payload(WorkflowPayload)
-      .build(&astro_run);
+      .build(&astro_run)
+      .await;
 
     assert_eq!(
       workflow.unwrap_err(),
@@ -262,8 +264,8 @@ mod tests {
     );
   }
 
-  #[test]
-  fn test_workflow_payload_not_set() {
+  #[astro_run_test::test]
+  async fn test_workflow_payload_not_set() {
     #[derive(Debug)]
     struct WorkflowPayload;
 
@@ -289,6 +291,7 @@ mod tests {
     let workflow = Workflow::builder()
       .config(workflow)
       .build(&astro_run)
+      .await
       .unwrap();
 
     let result = workflow.payload::<WorkflowPayload>();
@@ -299,8 +302,8 @@ mod tests {
     );
   }
 
-  #[test]
-  fn test_parse_workflow_payload_error() {
+  #[astro_run_test::test]
+  async fn test_parse_workflow_payload_error() {
     #[derive(Debug)]
     struct WorkflowPayload;
 
@@ -327,6 +330,7 @@ mod tests {
       .config(workflow)
       .payload(WorkflowPayload)
       .build(&astro_run)
+      .await
       .unwrap();
 
     let result = workflow.payload::<WorkflowPayload>();
