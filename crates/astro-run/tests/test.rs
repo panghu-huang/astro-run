@@ -462,10 +462,9 @@ jobs:
     }
   }
 
-  let astro_run = AstroRun::builder().runner(TestRunner::new()).build();
-
-  astro_run
-    .register_plugin(
+  let astro_run = AstroRun::builder()
+    .runner(TestRunner::new())
+    .plugin(
       AstroRunPlugin::builder("test")
         .on_run_workflow(|event| {
           let workflow = event.payload;
@@ -521,12 +520,13 @@ jobs:
         })
         .build(),
     )
-    .register_plugin(AssetLogsPlugin::new(vec![
+    .plugin(AssetLogsPlugin::new(vec![
       "pre test",
       "test",
       "Hello World",
     ]))
-    .register_action("test", TestAction {});
+    .action("test", TestAction {})
+    .build();
 
   let workflow = Workflow::builder()
     .id("id")
@@ -536,15 +536,9 @@ jobs:
 
   let ctx = astro_run.execution_context().build();
 
-  workflow.run(ctx).await;
+  let res = workflow.run(ctx).await;
 
-  astro_run
-    .unregister_plugin("test")
-    .unregister_plugin("test-plugin")
-    .unregister_action("test");
-
-  assert_eq!(astro_run.plugins().size(), 0);
-  assert_eq!(astro_run.actions().size(), 0);
+  assert_eq!(res.state, WorkflowState::Succeeded);
 }
 
 #[astro_run_test::test]

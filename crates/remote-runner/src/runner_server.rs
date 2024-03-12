@@ -1,4 +1,4 @@
-use astro_run::{Error, Plugin, PluginManager, Runner};
+use astro_run::{Error, Plugin, PluginDriver, Runner, SharedPluginDriver};
 use astro_run_protocol::{
   astro_run_remote_runner::{self, event::Payload as EventPayload, RunResponse, SendEventResponse},
   tonic, AstroRunRemoteRunner, RunnerMetadata,
@@ -14,7 +14,7 @@ pub struct AstroRunRemoteRunnerServer {
   support_docker: bool,
   support_host: bool,
   runner: Arc<Box<dyn Runner>>,
-  plugins: PluginManager,
+  plugin_driver: SharedPluginDriver,
   signals: Arc<Mutex<HashMap<String, astro_run::AstroRunSignal>>>,
 }
 
@@ -122,7 +122,7 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           tonic::Status::internal(format!("Failed to convert workflow completed event: {}", e))
         })?;
 
-        self.plugins.on_workflow_completed(result.clone());
+        self.plugin_driver.on_workflow_completed(result.clone());
         self.runner.on_workflow_completed(result);
       }
       EventPayload::JobCompletedEvent(event) => {
@@ -130,7 +130,7 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           tonic::Status::internal(format!("Failed to convert job completed event: {}", e))
         })?;
 
-        self.plugins.on_job_completed(result.clone());
+        self.plugin_driver.on_job_completed(result.clone());
         self.runner.on_job_completed(result);
       }
       EventPayload::StepCompletedEvent(event) => {
@@ -143,7 +143,7 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
         self.signals.lock().remove(&step_id);
 
         // Dispatch event to plugins and runner
-        self.plugins.on_step_completed(result.clone());
+        self.plugin_driver.on_step_completed(result.clone());
         self.runner.on_step_completed(result);
       }
       EventPayload::LogEvent(event) => {
@@ -151,7 +151,7 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert log event: {}", e)))?;
 
-        self.plugins.on_log(log.clone());
+        self.plugin_driver.on_log(log.clone());
         self.runner.on_log(log);
       }
       EventPayload::WorkflowStateEvent(event) => {
@@ -159,7 +159,7 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert state event: {}", e)))?;
 
-        self.plugins.on_state_change(event.clone());
+        self.plugin_driver.on_state_change(event.clone());
         self.runner.on_state_change(event);
       }
       EventPayload::RunStepEvent(event) => {
@@ -167,7 +167,7 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           tonic::Status::internal(format!("Failed to convert run step event: {}", e))
         })?;
 
-        self.plugins.on_run_step(event.clone());
+        self.plugin_driver.on_run_step(event.clone());
         self.runner.on_run_step(event);
       }
       EventPayload::RunJobEvent(event) => {
@@ -175,7 +175,7 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert job: {}", e)))?;
 
-        self.plugins.on_run_job(event.clone());
+        self.plugin_driver.on_run_job(event.clone());
         self.runner.on_run_job(event);
       }
       EventPayload::RunWorkflowEvent(event) => {
@@ -183,7 +183,7 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert workflow: {}", e)))?;
 
-        self.plugins.on_run_workflow(event.clone());
+        self.plugin_driver.on_run_workflow(event.clone());
         self.runner.on_run_workflow(event);
       }
       EventPayload::SignalEvent(signal) => {
@@ -232,7 +232,7 @@ pub struct AstroRunRemoteRunnerServerBuilder {
   max_runs: i32,
   support_docker: Option<bool>,
   support_host: bool,
-  plugins: PluginManager,
+  plugins: Vec<Box<dyn Plugin>>,
 }
 
 impl AstroRunRemoteRunnerServerBuilder {
@@ -243,7 +243,7 @@ impl AstroRunRemoteRunnerServerBuilder {
       max_runs: 5,
       support_docker: None,
       support_host: true,
-      plugins: PluginManager::new(),
+      plugins: vec![],
     }
   }
 
@@ -267,11 +267,11 @@ impl AstroRunRemoteRunnerServerBuilder {
     self
   }
 
-  pub fn plugin<P>(self, plugin: P) -> Self
+  pub fn plugin<P>(mut self, plugin: P) -> Self
   where
     P: Plugin + 'static,
   {
-    self.plugins.register(plugin);
+    self.plugins.push(Box::new(plugin));
 
     self
   }
@@ -309,7 +309,7 @@ impl AstroRunRemoteRunnerServerBuilder {
       support_docker,
       support_host: self.support_host,
       runner,
-      plugins: self.plugins,
+      plugin_driver: Arc::new(PluginDriver::new(self.plugins)),
       signals: Arc::new(Mutex::new(HashMap::new())),
     })
   }

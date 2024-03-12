@@ -257,7 +257,7 @@ async fn test_cancel() -> Result<()> {
       async move {
         tx.send(()).unwrap();
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-        astro_run.cancel(&job_id).unwrap();
+        astro_run.cancel_job(&job_id).unwrap();
       }
     });
 

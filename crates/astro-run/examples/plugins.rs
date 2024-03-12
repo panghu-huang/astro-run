@@ -76,7 +76,4 @@ jobs:
 
   // Run workflow
   let _res = workflow.run(ctx).await;
-
-  // Unregister plugin
-  astro_run.unregister_plugin("plugin-name");
 }

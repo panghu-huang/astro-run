@@ -1,6 +1,6 @@
 use crate::{
   executors::{DockerExecutor, Executor, HostExecutor},
-  Plugin, PluginManager,
+  Plugin, PluginDriver, SharedPluginDriver,
 };
 use astro_run::{
   stream, Context, Error, Result, RunResponse, RunResult, Runner, WorkflowEvent, WorkflowId,
@@ -16,24 +16,12 @@ struct RunnerState {
 pub struct AstroRunner {
   working_directory: PathBuf,
   state: Arc<Mutex<RunnerState>>,
-  plugins: PluginManager,
+  plugin_driver: SharedPluginDriver,
 }
 
 impl AstroRunner {
   pub fn builder() -> AstroRunnerBuilder {
     AstroRunnerBuilder::new()
-  }
-
-  pub fn register_plugin<P: Plugin + 'static>(&self, plugin: P) -> &Self {
-    self.plugins.register(plugin);
-
-    self
-  }
-
-  pub fn unregister_plugin(&self, plugin_name: &'static str) -> &Self {
-    self.plugins.unregister(plugin_name);
-
-    self
   }
 }
 
@@ -49,8 +37,9 @@ impl Runner for AstroRunner {
     let (sender, receiver) = stream();
 
     let ctx = self
-      .plugins
+      .plugin_driver
       .on_before_run(ctx)
+      .await
       .map_err(|err| Error::error(format!("AstroRunner: on_before_run error: {}", err)))?;
 
     let executor = self.create_executor(&ctx);
@@ -64,7 +53,7 @@ impl Runner for AstroRunner {
         .insert(ctx.command.id.workflow_id(), event.clone());
     }
 
-    let plugins = self.plugins.clone();
+    let plugins = Arc::clone(&self.plugin_driver);
 
     tokio::spawn(async move {
       if let Err(err) = executor.execute(ctx.clone(), sender.clone(), event).await {
@@ -75,7 +64,7 @@ impl Runner for AstroRunner {
         sender.end(RunResult::Failed { exit_code: 1 });
       }
 
-      plugins.on_after_run(ctx);
+      plugins.on_after_run(ctx).await;
     });
 
     Ok(receiver)
@@ -130,19 +119,19 @@ impl AstroRunner {
 
 pub struct AstroRunnerBuilder {
   working_directory: Option<PathBuf>,
-  plugins: PluginManager,
+  plugins: Vec<Box<dyn Plugin>>,
 }
 
 impl AstroRunnerBuilder {
   pub fn new() -> Self {
     Self {
       working_directory: None,
-      plugins: PluginManager::new(),
+      plugins: vec![],
     }
   }
 
-  pub fn plugin<P: Plugin + 'static>(self, plugin: P) -> Self {
-    self.plugins.register(plugin);
+  pub fn plugin<P: Plugin + 'static>(mut self, plugin: P) -> Self {
+    self.plugins.push(Box::new(plugin));
 
     self
   }
@@ -165,7 +154,7 @@ impl AstroRunnerBuilder {
       state: Arc::new(Mutex::new(RunnerState {
         workflow_events: HashMap::new(),
       })),
-      plugins: self.plugins,
+      plugin_driver: Arc::new(PluginDriver::new(self.plugins)),
     };
 
     Ok(runner)

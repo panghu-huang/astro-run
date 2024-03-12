@@ -124,10 +124,10 @@ jobs:
     async move {
       tx.send(()).unwrap();
       tokio::time::sleep(Duration::from_secs(1)).await;
-      astro_run.cancel(&job_id).unwrap();
+      astro_run.cancel_job(&job_id).unwrap();
 
       // Cancel again
-      let err = astro_run.cancel(&job_id).unwrap_err();
+      let err = astro_run.cancel_job(&job_id).unwrap_err();
 
       assert_eq!(Error::error("Signal has been cancelled or timeout."), err);
     }
@@ -171,7 +171,7 @@ jobs:
     async move {
       tx.send(()).unwrap();
       tokio::time::sleep(Duration::from_secs(1)).await;
-      ctx.cancel(&job_id).unwrap();
+      ctx.cancel_job(&job_id).unwrap();
     }
   });
 
@@ -207,7 +207,7 @@ jobs:
 
   let job_id = &workflow.jobs.get("test").unwrap().id;
 
-  let err = ctx.cancel(job_id).unwrap_err();
+  let err = ctx.cancel_job(job_id).unwrap_err();
 
   assert_eq!(
     Error::error(format!("Job {} not found", job_id.to_string())),

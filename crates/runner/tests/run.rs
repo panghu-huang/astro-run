@@ -180,12 +180,13 @@ async fn test_host() {
 async fn test_before_run() {
   struct TestPlugin;
 
+  #[astro_run::async_trait]
   impl astro_runner::Plugin for TestPlugin {
     fn name(&self) -> &'static str {
       "test-plugin"
     }
 
-    fn on_before_run(
+    async fn on_before_run(
       &self,
       mut ctx: astro_run::Context,
     ) -> Result<astro_run::Context, Box<dyn std::error::Error>> {
@@ -194,7 +195,7 @@ async fn test_before_run() {
       Ok(ctx)
     }
 
-    fn on_after_run(&self, ctx: astro_run::Context) {
+    async fn on_after_run(&self, ctx: astro_run::Context) {
       assert_eq!(ctx.command.run, "echo \"My custom run\"");
     }
   }
@@ -244,12 +245,13 @@ async fn test_before_run() {
 async fn test_before_run_error() {
   struct TestPlugin;
 
+  #[astro_run::async_trait]
   impl astro_runner::Plugin for TestPlugin {
     fn name(&self) -> &'static str {
       "test-plugin"
     }
 
-    fn on_before_run(
+    async fn on_before_run(
       &self,
       _ctx: astro_run::Context,
     ) -> Result<astro_run::Context, Box<dyn std::error::Error>> {
@@ -271,9 +273,7 @@ async fn test_before_run_error() {
     std::env::consts::OS
   );
 
-  let runner = AstroRunner::builder().build().unwrap();
-
-  runner.register_plugin(TestPlugin);
+  let runner = AstroRunner::builder().plugin(TestPlugin).build().unwrap();
 
   let astro_run = AstroRun::builder().runner(runner.clone()).build();
 
@@ -292,8 +292,6 @@ async fn test_before_run_error() {
   assert_eq!(job_result.steps.len(), 1);
 
   assert_eq!(job_result.steps[0].state, WorkflowState::Failed);
-
-  runner.unregister_plugin("test-plugin");
 }
 
 #[astro_run_test::test]
@@ -329,7 +327,7 @@ async fn test_docker_cancel() {
     let job_id = workflow.jobs.get("test").unwrap().id.clone();
     async move {
       tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-      astro_run.cancel(&job_id).unwrap();
+      astro_run.cancel_job(&job_id).unwrap();
     }
   });
 

@@ -127,10 +127,6 @@ async fn test_run() -> Result<()> {
       .await
       .unwrap();
 
-    astro_run_runner.register_plugin(AstroRunPlugin::builder("test").build());
-
-    astro_run_runner.unregister_plugin("test");
-
     tokio::select! {
       _ = astro_run_runner.start() => {}
       _ = rx.recv() => {}

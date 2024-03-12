@@ -2,8 +2,6 @@ use crate::{
   Action, Job, JobRunResult, Step, StepRunResult, UserActionStep, Workflow, WorkflowEvent,
   WorkflowLog, WorkflowRunResult, WorkflowStateEvent,
 };
-use parking_lot::Mutex;
-use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub struct RunEvent<T> {
@@ -34,7 +32,7 @@ type OnJobComplete = dyn Fn(JobRunResult) -> () + Send + Sync;
 type OnStepComplete = dyn Fn(StepRunResult) -> () + Send + Sync;
 type OnResolveDynamicAction = dyn Fn(UserActionStep) -> Option<Box<dyn Action>> + Send + Sync;
 
-pub trait Plugin: Send {
+pub trait Plugin: Send + Sync {
   fn name(&self) -> &'static str;
   fn on_state_change(&self, _event: WorkflowStateEvent) {}
   fn on_log(&self, _log: WorkflowLog) {}
@@ -244,191 +242,5 @@ impl Plugin for AstroRunPlugin {
     }
 
     None
-  }
-}
-
-#[derive(Clone)]
-pub struct PluginManager {
-  pub(crate) plugins: Arc<Mutex<Vec<Box<dyn Plugin>>>>,
-}
-
-impl PluginManager {
-  pub fn new() -> Self {
-    PluginManager {
-      plugins: Arc::new(Mutex::new(Vec::new())),
-    }
-  }
-
-  pub fn size(&self) -> usize {
-    self.plugins.lock().len()
-  }
-
-  pub fn register<P: Plugin + 'static>(&self, plugin: P) {
-    let mut plugins = self.plugins.lock();
-
-    plugins.retain(|p| p.name() != plugin.name());
-
-    plugins.push(Box::new(plugin));
-  }
-
-  pub fn unregister(&self, name: &'static str) {
-    self.plugins.lock().retain(|plugin| plugin.name() != name);
-  }
-
-  pub fn on_state_change(&self, event: WorkflowStateEvent) {
-    let plugins = self.plugins.lock();
-    for plugin in plugins.iter() {
-      plugin.on_state_change(event.clone());
-    }
-  }
-
-  pub fn on_log(&self, log: WorkflowLog) {
-    let plugins = self.plugins.lock();
-    for plugin in plugins.iter() {
-      plugin.on_log(log.clone());
-    }
-  }
-
-  pub fn on_run_workflow(&self, event: RunWorkflowEvent) {
-    let plugins = self.plugins.lock();
-    for plugin in plugins.iter() {
-      plugin.on_run_workflow(event.clone());
-    }
-  }
-
-  pub fn on_run_job(&self, event: RunJobEvent) {
-    let plugins = self.plugins.lock();
-    for plugin in plugins.iter() {
-      plugin.on_run_job(event.clone());
-    }
-  }
-
-  pub fn on_run_step(&self, event: RunStepEvent) {
-    let plugins = self.plugins.lock();
-    for plugin in plugins.iter() {
-      plugin.on_run_step(event.clone());
-    }
-  }
-
-  pub fn on_workflow_completed(&self, result: WorkflowRunResult) {
-    let plugins = self.plugins.lock();
-    for plugin in plugins.iter() {
-      plugin.on_workflow_completed(result.clone());
-    }
-  }
-
-  pub fn on_job_completed(&self, result: JobRunResult) {
-    let plugins = self.plugins.lock();
-    for plugin in plugins.iter() {
-      plugin.on_job_completed(result.clone());
-    }
-  }
-
-  pub fn on_step_completed(&self, result: StepRunResult) {
-    let plugins = self.plugins.lock();
-    for plugin in plugins.iter() {
-      plugin.on_step_completed(result.clone());
-    }
-  }
-
-  pub fn on_resolve_dynamic_action(&self, step: UserActionStep) -> Option<Box<dyn Action>> {
-    let plugins = self.plugins.lock();
-    for plugin in plugins.iter() {
-      if let Some(action) = plugin.on_resolve_dynamic_action(step.clone()) {
-        return Some(action);
-      }
-    }
-
-    None
-  }
-}
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-  use crate::{WorkflowId, WorkflowState, WorkflowStateEvent};
-
-  #[test]
-  fn plugin_manager_register() {
-    let plugin_manager = PluginManager::new();
-    let plugin = PluginBuilder::new("test").build();
-
-    plugin_manager.register(plugin);
-
-    assert_eq!(plugin_manager.size(), 1);
-  }
-
-  #[test]
-  fn plugin_manager_unregister() {
-    let plugin_manager = PluginManager::new();
-    let plugin = PluginBuilder::new("test").build();
-
-    plugin_manager.register(plugin);
-    plugin_manager.unregister("test");
-
-    assert_eq!(plugin_manager.size(), 0);
-  }
-
-  #[test]
-  fn plugin_manager_on_state_change() {
-    let plugin_manager = PluginManager::new();
-    let plugin = PluginBuilder::new("test")
-      .on_state_change(|event| {
-        if let WorkflowStateEvent::WorkflowStateUpdated { id, state } = event {
-          assert_eq!(id, WorkflowId::new("test"));
-          assert_eq!(state, WorkflowState::Cancelled);
-        } else {
-          panic!("Unexpected event type");
-        }
-      })
-      .build();
-
-    plugin_manager.register(plugin);
-    plugin_manager.on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
-      id: WorkflowId::new("test"),
-      state: WorkflowState::Cancelled,
-    });
-  }
-
-  #[test]
-  fn plugin_manager_on_log() {
-    let plugin_manager = PluginManager::new();
-    let plugin = PluginBuilder::new("test")
-      .on_log(|log| {
-        assert_eq!(log.message, "test");
-      })
-      .build();
-
-    plugin_manager.register(plugin);
-    plugin_manager.on_log(WorkflowLog {
-      message: "test".to_string(),
-      ..Default::default()
-    });
-  }
-
-  #[test]
-  fn test_plugin_trait() {
-    struct TestPlugin;
-
-    impl Plugin for TestPlugin {
-      fn name(&self) -> &'static str {
-        "test"
-      }
-    }
-
-    let plugin_manager = PluginManager::new();
-
-    plugin_manager.register(TestPlugin);
-    plugin_manager.on_log(WorkflowLog {
-      message: "test".to_string(),
-      ..Default::default()
-    });
-
-    let action = plugin_manager.on_resolve_dynamic_action(UserActionStep {
-      name: Some("test".to_string()),
-      ..Default::default()
-    });
-
-    assert_eq!(action.is_none(), true);
   }
 }

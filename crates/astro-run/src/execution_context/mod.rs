@@ -3,8 +3,8 @@ mod condition_matcher;
 
 pub use self::builder::ExecutionContextBuilder;
 use crate::{
-  AstroRunSharedState, AstroRunSignal, Condition, Context, Error, Job, JobId, JobRunResult, Result,
-  RunResult, Runner, Signal, Step, StepRunResult, StreamExt, Workflow, WorkflowLog,
+  AstroRunSignal, Condition, Context, Error, Job, JobId, JobRunResult, Result, RunResult, Runner,
+  SharedPluginDriver, Signal, SignalManager, Step, StepRunResult, StreamExt, Workflow, WorkflowLog,
   WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
 use std::sync::Arc;
@@ -12,9 +12,9 @@ use tokio::time;
 
 #[derive(Clone)]
 pub struct ExecutionContext {
-  // pub workflow_shared: WorkflowShared,
   runner: Arc<Box<dyn Runner>>,
-  shared_state: AstroRunSharedState,
+  plugin_driver: SharedPluginDriver,
+  signal_manager: SignalManager,
   condition_matcher: condition_matcher::ConditionMatcher,
 }
 
@@ -27,15 +27,13 @@ impl ExecutionContext {
     let step_id = step.id.clone();
     let timeout = step.timeout;
 
-    let plugin_manager = self.shared_state.plugins();
-
     let started_at = chrono::Utc::now();
 
     let event = crate::RunStepEvent {
       payload: step.clone(),
       workflow_event: self.condition_matcher.event.clone(),
     };
-    plugin_manager.on_run_step(event.clone());
+    self.plugin_driver.on_run_step(event.clone());
     self.runner.on_run_step(event.clone());
 
     // Queued
@@ -43,12 +41,12 @@ impl ExecutionContext {
       id: step_id.clone(),
       state: WorkflowState::Queued,
     };
-    plugin_manager.on_state_change(event.clone());
+    self.plugin_driver.on_state_change(event.clone());
     self.runner.on_state_change(event);
 
     // Job signal
     let job_signal = self
-      .shared_state
+      .signal_manager
       .get_signal(&step.id.job_id())
       .expect("Missing job signal");
 
@@ -80,7 +78,7 @@ impl ExecutionContext {
           id: step_id.clone(),
           state: WorkflowState::Failed,
         };
-        plugin_manager.on_state_change(event.clone());
+        self.plugin_driver.on_state_change(event.clone());
         self.runner.on_state_change(event);
 
         let result = StepRunResult {
@@ -91,7 +89,7 @@ impl ExecutionContext {
           completed_at: Some(completed_at),
         };
 
-        plugin_manager.on_step_completed(result.clone());
+        self.plugin_driver.on_step_completed(result.clone());
         self.runner.on_step_completed(result.clone());
 
         return result;
@@ -102,7 +100,7 @@ impl ExecutionContext {
       id: step_id.clone(),
       state: WorkflowState::InProgress,
     };
-    plugin_manager.on_state_change(event.clone());
+    self.plugin_driver.on_state_change(event.clone());
     self.runner.on_state_change(event);
 
     loop {
@@ -131,7 +129,7 @@ impl ExecutionContext {
               time: chrono::Utc::now(),
             };
 
-            plugin_manager.on_log(log.clone());
+            self.plugin_driver.on_log(log.clone());
             self.runner.on_log(log);
           } else {
             break;
@@ -185,10 +183,10 @@ impl ExecutionContext {
       id: step_id.clone(),
       state: res.state.clone(),
     };
-    plugin_manager.on_state_change(event.clone());
+    self.plugin_driver.on_state_change(event.clone());
     self.runner.on_state_change(event);
 
-    plugin_manager.on_step_completed(res.clone());
+    self.plugin_driver.on_step_completed(res.clone());
     self.runner.on_step_completed(res.clone());
 
     log::trace!("Step {:?} completed", step_id);
@@ -205,41 +203,41 @@ impl ExecutionContext {
       payload: workflow,
       workflow_event: self.condition_matcher.event.clone(),
     };
-    self.shared_state.on_run_workflow(event.clone());
+    self.plugin_driver.on_run_workflow(event.clone());
     self.runner.on_run_workflow(event);
   }
 
   pub fn on_run_job(&self, job: Job) {
     self
-      .shared_state
-      .add_signal(job.id.clone(), AstroRunSignal::new());
+      .signal_manager
+      .register_signal(job.id.clone(), AstroRunSignal::new());
 
     let event = crate::RunJobEvent {
       payload: job,
       workflow_event: self.condition_matcher.event.clone(),
     };
-    self.shared_state.on_run_job(event.clone());
+    self.plugin_driver.on_run_job(event.clone());
     self.runner.on_run_job(event);
   }
 
   pub fn on_state_change(&self, event: WorkflowStateEvent) {
-    self.shared_state.on_state_change(event.clone());
+    self.plugin_driver.on_state_change(event.clone());
     self.runner.on_state_change(event);
   }
 
   pub fn on_job_completed(&self, result: JobRunResult) {
-    self.shared_state.remove_signal(&result.id);
+    self.signal_manager.unregister_signal(&result.id);
 
-    self.shared_state.on_job_completed(result.clone());
+    self.plugin_driver.on_job_completed(result.clone());
     self.runner.on_job_completed(result);
   }
 
   pub fn on_workflow_completed(&self, result: WorkflowRunResult) {
-    self.shared_state.on_workflow_completed(result.clone());
+    self.plugin_driver.on_workflow_completed(result.clone());
     self.runner.on_workflow_completed(result);
   }
 
-  pub fn cancel(&self, job_id: &JobId) -> Result<()> {
-    self.shared_state.cancel(job_id)
+  pub fn cancel_job(&self, job_id: &JobId) -> Result<()> {
+    self.signal_manager.cancel_job(job_id)
   }
 }

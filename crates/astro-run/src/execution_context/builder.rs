@@ -1,13 +1,13 @@
 use super::condition_matcher::ConditionMatcher;
 use crate::{
-  shared_state::AstroRunSharedState, Error, ExecutionContext, GithubAuthorization, Runner,
+  Error, ExecutionContext, GithubAuthorization, Runner, SharedPluginDriver, SignalManager,
   WorkflowEvent,
 };
 use std::sync::Arc;
 
 pub struct ExecutionContextBuilder {
   runner: Option<Arc<Box<dyn Runner>>>,
-  shared_state: Option<AstroRunSharedState>,
+  plugin_driver: Option<SharedPluginDriver>,
   event: Option<WorkflowEvent>,
   github_auth: Option<GithubAuthorization>,
 }
@@ -16,7 +16,7 @@ impl ExecutionContextBuilder {
   pub fn new() -> Self {
     ExecutionContextBuilder {
       runner: None,
-      shared_state: None,
+      plugin_driver: None,
       event: None,
       github_auth: None,
     }
@@ -27,8 +27,9 @@ impl ExecutionContextBuilder {
     self
   }
 
-  pub fn shared_state(mut self, shared_state: AstroRunSharedState) -> Self {
-    self.shared_state = Some(shared_state);
+  pub fn plugin_driver(mut self, plugin_driver: SharedPluginDriver) -> Self {
+    self.plugin_driver = Some(plugin_driver);
+
     self
   }
 
@@ -50,14 +51,18 @@ impl ExecutionContextBuilder {
       ))
       .unwrap();
 
-    let shared_state = self
-      .shared_state
-      .unwrap_or_else(|| AstroRunSharedState::new());
+    let plugin_driver = self
+      .plugin_driver
+      .ok_or(Error::init_error(
+        "Plugin driver is not set in execution context builder",
+      ))
+      .unwrap();
 
     let ctx = ExecutionContext {
       runner,
-      shared_state,
+      plugin_driver,
       condition_matcher: ConditionMatcher::new(self.event, self.github_auth),
+      signal_manager: SignalManager::new(),
     };
 
     ctx
