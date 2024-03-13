@@ -1,7 +1,6 @@
 use astro_run::{
-  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Payload, Plugin, RunResult,
-  Runner, UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowEvent, WorkflowLog,
-  WorkflowState,
+  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Payload, RunResult, Runner,
+  UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowEvent, WorkflowState,
 };
 use parking_lot::Mutex;
 
@@ -44,30 +43,18 @@ impl Runner for TestRunner {
   }
 }
 
-struct AssetLogsPlugin {
-  excepted_logs: Vec<&'static str>,
-  index: Mutex<usize>,
-}
+fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
+  let index = Mutex::new(0);
 
-impl AssetLogsPlugin {
-  fn new(excepted_logs: Vec<&'static str>) -> Self {
-    AssetLogsPlugin {
-      excepted_logs,
-      index: Mutex::new(0),
-    }
-  }
-}
+  AstroRunPlugin::builder("test-plugin")
+    .on_log(move |log| {
+      let mut i = index.lock();
+      assert_eq!(log.message, excepted_logs[*i]);
+      *i += 1;
 
-impl Plugin for AssetLogsPlugin {
-  fn name(&self) -> &'static str {
-    "test-plugin"
-  }
-
-  fn on_log(&self, log: WorkflowLog) {
-    let mut i = self.index.lock();
-    assert_eq!(log.message, self.excepted_logs[*i]);
-    *i += 1;
-  }
+      Ok(())
+    })
+    .build()
 }
 
 #[astro_run_test::test]
@@ -82,12 +69,13 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["Hello World"]))
+    .plugin(assert_logs_plugin(vec!["Hello World"]))
     .build();
 
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -132,12 +120,13 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["Hello World"]))
+    .plugin(assert_logs_plugin(vec!["Hello World"]))
     .build();
 
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -169,7 +158,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec![
+    .plugin(assert_logs_plugin(vec![
       "Hello World1",
       "Hello World2",
       "Hello World3",
@@ -179,6 +168,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -208,12 +198,13 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["Hello World1"]))
+    .plugin(assert_logs_plugin(vec!["Hello World1"]))
     .build();
 
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -251,7 +242,7 @@ async fn test_depends_on() {
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec![
+    .plugin(assert_logs_plugin(vec![
       "Hello World1",
       "Hello World2",
       "Hello World3",
@@ -261,6 +252,7 @@ async fn test_depends_on() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -294,12 +286,13 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["Failed step"]))
+    .plugin(assert_logs_plugin(vec!["Failed step"]))
     .build();
 
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -329,12 +322,13 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["Failed step", "Hello World"]))
+    .plugin(assert_logs_plugin(vec!["Failed step", "Hello World"]))
     .build();
 
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -365,12 +359,13 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["Cancel step"]))
+    .plugin(assert_logs_plugin(vec!["Cancel step"]))
     .build();
 
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -416,13 +411,14 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["test", "Hello World"]))
+    .plugin(assert_logs_plugin(vec!["test", "Hello World"]))
     .action("test", TestAction)
     .build();
 
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -462,16 +458,17 @@ jobs:
     }
   }
 
-  let astro_run = AstroRun::builder().runner(TestRunner::new()).build();
-
-  astro_run
-    .register_plugin(
+  let astro_run = AstroRun::builder()
+    .runner(TestRunner::new())
+    .plugin(
       AstroRunPlugin::builder("test")
         .on_run_workflow(|event| {
           let workflow = event.payload;
           assert_eq!(workflow.name.unwrap(), "Test Workflow");
           assert_eq!(workflow.jobs.len(), 1);
           assert_eq!(workflow.id.inner(), "id");
+
+          Ok(())
         })
         .on_run_job(|event| {
           let job = event.payload;
@@ -491,6 +488,8 @@ jobs:
 
           let step = steps[2].clone();
           assert_eq!(step.run, "Hello World");
+
+          Ok(())
         })
         .on_run_step(|event| {
           let step = event.payload;
@@ -499,52 +498,56 @@ jobs:
             0 => {
               assert_eq!(step.name.unwrap(), "Pre test");
               assert_eq!(step.run, "pre test");
+
+              Ok(())
             }
             1 => {
               assert_eq!(step.name.unwrap(), "Test");
               assert_eq!(step.run, "test");
+
+              Ok(())
             }
             2 => {
               assert_eq!(step.run, "Hello World");
+
+              Ok(())
             }
             _ => panic!("Should not be called"),
           }
         })
         .on_step_completed(|res| {
           assert_eq!(res.state, WorkflowState::Succeeded);
+
+          Ok(())
         })
         .on_job_completed(|res| {
           assert_eq!(res.state, WorkflowState::Succeeded);
+
+          Ok(())
         })
         .on_workflow_completed(|res| {
           assert_eq!(res.state, WorkflowState::Succeeded);
+
+          Ok(())
         })
         .build(),
     )
-    .register_plugin(AssetLogsPlugin::new(vec![
-      "pre test",
-      "test",
-      "Hello World",
-    ]))
-    .register_action("test", TestAction {});
+    .plugin(assert_logs_plugin(vec!["pre test", "test", "Hello World"]))
+    .action("test", TestAction {})
+    .build();
 
   let workflow = Workflow::builder()
     .id("id")
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
 
-  workflow.run(ctx).await;
+  let res = workflow.run(ctx).await;
 
-  astro_run
-    .unregister_plugin("test")
-    .unregister_plugin("test-plugin")
-    .unregister_action("test");
-
-  assert_eq!(astro_run.plugins().size(), 0);
-  assert_eq!(astro_run.actions().size(), 0);
+  assert_eq!(res.state, WorkflowState::Succeeded);
 }
 
 #[astro_run_test::test]
@@ -566,6 +569,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -603,6 +607,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -635,14 +640,14 @@ jobs:
 struct WorkflowPayload(String);
 
 impl Payload for WorkflowPayload {
-  fn try_from(payload: &String) -> astro_run::Result<Self>
+  fn try_from_string(payload: &String) -> astro_run::Result<Self>
   where
     Self: Sized,
   {
     Ok(WorkflowPayload(payload.clone()))
   }
 
-  fn try_into(&self) -> astro_run::Result<String> {
+  fn try_into_string(&self) -> astro_run::Result<String> {
     Ok(self.0.clone())
   }
 }
@@ -659,13 +664,15 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner)
-    .plugin(AssetLogsPlugin::new(vec!["Hello World"]))
+    .plugin(assert_logs_plugin(vec!["Hello World"]))
     .plugin(
       AstroRunPlugin::builder("test-plugin")
         .on_run_workflow(|event| {
           let payload: WorkflowPayload = event.payload.payload().unwrap();
 
           assert_eq!(payload.0, "Test payload");
+
+          Ok(())
         })
         .build(),
     )
@@ -677,6 +684,7 @@ jobs:
     .config(yaml)
     .payload(workflow_payload)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let payload = workflow.payload::<WorkflowPayload>().unwrap();

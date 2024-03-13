@@ -62,6 +62,7 @@ impl PartialEq for Error {
       (Self::IOError(a), Self::IOError(b)) => a.kind() == b.kind(),
       (Self::Error(a), Self::Error(b)) => a == b,
       (Self::UnsupportedFeature(a), Self::UnsupportedFeature(b)) => a == b,
+      (Self::InitError(a), Self::InitError(b)) => a == b,
       _ => false,
     }
   }

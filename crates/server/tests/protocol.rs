@@ -1,5 +1,5 @@
 use astro_run::{
-  stream, AstroRun, AstroRunPlugin, Context, EnvironmentVariable, JobRunResult, PluginBuilder,
+  stream, AstroRun, AstroRunPlugin, Context, EnvironmentVariable, JobRunResult, PluginNoopResult,
   Result, RunResult, Runner, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState,
   WorkflowStateEvent,
 };
@@ -32,13 +32,15 @@ impl Runner for TestRunner {
     Ok(rx)
   }
 
-  fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) {
+  async fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) -> PluginNoopResult {
     self.current_event_count.lock().add_assign(1);
     assert_eq!(event.payload.name.unwrap(), "CI");
     assert_eq!(event.workflow_event.unwrap().sha, "123456789");
+
+    Ok(())
   }
 
-  fn on_run_job(&self, event: astro_run::RunJobEvent) {
+  async fn on_run_job(&self, event: astro_run::RunJobEvent) -> PluginNoopResult {
     self.current_event_count.lock().add_assign(1);
 
     assert_eq!(event.workflow_event.unwrap().sha, "123456789");
@@ -67,23 +69,31 @@ impl Runner for TestRunner {
       EnvironmentVariable::from(true)
     );
     assert_eq!(step.secrets[0], "secret-name");
+
+    Ok(())
   }
 
-  fn on_state_change(&self, _event: WorkflowStateEvent) {
+  async fn on_state_change(&self, _event: WorkflowStateEvent) -> PluginNoopResult {
     self.current_event_count.lock().add_assign(1);
+
+    Ok(())
   }
 
-  fn on_job_completed(&self, result: JobRunResult) {
+  async fn on_job_completed(&self, result: JobRunResult) -> PluginNoopResult {
     self.current_event_count.lock().add_assign(1);
     assert_eq!(result.state, WorkflowState::Succeeded);
+
+    Ok(())
   }
 
-  fn on_step_completed(&self, result: astro_run::StepRunResult) {
+  async fn on_step_completed(&self, result: astro_run::StepRunResult) -> PluginNoopResult {
     self.current_event_count.lock().add_assign(1);
     assert_eq!(result.state, WorkflowState::Succeeded);
+
+    Ok(())
   }
 
-  fn on_log(&self, log: WorkflowLog) {
+  async fn on_log(&self, log: WorkflowLog) -> PluginNoopResult {
     self.current_event_count.lock().add_assign(1);
 
     let index = log.step_id.step_number();
@@ -92,24 +102,30 @@ impl Runner for TestRunner {
     } else if index == 1 {
       assert_eq!(log.message, "Hello World1");
     }
+
+    Ok(())
   }
 
-  fn on_workflow_completed(&self, result: WorkflowRunResult) {
+  async fn on_workflow_completed(&self, result: WorkflowRunResult) -> PluginNoopResult {
     self.current_event_count.lock().add_assign(1);
     assert_eq!(result.state, WorkflowState::Succeeded);
 
     assert_eq!(*self.current_event_count.lock(), self.expected_event_count);
+
+    Ok(())
   }
 }
 
 fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
   let index = Mutex::new(0);
 
-  PluginBuilder::new("assert-logs-plugin")
+  AstroRunPlugin::builder("assert-logs-plugin")
     .on_log(move |log| {
       let mut i = index.lock();
       assert_eq!(log.message, excepted_logs[*i]);
       *i += 1;
+
+      Ok(())
     })
     .build()
 }
@@ -162,6 +178,7 @@ async fn test_protocol() -> Result<()> {
     let workflow = Workflow::builder()
       .config(workflow)
       .build(&astro_run)
+      .await
       .unwrap();
 
     let ctx = astro_run
@@ -196,9 +213,11 @@ async fn test_protocol() -> Result<()> {
       .support_host(true)
       .plugin(assert_logs_plugin(vec!["Hello World", "Hello World1"]))
       .plugin(
-        PluginBuilder::new("abort-plugin")
+        AstroRunPlugin::builder("abort-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
+
+            Ok(())
           })
           .build(),
       )

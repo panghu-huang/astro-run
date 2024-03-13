@@ -1,6 +1,6 @@
 use astro_run::{
-  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Error, PluginBuilder, Result,
-  RunResult, Runner, UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowState,
+  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Error, Result, RunResult, Runner,
+  UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowState,
 };
 use parking_lot::Mutex;
 use serde::Deserialize;
@@ -22,11 +22,13 @@ impl Runner for TestRunner {
 fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
   let index = Mutex::new(0);
 
-  PluginBuilder::new("test-plugin")
+  AstroRunPlugin::builder("test-plugin")
     .on_log(move |log| {
       let mut i = index.lock();
       assert_eq!(log.message, excepted_logs[*i]);
       *i += 1;
+
+      Ok(())
     })
     .build()
 }
@@ -64,9 +66,9 @@ fn dynamic_action_plugin() -> AstroRunPlugin {
       let with: DynamicActionConfig = serde_yaml::from_value(step.with.unwrap()).unwrap();
 
       if with.name == "Hello World" || with.name == "Error" {
-        Some(Box::new(DynamicAction))
+        Ok(Some(Box::new(DynamicAction)))
       } else {
-        None
+        Ok(None)
       }
     })
     .build()
@@ -91,7 +93,11 @@ jobs:
     .plugin(assert_logs_plugin(vec!["Hello World"]))
     .build();
 
-  let workflow = Workflow::builder().config(yaml).build(&astro_run).unwrap();
+  let workflow = Workflow::builder()
+    .config(yaml)
+    .build(&astro_run)
+    .await
+    .unwrap();
 
   let dynamic_step = workflow.jobs.get("test").unwrap().steps.get(0).unwrap();
 
@@ -124,7 +130,7 @@ jobs:
     .plugin(assert_logs_plugin(vec!["Hello World"]))
     .build();
 
-  let res = Workflow::builder().config(yaml).build(&astro_run);
+  let res = Workflow::builder().config(yaml).build(&astro_run).await;
 
   assert_eq!(
     res.unwrap_err(),
@@ -150,7 +156,7 @@ jobs:
     .plugin(plugin)
     .build();
 
-  let res = Workflow::builder().config(yaml).build(&astro_run);
+  let res = Workflow::builder().config(yaml).build(&astro_run).await;
 
   assert_eq!(res.unwrap_err(), Error::error("Test Error"));
 }

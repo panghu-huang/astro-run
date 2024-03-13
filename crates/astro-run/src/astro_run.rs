@@ -1,14 +1,16 @@
 use crate::{
-  shared_state::AstroRunSharedState, Action, Actions, ExecutionContext, ExecutionContextBuilder,
-  GithubAuthorization, JobId, Plugin, PluginManager, Result, Runner,
+  Action, ActionDriver, ExecutionContext, ExecutionContextBuilder, GithubAuthorization, JobId,
+  Plugin, PluginDriver, Result, Runner, SharedActionDriver, SharedPluginDriver, SignalManager,
 };
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Clone)]
 pub struct AstroRun {
   runner: Arc<Box<dyn Runner>>,
   github_auth: Option<GithubAuthorization>,
-  pub(crate) shared_state: AstroRunSharedState,
+  plugin_driver: SharedPluginDriver,
+  action_driver: SharedActionDriver,
+  signal_manager: SignalManager,
 }
 
 impl AstroRun {
@@ -16,50 +18,15 @@ impl AstroRun {
     AstroRunBuilder::new()
   }
 
-  pub fn cancel(&self, job_id: &JobId) -> Result<()> {
-    self.shared_state.cancel(job_id)
-  }
-
-  pub fn register_plugin<P: Plugin + 'static>(&self, plugin: P) -> &Self {
-    self.shared_state.register_plugin(plugin);
-
-    self
-  }
-
-  pub fn unregister_plugin(&self, plugin_name: &'static str) -> &Self {
-    self.shared_state.unregister_plugin(plugin_name);
-
-    self
-  }
-
-  pub fn register_action<T>(&self, name: impl Into<String>, action: T) -> &Self
-  where
-    T: crate::actions::Action + 'static,
-  {
-    self.shared_state.register_action(name, action);
-
-    self
-  }
-
-  pub fn unregister_action(&self, name: &str) -> &Self {
-    self.shared_state.unregister_action(name);
-
-    self
-  }
-
-  pub fn plugins(&self) -> PluginManager {
-    self.shared_state.plugins()
-  }
-
-  pub fn actions(&self) -> Actions {
-    self.shared_state.actions()
+  pub fn cancel_job(&self, job_id: &JobId) -> Result<()> {
+    self.signal_manager.cancel_job(&job_id)
   }
 
   pub fn execution_context(&self) -> ExecutionContextBuilder {
-    let shared_state = self.shared_state.clone();
     let mut builder = ExecutionContext::builder()
       .runner(self.runner.clone())
-      .shared_state(shared_state);
+      .signal_manager(self.signal_manager.clone())
+      .plugin_driver(self.plugin_driver());
 
     if let Some(github_auth) = &self.github_auth {
       builder = builder.github_auth(github_auth.clone());
@@ -67,11 +34,20 @@ impl AstroRun {
 
     builder
   }
+
+  pub(crate) fn plugin_driver(&self) -> SharedPluginDriver {
+    Arc::clone(&self.plugin_driver)
+  }
+
+  pub(crate) fn action_driver(&self) -> SharedActionDriver {
+    Arc::clone(&self.action_driver)
+  }
 }
 
 pub struct AstroRunBuilder {
   runner: Option<Box<dyn Runner>>,
-  shared_state: AstroRunSharedState,
+  plugins: Vec<Box<dyn Plugin>>,
+  actions: HashMap<String, Box<dyn Action>>,
   github_auth: Option<GithubAuthorization>,
 }
 
@@ -80,7 +56,8 @@ impl AstroRunBuilder {
     AstroRunBuilder {
       runner: None,
       github_auth: None,
-      shared_state: AstroRunSharedState::new(),
+      plugins: vec![],
+      actions: HashMap::new(),
     }
   }
 
@@ -92,13 +69,15 @@ impl AstroRunBuilder {
     self
   }
 
-  pub fn plugin<P: Plugin + 'static>(self, plugin: P) -> Self {
-    self.shared_state.register_plugin(plugin);
+  pub fn plugin<P: Plugin + 'static>(mut self, plugin: P) -> Self {
+    self.plugins.push(Box::new(plugin));
+
     self
   }
 
-  pub fn action(self, name: impl Into<String>, action: impl Action + 'static) -> Self {
-    self.shared_state.register_action(name, action);
+  pub fn action(mut self, name: impl Into<String>, action: impl Action + 'static) -> Self {
+    self.actions.insert(name.into(), Box::new(action));
+
     self
   }
 
@@ -121,7 +100,9 @@ impl AstroRunBuilder {
 
     AstroRun {
       runner: Arc::new(runner),
-      shared_state: self.shared_state,
+      plugin_driver: Arc::new(PluginDriver::new(self.plugins)),
+      action_driver: Arc::new(ActionDriver::new(self.actions)),
+      signal_manager: SignalManager::new(),
       github_auth: self.github_auth,
     }
   }

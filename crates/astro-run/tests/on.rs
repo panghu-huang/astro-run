@@ -1,6 +1,6 @@
 use astro_run::{
-  stream, AstroRun, AstroRunPlugin, Context, PluginBuilder, RunResult, Runner, Workflow,
-  WorkflowEvent, WorkflowState,
+  stream, AstroRun, AstroRunPlugin, Context, RunResult, Runner, Workflow, WorkflowEvent,
+  WorkflowState,
 };
 use parking_lot::Mutex;
 
@@ -27,12 +27,14 @@ impl Runner for TestRunner {
 fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
   let index = Mutex::new(0);
 
-  PluginBuilder::new("test-plugin")
+  AstroRunPlugin::builder("test-plugin")
     .on_log(move |log| {
       let mut i = index.lock();
       println!("{}: {}", *i, log.message);
       assert_eq!(log.message, excepted_logs[*i]);
       *i += 1;
+
+      Ok(())
     })
     .build()
 }
@@ -98,6 +100,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -156,6 +159,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -232,6 +236,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -287,6 +292,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -298,7 +304,6 @@ jobs:
 
   assert_eq!(res.state, WorkflowState::Skipped);
 }
-
 
 #[astro_run_test::test]
 async fn test_only_push_event() {
@@ -324,6 +329,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run

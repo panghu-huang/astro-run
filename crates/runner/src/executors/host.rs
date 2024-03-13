@@ -7,7 +7,7 @@ pub struct HostExecutor {
   pub working_directory: PathBuf,
 }
 
-#[async_trait::async_trait]
+#[astro_run::async_trait]
 impl Executor for HostExecutor {
   async fn execute(
     &self,

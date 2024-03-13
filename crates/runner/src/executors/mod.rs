@@ -5,7 +5,7 @@ use astro_run::{Context, Result, StreamSender, WorkflowEvent};
 pub use docker::DockerExecutor;
 pub use host::HostExecutor;
 
-#[async_trait::async_trait]
+#[astro_run::async_trait]
 pub trait Executor: Send + Sync {
   async fn execute(
     &self,

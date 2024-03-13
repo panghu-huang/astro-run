@@ -1,6 +1,7 @@
 use astro_run::{
-  stream, AstroRun, AstroRunPlugin, Context, Payload, PluginBuilder, Result, RunResult, Runner,
-  Workflow, WorkflowState,
+  stream, AstroRun, AstroRunPlugin, Context, Error, JobRunResult, Payload, PluginNoopResult,
+  Result, RunJobEvent, RunResult, RunStepEvent, RunWorkflowEvent, Runner, StepRunResult, Workflow,
+  WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
 use astro_run_remote_runner::{
   AstroRunRemoteRunnerClient, AstroRunRemoteRunnerServer, DefaultScheduler,
@@ -25,17 +26,78 @@ impl Runner for TestRunner {
 
     Ok(rx)
   }
+
+  async fn on_run_workflow(&self, _: RunWorkflowEvent) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_run_job(&self, _: RunJobEvent) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_run_step(&self, _: RunStepEvent) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_log(&self, _: WorkflowLog) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_state_change(&self, _: WorkflowStateEvent) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_step_completed(&self, _: StepRunResult) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_job_completed(&self, _: JobRunResult) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_workflow_completed(&self, _: WorkflowRunResult) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
 }
 
 fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
   let index = Mutex::new(0);
 
-  PluginBuilder::new("assert-logs-plugin")
+  AstroRunPlugin::builder("assert-logs-plugin")
     .on_log(move |log| {
       let mut i = index.lock();
       assert_eq!(log.message, excepted_logs[*i]);
       *i += 1;
+      Ok(())
     })
+    .build()
+}
+
+fn success_plugin() -> AstroRunPlugin {
+  AstroRunPlugin::builder("error")
+    .on_run_workflow(|_| Ok(()))
+    .on_run_job(|_| Ok(()))
+    .on_run_step(|_| Ok(()))
+    .on_log(|_| Ok(()))
+    .on_state_change(|_| Ok(()))
+    .on_step_completed(|_| Ok(()))
+    .on_job_completed(|_| Ok(()))
+    .on_workflow_completed(|_| Ok(()))
+    .on_resolve_dynamic_action(|_| Ok(None))
+    .build()
+}
+
+fn error_plugin() -> AstroRunPlugin {
+  AstroRunPlugin::builder("error")
+    .on_run_workflow(|_| Err(Error::error("Error")))
+    .on_run_job(|_| Err(Error::error("Error")))
+    .on_run_step(|_| Err(Error::error("Error")))
+    .on_log(|_| Err(Error::error("Error")))
+    .on_state_change(|_| Err(Error::error("Error")))
+    .on_step_completed(|_| Err(Error::error("Error")))
+    .on_job_completed(|_| Err(Error::error("Error")))
+    .on_workflow_completed(|_| Err(Error::error("Error")))
+    .on_resolve_dynamic_action(|_| Err(Error::error("Error")))
     .build()
 }
 
@@ -82,6 +144,8 @@ async fn test_run() -> Result<()> {
           "No runner available"
         },
       ]))
+      .plugin(error_plugin())
+      .plugin(success_plugin())
       .runner(client_runner)
       .build();
 
@@ -100,6 +164,7 @@ async fn test_run() -> Result<()> {
     let workflow = Workflow::builder()
       .config(workflow)
       .build(&astro_run)
+      .await
       .unwrap();
 
     let ctx = astro_run.execution_context().build();
@@ -126,9 +191,10 @@ async fn test_run() -> Result<()> {
       .runner(runner)
       .max_runs(5)
       .plugin(
-        PluginBuilder::new("test-plugin")
+        AstroRunPlugin::builder("test-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
+            Ok(())
           })
           .build(),
       )
@@ -175,6 +241,7 @@ async fn no_available_runners() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -211,6 +278,7 @@ async fn connect_to_invalid_url() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -225,14 +293,14 @@ async fn connect_to_invalid_url() {
 struct WorkflowPayload(String);
 
 impl Payload for WorkflowPayload {
-  fn try_from(payload: &String) -> astro_run::Result<Self>
+  fn try_from_string(payload: &String) -> astro_run::Result<Self>
   where
     Self: Sized,
   {
     Ok(WorkflowPayload(payload.clone()))
   }
 
-  fn try_into(&self) -> astro_run::Result<String> {
+  fn try_into_string(&self) -> astro_run::Result<String> {
     Ok(self.0.clone())
   }
 }
@@ -244,6 +312,7 @@ fn assert_workflow_payload_plugin(expected: impl Into<String>) -> AstroRunPlugin
     .on_run_workflow(move |event| {
       let payload: WorkflowPayload = event.payload.payload().unwrap();
       assert_eq!(payload.0, expected);
+      Ok(())
     })
     .build()
 }
@@ -297,6 +366,7 @@ async fn test_remote_runner_workflow_payload() -> Result<()> {
       .config(workflow)
       .payload(WorkflowPayload("This is a payload".to_string()))
       .build(&astro_run)
+      .await
       .unwrap();
 
     let ctx = astro_run.execution_context().build();
@@ -320,9 +390,10 @@ async fn test_remote_runner_workflow_payload() -> Result<()> {
       .max_runs(5)
       .plugin(assert_workflow_payload_plugin("This is a payload"))
       .plugin(
-        PluginBuilder::new("test-plugin")
+        AstroRunPlugin::builder("test-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
+            Ok(())
           })
           .build(),
       )
@@ -340,4 +411,19 @@ async fn test_remote_runner_workflow_payload() -> Result<()> {
   tokio::try_join!(server_thread_handle, client_thread_handle).unwrap();
 
   Ok(())
+}
+
+#[astro_run_test::test]
+fn test_build_server_error() {
+  let error = AstroRunRemoteRunnerServer::builder().build().err();
+
+  assert_eq!(error.unwrap(), Error::init_error("Runner is not set"));
+
+  let runner = TestRunner::new();
+  let error = AstroRunRemoteRunnerServer::builder()
+    .runner(runner)
+    .build()
+    .err();
+
+  assert_eq!(error.unwrap(), Error::init_error("Id is not set"));
 }

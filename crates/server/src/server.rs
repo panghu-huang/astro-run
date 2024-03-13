@@ -1,4 +1,6 @@
-use astro_run::{stream, Context, Error, RunResponse, Runner, StreamSender, WorkflowLogType};
+use astro_run::{
+  stream, Context, Error, PluginNoopResult, RunResponse, Runner, StreamSender, WorkflowLogType,
+};
 use astro_run_protocol::{
   astro_run_server, tonic, AstroRunService, AstroRunServiceServer, RunnerMetadata,
 };
@@ -200,36 +202,52 @@ impl Runner for AstroRunServer {
     Ok(receiver)
   }
 
-  fn on_step_completed(&self, result: astro_run::StepRunResult) {
+  async fn on_step_completed(&self, result: astro_run::StepRunResult) -> PluginNoopResult {
     self.send_event_to_clients(result);
+
+    Ok(())
   }
 
-  fn on_job_completed(&self, result: astro_run::JobRunResult) {
+  async fn on_job_completed(&self, result: astro_run::JobRunResult) -> PluginNoopResult {
     self.send_event_to_clients(result);
+
+    Ok(())
   }
 
-  fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) {
+  async fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) -> PluginNoopResult {
     self.send_event_to_clients(result);
+
+    Ok(())
   }
 
-  fn on_run_step(&self, event: astro_run::RunStepEvent) {
+  async fn on_run_step(&self, event: astro_run::RunStepEvent) -> PluginNoopResult {
     self.send_event_to_clients(event);
+
+    Ok(())
   }
 
-  fn on_run_job(&self, event: astro_run::RunJobEvent) {
+  async fn on_run_job(&self, event: astro_run::RunJobEvent) -> PluginNoopResult {
     self.send_event_to_clients(event);
+
+    Ok(())
   }
 
-  fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) {
+  async fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) -> PluginNoopResult {
     self.send_event_to_clients(event);
+
+    Ok(())
   }
 
-  fn on_log(&self, log: astro_run::WorkflowLog) {
+  async fn on_log(&self, log: astro_run::WorkflowLog) -> PluginNoopResult {
     self.send_event_to_clients(log);
+
+    Ok(())
   }
 
-  fn on_state_change(&self, event: astro_run::WorkflowStateEvent) {
+  async fn on_state_change(&self, event: astro_run::WorkflowStateEvent) -> PluginNoopResult {
     self.send_event_to_clients(event);
+
+    Ok(())
   }
 }
 

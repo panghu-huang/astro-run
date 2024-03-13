@@ -13,7 +13,7 @@ pub struct DockerExecutor {
   pub working_directory: PathBuf,
 }
 
-#[async_trait::async_trait]
+#[astro_run::async_trait]
 impl Executor for DockerExecutor {
   /**
    * Run the step

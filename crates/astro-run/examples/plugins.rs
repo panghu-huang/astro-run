@@ -26,27 +26,39 @@ impl astro_run::Runner for Runner {
 #[tokio::main]
 async fn main() {
   let plugin = AstroRunPlugin::builder("plugin-name")
-    .on_run_workflow(|event| println!("{:?}", event))
+    .on_run_workflow(|event| {
+      println!("{:?}", event);
+
+      Ok(())
+    })
     .on_run_job(|job| {
       println!("{:?}", job);
+
+      Ok(())
     })
     .on_run_step(|step| {
       println!("{:?}", step);
+      Ok(())
     })
     .on_log(|log| {
       println!("{:?}", log);
+      Ok(())
     })
     .on_state_change(|event| {
       println!("{:?}", event);
+      Ok(())
     })
     .on_step_completed(|result| {
       println!("{:?}", result);
+      Ok(())
     })
     .on_job_completed(|result| {
       println!("{:?}", result);
+      Ok(())
     })
     .on_workflow_completed(|result| {
       println!("{:?}", result);
+      Ok(())
     })
     .build();
 
@@ -69,6 +81,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   // Create a new execution context
@@ -76,7 +89,4 @@ jobs:
 
   // Run workflow
   let _res = workflow.run(ctx).await;
-
-  // Unregister plugin
-  astro_run.unregister_plugin("plugin-name");
 }

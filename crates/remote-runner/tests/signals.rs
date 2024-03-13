@@ -1,5 +1,5 @@
 use astro_run::{
-  stream, AstroRun, Context, PluginBuilder, Result, RunResult, Signal, Workflow, WorkflowState,
+  stream, AstroRun, AstroRunPlugin, Context, Result, RunResult, Signal, Workflow, WorkflowState,
 };
 use astro_run_remote_runner::{AstroRunRemoteRunnerClient, AstroRunRemoteRunnerServer};
 use std::time::Duration;
@@ -75,6 +75,7 @@ async fn test_signal() -> Result<()> {
     let workflow = Workflow::builder()
       .config(workflow)
       .build(&astro_run)
+      .await
       .unwrap();
 
     let ctx = astro_run.execution_context().build();
@@ -98,9 +99,10 @@ async fn test_signal() -> Result<()> {
       })
       .max_runs(5)
       .plugin(
-        PluginBuilder::new("test-plugin")
+        AstroRunPlugin::builder("test-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
+            Ok(())
           })
           .build(),
       )
@@ -158,6 +160,7 @@ async fn test_timeout() -> Result<()> {
     let workflow = Workflow::builder()
       .config(workflow)
       .build(&astro_run)
+      .await
       .unwrap();
 
     let ctx = astro_run.execution_context().build();
@@ -186,9 +189,10 @@ async fn test_timeout() -> Result<()> {
       })
       .max_runs(5)
       .plugin(
-        PluginBuilder::new("test-plugin")
+        AstroRunPlugin::builder("test-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
+            Ok(())
           })
           .build(),
       )
@@ -246,6 +250,7 @@ async fn test_cancel() -> Result<()> {
     let workflow = Workflow::builder()
       .config(workflow)
       .build(&astro_run)
+      .await
       .unwrap();
 
     let ctx = astro_run.execution_context().build();
@@ -257,7 +262,7 @@ async fn test_cancel() -> Result<()> {
       async move {
         tx.send(()).unwrap();
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-        astro_run.cancel(&job_id).unwrap();
+        astro_run.cancel_job(&job_id).unwrap();
       }
     });
 
@@ -283,9 +288,10 @@ async fn test_cancel() -> Result<()> {
       })
       .max_runs(5)
       .plugin(
-        PluginBuilder::new("test-plugin")
+        AstroRunPlugin::builder("test-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
+            Ok(())
           })
           .build(),
       )

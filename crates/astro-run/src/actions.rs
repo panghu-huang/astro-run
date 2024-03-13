@@ -1,5 +1,4 @@
 use crate::{Result, UserActionStep, UserStep};
-use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
@@ -10,51 +9,32 @@ pub struct ActionSteps {
   pub post: Option<UserStep>,
 }
 
-pub trait Action
-where
-  Self: Send + Sync,
-{
+pub trait Action: Send + Sync {
   fn normalize(&self, step: UserActionStep) -> Result<ActionSteps>;
 }
 
+pub type SharedActionDriver = Arc<ActionDriver>;
+
 #[derive(Clone)]
-pub struct Actions {
-  actions: Arc<Mutex<HashMap<String, Box<dyn Action>>>>,
+pub struct ActionDriver {
+  actions: Arc<HashMap<String, Box<dyn Action>>>,
 }
 
-impl Actions {
-  pub fn new() -> Self {
-    let actions: HashMap<String, Box<dyn Action>> = HashMap::new();
-
+impl ActionDriver {
+  pub fn new(actions: HashMap<String, Box<dyn Action>>) -> Self {
     Self {
-      actions: Arc::new(Mutex::new(actions)),
+      actions: Arc::new(actions),
     }
   }
 
-  pub fn register<T>(&self, name: impl Into<String>, action: T)
-  where
-    T: Action + 'static,
-  {
-    self.actions.lock().insert(name.into(), Box::new(action));
-  }
-
-  pub fn unregister(&self, name: &str) {
-    self.actions.lock().remove(name);
-  }
-
   pub fn try_normalize(&self, step: UserActionStep) -> Result<Option<ActionSteps>> {
-    let actions = self.actions.lock();
-    if let Some(action) = actions.get(&step.uses) {
+    if let Some(action) = &self.actions.get(&step.uses) {
       let normalized = action.normalize(step)?;
 
       Ok(Some(normalized))
     } else {
       Ok(None)
     }
-  }
-
-  pub fn size(&self) -> usize {
-    self.actions.lock().len()
   }
 }
 
@@ -85,9 +65,14 @@ mod tests {
       }
     }
 
-    let actions = Actions::new();
+    let mut actions = HashMap::new();
 
-    actions.register("caches", CacheAction {});
+    actions.insert(
+      "caches".to_string(),
+      Box::new(CacheAction {}) as Box<dyn Action>,
+    );
+
+    let actions = ActionDriver::new(actions);
 
     let test_step = UserActionStep {
       uses: "caches".to_string(),
@@ -117,7 +102,9 @@ mod tests {
 
   #[test]
   fn test_not_exists_action() -> Result<()> {
-    let actions = Actions::new();
+    let actions = HashMap::new();
+
+    let actions = ActionDriver::new(actions);
 
     let step = UserActionStep {
       uses: "not-exists-action".to_string(),

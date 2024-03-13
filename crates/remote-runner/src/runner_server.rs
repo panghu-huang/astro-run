@@ -1,4 +1,4 @@
-use astro_run::{Error, Plugin, PluginManager, Runner};
+use astro_run::{Error, Plugin, PluginDriver, Runner, SharedPluginDriver};
 use astro_run_protocol::{
   astro_run_remote_runner::{self, event::Payload as EventPayload, RunResponse, SendEventResponse},
   tonic, AstroRunRemoteRunner, RunnerMetadata,
@@ -14,7 +14,7 @@ pub struct AstroRunRemoteRunnerServer {
   support_docker: bool,
   support_host: bool,
   runner: Arc<Box<dyn Runner>>,
-  plugins: PluginManager,
+  plugin_driver: SharedPluginDriver,
   signals: Arc<Mutex<HashMap<String, astro_run::AstroRunSignal>>>,
 }
 
@@ -122,16 +122,24 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           tonic::Status::internal(format!("Failed to convert workflow completed event: {}", e))
         })?;
 
-        self.plugins.on_workflow_completed(result.clone());
-        self.runner.on_workflow_completed(result);
+        self
+          .plugin_driver
+          .on_workflow_completed(result.clone())
+          .await;
+
+        if let Err(err) = self.runner.on_workflow_completed(result).await {
+          log::error!("Failed to handle workflow completed event: {}", err);
+        }
       }
       EventPayload::JobCompletedEvent(event) => {
         let result: astro_run::JobRunResult = event.try_into().map_err(|e| {
           tonic::Status::internal(format!("Failed to convert job completed event: {}", e))
         })?;
 
-        self.plugins.on_job_completed(result.clone());
-        self.runner.on_job_completed(result);
+        self.plugin_driver.on_job_completed(result.clone()).await;
+        if let Err(err) = self.runner.on_job_completed(result).await {
+          log::error!("Failed to handle job completed event: {}", err);
+        }
       }
       EventPayload::StepCompletedEvent(event) => {
         let result: astro_run::StepRunResult = event.try_into().map_err(|e| {
@@ -143,48 +151,60 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
         self.signals.lock().remove(&step_id);
 
         // Dispatch event to plugins and runner
-        self.plugins.on_step_completed(result.clone());
-        self.runner.on_step_completed(result);
+        self.plugin_driver.on_step_completed(result.clone()).await;
+        if let Err(err) = self.runner.on_step_completed(result).await {
+          log::error!("Failed to handle step completed event: {}", err);
+        }
       }
       EventPayload::LogEvent(event) => {
         let log: astro_run::WorkflowLog = event
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert log event: {}", e)))?;
 
-        self.plugins.on_log(log.clone());
-        self.runner.on_log(log);
+        self.plugin_driver.on_log(log.clone()).await;
+        if let Err(err) = self.runner.on_log(log).await {
+          log::error!("Failed to handle log event: {}", err);
+        }
       }
       EventPayload::WorkflowStateEvent(event) => {
         let event: astro_run::WorkflowStateEvent = event
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert state event: {}", e)))?;
 
-        self.plugins.on_state_change(event.clone());
-        self.runner.on_state_change(event);
+        self.plugin_driver.on_state_change(event.clone()).await;
+        if let Err(err) = self.runner.on_state_change(event).await {
+          log::error!("Failed to handle state event: {}", err);
+        }
       }
       EventPayload::RunStepEvent(event) => {
         let event: astro_run::RunStepEvent = event.try_into().map_err(|e| {
           tonic::Status::internal(format!("Failed to convert run step event: {}", e))
         })?;
 
-        self.plugins.on_run_step(event.clone());
-        self.runner.on_run_step(event);
+        self.plugin_driver.on_run_step(event.clone()).await;
+        if let Err(err) = self.runner.on_run_step(event).await {
+          log::error!("Failed to handle run step event: {}", err);
+        }
       }
       EventPayload::RunJobEvent(event) => {
         let event: astro_run::RunJobEvent = event
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert job: {}", e)))?;
 
-        self.plugins.on_run_job(event.clone());
-        self.runner.on_run_job(event);
+        self.plugin_driver.on_run_job(event.clone()).await;
+        if let Err(err) = self.runner.on_run_job(event).await {
+          log::error!("Failed to handle run job event: {}", err);
+        }
       }
       EventPayload::RunWorkflowEvent(event) => {
         let event: astro_run::RunWorkflowEvent = event
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert workflow: {}", e)))?;
 
-        self.plugins.on_run_workflow(event.clone());
-        self.runner.on_run_workflow(event);
+        self.plugin_driver.on_run_workflow(event.clone()).await;
+        if let Err(err) = self.runner.on_run_workflow(event).await {
+          log::error!("Failed to handle run workflow event: {}", err);
+        }
       }
       EventPayload::SignalEvent(signal) => {
         log::trace!("Received signal: {:?}", signal);
@@ -232,18 +252,18 @@ pub struct AstroRunRemoteRunnerServerBuilder {
   max_runs: i32,
   support_docker: Option<bool>,
   support_host: bool,
-  plugins: PluginManager,
+  plugins: Vec<Box<dyn Plugin>>,
 }
 
 impl AstroRunRemoteRunnerServerBuilder {
-  pub fn new() -> Self {
+  fn new() -> Self {
     Self {
       id: None,
       runner: None,
       max_runs: 5,
       support_docker: None,
       support_host: true,
-      plugins: PluginManager::new(),
+      plugins: vec![],
     }
   }
 
@@ -267,11 +287,11 @@ impl AstroRunRemoteRunnerServerBuilder {
     self
   }
 
-  pub fn plugin<P>(self, plugin: P) -> Self
+  pub fn plugin<P>(mut self, plugin: P) -> Self
   where
     P: Plugin + 'static,
   {
-    self.plugins.register(plugin);
+    self.plugins.push(Box::new(plugin));
 
     self
   }
@@ -287,11 +307,9 @@ impl AstroRunRemoteRunnerServerBuilder {
   pub fn build(self) -> Result<AstroRunRemoteRunnerServer, Error> {
     let runner = self
       .runner
-      .ok_or_else(|| Error::internal_runtime_error("Runner is not set".to_string()))?;
+      .ok_or_else(|| Error::init_error("Runner is not set"))?;
 
-    let id = self
-      .id
-      .ok_or_else(|| Error::internal_runtime_error("Id is not set".to_string()))?;
+    let id = self.id.ok_or_else(|| Error::init_error("Id is not set"))?;
 
     let support_docker = self.support_docker.unwrap_or_else(|| {
       log::trace!("Support docker is not set, Checking if docker is installed and running");
@@ -309,7 +327,7 @@ impl AstroRunRemoteRunnerServerBuilder {
       support_docker,
       support_host: self.support_host,
       runner,
-      plugins: self.plugins,
+      plugin_driver: Arc::new(PluginDriver::new(self.plugins)),
       signals: Arc::new(Mutex::new(HashMap::new())),
     })
   }

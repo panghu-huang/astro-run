@@ -26,7 +26,6 @@ tokio = { workspace = true, features = [
 parking_lot = { workspace = true }
 serde = { workspace = true }
 log = { workspace = true }
-async-trait = "0.1.73"
 
 [dev-dependencies]
 astro-run-test = { path = "../test" }

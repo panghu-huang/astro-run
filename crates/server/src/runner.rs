@@ -1,4 +1,4 @@
-use astro_run::{AstroRunPlugin, Context, Error, Plugin, PluginManager, Result, Runner};
+use astro_run::{Context, Error, Plugin, PluginDriver, Result, Runner, SharedPluginDriver};
 use astro_run_protocol::{
   astro_run_server::{self, event::Payload as EventPayload},
   tonic, AstroRunServiceClient, RunnerMetadata, WorkflowLog,
@@ -20,7 +20,7 @@ pub struct AstroRunRunner {
   support_host: bool,
   client: AstroRunServiceClient<tonic::transport::Channel>,
   runner: Arc<Box<dyn Runner>>,
-  plugins: PluginManager,
+  plugin_driver: SharedPluginDriver,
   signals: Arc<Mutex<HashMap<String, astro_run::AstroRunSignal>>>,
 }
 
@@ -73,46 +73,62 @@ impl AstroRunRunner {
             }
             EventPayload::StepCompletedEvent(result) => {
               let result: astro_run::StepRunResult = result.try_into()?;
-              self.plugins.on_step_completed(result.clone());
-              self.runner.on_step_completed(result);
+              self.plugin_driver.on_step_completed(result.clone()).await;
+              if let Err(err) = self.runner.on_step_completed(result).await {
+                log::error!("Failed to handle step completed event: {}", err);
+              }
             }
             EventPayload::JobCompletedEvent(result) => {
               let result: astro_run::JobRunResult = result.try_into()?;
-              self.plugins.on_job_completed(result.clone());
-              self.runner.on_job_completed(result);
+              self.plugin_driver.on_job_completed(result.clone()).await;
+              if let Err(err) =self.runner.on_job_completed(result).await {
+                log::error!("Failed to handle job completed event: {}", err);
+              }
             }
             EventPayload::WorkflowCompletedEvent(result) => {
               let result: astro_run::WorkflowRunResult = result.try_into()?;
-              self.plugins.on_workflow_completed(result.clone());
-              self.runner.on_workflow_completed(result);
+              self.plugin_driver.on_workflow_completed(result.clone()).await;
+              if let Err(err) =self.runner.on_workflow_completed(result).await {
+                log::error!("Failed to handle workflow completed event: {}", err);
+              }
             }
             EventPayload::RunWorkflowEvent(event) => {
               let event: astro_run::RunWorkflowEvent = event.try_into()?;
-              self.plugins.on_run_workflow(event.clone());
-              self.runner.on_run_workflow(event);
+              self.plugin_driver.on_run_workflow(event.clone()).await;
+              if let Err(err) =self.runner.on_run_workflow(event).await {
+                log::error!("Failed to handle run workflow event: {}", err);
+              }
             }
             EventPayload::RunJobEvent(event) => {
               let event: astro_run::RunJobEvent = event.try_into()?;
-              self.plugins.on_run_job(event.clone());
-              self.runner.on_run_job(event);
+              self.plugin_driver.on_run_job(event.clone()).await;
+              if let Err(err) =self.runner.on_run_job(event).await {
+                log::error!("Failed to handle run job event: {}", err);
+              }
             }
             EventPayload::RunStepEvent(event) => {
               let event: astro_run::RunStepEvent = event.try_into()?;
-              self.plugins.on_run_step(event.clone());
-              self.runner.on_run_step(event);
+              self.plugin_driver.on_run_step(event.clone()).await;
+              if let Err(err) =self.runner.on_run_step(event).await {
+                log::error!("Failed to handle run step event: {}", err);
+              }
             }
             EventPayload::Error(error) => {
               log::error!("Received error event: {:?}", error);
             }
             EventPayload::LogEvent(log) => {
               let log: astro_run::WorkflowLog = log.try_into()?;
-              self.plugins.on_log(log.clone());
-              self.runner.on_log(log);
+              self.plugin_driver.on_log(log.clone()).await;
+              if let Err(err) =self.runner.on_log(log).await {
+                log::error!("Failed to handle log event: {}", err);
+              }
             }
             EventPayload::WorkflowStateEvent(event) => {
               let event: astro_run::WorkflowStateEvent = event.try_into()?;
-              self.plugins.on_state_change(event.clone());
-              self.runner.on_state_change(event);
+              self.plugin_driver.on_state_change(event.clone()).await;
+              if let Err(err) =self.runner.on_state_change(event).await {
+                log::error!("Failed to handle state change event: {}", err);
+              }
             }
             EventPayload::SignalEvent(signal) => {
               log::trace!("Received signal: {:?}", signal);
@@ -157,6 +173,7 @@ impl AstroRunRunner {
       }
     }
 
+    #[cfg(not(tarpaulin_include))]
     Ok(())
   }
 
@@ -203,14 +220,6 @@ impl AstroRunRunner {
       Ok::<(), astro_run::Error>(())
     });
   }
-
-  pub fn register_plugin(&self, plugin: AstroRunPlugin) {
-    self.plugins.register(plugin);
-  }
-
-  pub fn unregister_plugin(&self, plugin: &'static str) {
-    self.plugins.unregister(plugin);
-  }
 }
 
 pub struct AstroRunRunnerBuilder {
@@ -220,7 +229,7 @@ pub struct AstroRunRunnerBuilder {
   max_runs: i32,
   support_docker: Option<bool>,
   support_host: bool,
-  plugins: PluginManager,
+  plugins: Vec<Box<dyn Plugin>>,
 }
 
 impl AstroRunRunnerBuilder {
@@ -232,7 +241,7 @@ impl AstroRunRunnerBuilder {
       max_runs: 10,
       support_docker: None,
       support_host: true,
-      plugins: PluginManager::new(),
+      plugins: vec![],
     }
   }
 
@@ -269,11 +278,11 @@ impl AstroRunRunnerBuilder {
     self
   }
 
-  pub fn plugin<P>(self, plugin: P) -> Self
+  pub fn plugin<P>(mut self, plugin: P) -> Self
   where
     P: Plugin + 'static,
   {
-    self.plugins.register(plugin);
+    self.plugins.push(Box::new(plugin));
 
     self
   }
@@ -281,13 +290,13 @@ impl AstroRunRunnerBuilder {
   pub async fn build(self) -> Result<AstroRunRunner> {
     let id = self
       .id
-      .ok_or_else(|| Error::internal_runtime_error("Missing id".to_string()))?;
+      .ok_or_else(|| Error::init_error("Missing id".to_string()))?;
     let url = self
       .url
-      .ok_or_else(|| Error::internal_runtime_error("Missing url".to_string()))?;
+      .ok_or_else(|| Error::init_error("Missing url".to_string()))?;
     let runner = self
       .runner
-      .ok_or_else(|| Error::internal_runtime_error("Missing runner".to_string()))?;
+      .ok_or_else(|| Error::init_error("Missing runner".to_string()))?;
 
     let client = AstroRunServiceClient::connect(url)
       .await
@@ -310,7 +319,7 @@ impl AstroRunRunnerBuilder {
       support_docker,
       support_host: self.support_host,
       runner: Arc::new(runner),
-      plugins: self.plugins,
+      plugin_driver: Arc::new(PluginDriver::new(self.plugins)),
       signals: Arc::new(Mutex::new(HashMap::new())),
     })
   }

@@ -1,6 +1,6 @@
 use crate::{
-  stream::StreamReceiver, Context, JobRunResult, StepRunResult, WorkflowLog, WorkflowLogType,
-  WorkflowRunResult, WorkflowStateEvent,
+  stream::StreamReceiver, Context, JobRunResult, PluginNoopResult, StepRunResult, WorkflowLog,
+  WorkflowLogType, WorkflowRunResult, WorkflowStateEvent,
 };
 pub use tokio_stream::{Stream, StreamExt};
 
@@ -53,7 +53,7 @@ pub type RunResponse = crate::Result<StreamReceiver>;
 ///
 /// ```rust
 /// struct Runner;
-/// 
+///
 /// #[astro_run::async_trait]
 /// impl astro_run::Runner for Runner {
 ///   async fn run(&self, ctx: astro_run::Context) -> astro_run::RunResponse {
@@ -74,14 +74,30 @@ pub type RunResponse = crate::Result<StreamReceiver>;
 ///
 #[async_trait::async_trait]
 pub trait Runner: Send + Sync {
-  fn on_run_workflow(&self, _event: crate::RunWorkflowEvent) {}
-  fn on_run_job(&self, _event: crate::RunJobEvent) {}
-  fn on_run_step(&self, _event: crate::RunStepEvent) {}
-  fn on_step_completed(&self, _result: StepRunResult) {}
-  fn on_job_completed(&self, _result: JobRunResult) {}
-  fn on_workflow_completed(&self, _result: WorkflowRunResult) {}
-  fn on_state_change(&self, _event: WorkflowStateEvent) {}
-  fn on_log(&self, _log: WorkflowLog) {}
+  async fn on_run_workflow(&self, _event: crate::RunWorkflowEvent) -> PluginNoopResult {
+    Ok(())
+  }
+  async fn on_run_job(&self, _event: crate::RunJobEvent) -> PluginNoopResult {
+    Ok(())
+  }
+  async fn on_run_step(&self, _event: crate::RunStepEvent) -> PluginNoopResult {
+    Ok(())
+  }
+  async fn on_step_completed(&self, _result: StepRunResult) -> PluginNoopResult {
+    Ok(())
+  }
+  async fn on_job_completed(&self, _result: JobRunResult) -> PluginNoopResult {
+    Ok(())
+  }
+  async fn on_workflow_completed(&self, _result: WorkflowRunResult) -> PluginNoopResult {
+    Ok(())
+  }
+  async fn on_state_change(&self, _event: WorkflowStateEvent) -> PluginNoopResult {
+    Ok(())
+  }
+  async fn on_log(&self, _log: WorkflowLog) -> PluginNoopResult {
+    Ok(())
+  }
   async fn run(&self, config: Context) -> RunResponse;
 }
 

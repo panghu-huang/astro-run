@@ -1,7 +1,7 @@
 use super::{job::Job, Step, Workflow};
 use crate::{
-  ActionSteps, Actions, AstroRun, Error, Id, JobId, PluginManager, Result, StepId, UserActionStep,
-  UserCommandStep, UserStep, UserWorkflow, WorkflowId,
+  ActionDriver, ActionSteps, AstroRun, Error, Id, JobId, PluginDriver, Result, StepId,
+  UserActionStep, UserCommandStep, UserStep, UserWorkflow, WorkflowId,
 };
 use std::collections::HashMap;
 
@@ -13,19 +13,21 @@ pub struct WorkflowParser<'a> {
 }
 
 impl<'a> WorkflowParser<'a> {
-  fn try_normalize_action(
+  async fn try_normalize_action(
     &self,
-    plugins: &PluginManager,
-    actions: &Actions,
+    plugin_driver: &PluginDriver,
+    action_driver: &ActionDriver,
     user_action_step: UserActionStep,
   ) -> crate::Result<ActionSteps> {
-    let action_steps = match actions.try_normalize(user_action_step.clone())? {
+    let action_steps = match action_driver.try_normalize(user_action_step.clone())? {
       Some(steps) => {
         log::trace!("Action `{}` is found and normalized", user_action_step.uses);
         steps
       }
       None => {
-        let action = plugins.on_resolve_dynamic_action(user_action_step.clone());
+        let action = plugin_driver
+          .on_resolve_dynamic_action(user_action_step.clone())
+          .await;
 
         match action {
           Some(action) => action.normalize(user_action_step)?,
@@ -42,10 +44,10 @@ impl<'a> WorkflowParser<'a> {
     Ok(action_steps)
   }
 
-  fn try_normalize_user_steps(
+  async fn try_normalize_user_steps(
     &self,
-    plugins: &PluginManager,
-    actions: &Actions,
+    plugin_driver: &PluginDriver,
+    action_driver: &ActionDriver,
     user_steps: Vec<UserStep>,
   ) -> crate::Result<Vec<UserStep>> {
     let mut pre_steps = vec![];
@@ -54,7 +56,9 @@ impl<'a> WorkflowParser<'a> {
 
     for step in user_steps {
       if let UserStep::Action(user_action_step) = &step {
-        let action_steps = self.try_normalize_action(plugins, actions, user_action_step.clone())?;
+        let action_steps = self
+          .try_normalize_action(plugin_driver, action_driver, user_action_step.clone())
+          .await?;
 
         if let Some(pre) = action_steps.pre {
           pre_steps.push(pre);
@@ -81,11 +85,11 @@ impl<'a> WorkflowParser<'a> {
     Ok(steps)
   }
 
-  pub fn parse(self) -> Result<Workflow> {
+  pub async fn parse(self) -> Result<Workflow> {
     let id = self.id.clone();
     let user_workflow = self.user_workflow.clone();
-    let actions = self.astro_run.actions();
-    let plugins = self.astro_run.plugins();
+    let action_driver = self.astro_run.action_driver();
+    let plugin_driver = self.astro_run.plugin_driver();
 
     let mut jobs = HashMap::new();
 
@@ -94,7 +98,9 @@ impl<'a> WorkflowParser<'a> {
       let job_container = job.container;
       let job_working_dirs = job.working_dirs.unwrap_or_default();
 
-      let job_steps = self.try_normalize_user_steps(&plugins, &actions, job.steps)?;
+      let job_steps = self
+        .try_normalize_user_steps(&plugin_driver, &action_driver, job.steps)
+        .await?;
 
       for (idx, step) in job_steps.iter().enumerate() {
         if let UserStep::Command(UserCommandStep {
@@ -175,8 +181,8 @@ mod tests {
     }
   }
 
-  #[test]
-  fn test_parse() {
+  #[astro_run_test::test]
+  async fn test_parse() {
     let yaml = r#"
 name: Test Workflow
 on:
@@ -215,7 +221,7 @@ jobs:
       payload: None,
     };
 
-    let workflow = parser.parse().unwrap();
+    let workflow = parser.parse().await.unwrap();
 
     assert_eq!(workflow.id, WorkflowId::new("test-id"));
     assert_eq!(workflow.name.unwrap(), "Test Workflow");
@@ -246,8 +252,8 @@ jobs:
     assert_eq!(step.run, "echo \"Hello World3\"");
   }
 
-  #[test]
-  fn test_invalid_time_format() {
+  #[astro_run_test::test]
+  async fn test_invalid_time_format() {
     let yaml = r#"
 jobs:
   test:
@@ -267,7 +273,7 @@ jobs:
       payload: None,
     };
 
-    let workflow = parser.parse();
+    let workflow = parser.parse().await;
 
     let excepted_error =
       Error::workflow_config_error("Invalid timeout format. The format should like `60m` or `1h`.");
@@ -275,8 +281,8 @@ jobs:
     assert_eq!(workflow.unwrap_err(), excepted_error);
   }
 
-  #[test]
-  fn test_custom_action() {
+  #[astro_run_test::test]
+  async fn test_custom_action() {
     let workflow = r#"
 name: Test Workflow
 jobs:
@@ -332,9 +338,10 @@ jobs:
       }
     }
 
-    let astro_run = AstroRun::builder().runner(TestRunner).build();
-
-    astro_run.register_action("caches", CacheAction {});
+    let astro_run = AstroRun::builder()
+      .runner(TestRunner)
+      .action("caches", CacheAction {})
+      .build();
 
     let parser = WorkflowParser {
       id: "test-id".to_string(),
@@ -343,7 +350,7 @@ jobs:
       payload: None,
     };
 
-    let workflow = parser.parse().unwrap();
+    let workflow = parser.parse().await.unwrap();
 
     let steps = workflow.jobs.get("test").unwrap().steps.clone();
 
@@ -373,8 +380,8 @@ jobs:
     assert_eq!(step.continue_on_error, true);
   }
 
-  #[test]
-  fn unsupported_nested_actions() {
+  #[astro_run_test::test]
+  async fn unsupported_nested_actions() {
     let workflow = r#"
 name: Test Workflow
 jobs:
@@ -397,9 +404,10 @@ jobs:
       }
     }
 
-    let astro_run = AstroRun::builder().runner(TestRunner).build();
-
-    astro_run.register_action("nested", NestedAction);
+    let astro_run = AstroRun::builder()
+      .runner(TestRunner)
+      .action("nested", NestedAction)
+      .build();
 
     let parser = WorkflowParser {
       id: "test-id".to_string(),
@@ -408,7 +416,7 @@ jobs:
       payload: None,
     };
 
-    let error = parser.parse().unwrap_err();
+    let error = parser.parse().await.unwrap_err();
 
     assert_eq!(
       error,
@@ -416,8 +424,8 @@ jobs:
     );
   }
 
-  #[test]
-  fn test_not_defined_action() {
+  #[astro_run_test::test]
+  async fn test_not_defined_action() {
     let workflow = r#"
       jobs:
         test:
@@ -434,7 +442,7 @@ jobs:
       payload: None,
     };
 
-    let error = parser.parse().unwrap_err();
+    let error = parser.parse().await.unwrap_err();
 
     assert_eq!(
       error,

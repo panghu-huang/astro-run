@@ -1,4 +1,4 @@
-use astro_run::{AstroRun, AstroRunPlugin, Workflow, WorkflowState};
+use astro_run::{AstroRun, AstroRunPlugin, PluginNoopResult, Workflow, WorkflowState};
 use astro_runner::{AstroRunner, Command};
 use parking_lot::Mutex;
 use std::{fs, io::Write, sync::Arc};
@@ -10,6 +10,7 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
   AstroRunPlugin::builder("test-plugin")
     .on_log(move |log| {
       logs.lock().push(log.message);
+      Ok(())
     })
     .on_workflow_completed(move |_| {
       let logs = cloned_logs.lock();
@@ -18,6 +19,7 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
       for (i, log) in logs.iter().enumerate() {
         assert_eq!(log, &excepted_logs[i]);
       }
+      Ok(())
     })
     .build()
 }
@@ -57,6 +59,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -113,6 +116,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -162,6 +166,7 @@ async fn test_host() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
@@ -180,22 +185,25 @@ async fn test_host() {
 async fn test_before_run() {
   struct TestPlugin;
 
+  #[astro_run::async_trait]
   impl astro_runner::Plugin for TestPlugin {
     fn name(&self) -> &'static str {
       "test-plugin"
     }
 
-    fn on_before_run(
+    async fn on_before_run(
       &self,
       mut ctx: astro_run::Context,
-    ) -> Result<astro_run::Context, Box<dyn std::error::Error>> {
+    ) -> astro_run::Result<astro_run::Context> {
       ctx.command.run = "echo \"My custom run\"".to_string();
 
       Ok(ctx)
     }
 
-    fn on_after_run(&self, ctx: astro_run::Context) {
+    async fn on_after_run(&self, ctx: astro_run::Context) -> PluginNoopResult {
       assert_eq!(ctx.command.run, "echo \"My custom run\"");
+
+      Ok(())
     }
   }
 
@@ -223,6 +231,7 @@ async fn test_before_run() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -244,16 +253,17 @@ async fn test_before_run() {
 async fn test_before_run_error() {
   struct TestPlugin;
 
+  #[astro_run::async_trait]
   impl astro_runner::Plugin for TestPlugin {
     fn name(&self) -> &'static str {
       "test-plugin"
     }
 
-    fn on_before_run(
+    async fn on_before_run(
       &self,
       _ctx: astro_run::Context,
-    ) -> Result<astro_run::Context, Box<dyn std::error::Error>> {
-      Err("Error".into())
+    ) -> astro_run::Result<astro_run::Context> {
+      Err(astro_run::Error::error("Error"))
     }
   }
 
@@ -271,29 +281,26 @@ async fn test_before_run_error() {
     std::env::consts::OS
   );
 
-  let runner = AstroRunner::builder().build().unwrap();
-
-  runner.register_plugin(TestPlugin);
+  let runner = AstroRunner::builder().plugin(TestPlugin).build().unwrap();
 
   let astro_run = AstroRun::builder().runner(runner.clone()).build();
 
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
 
   let res = workflow.run(ctx).await;
 
-  assert_eq!(res.state, WorkflowState::Failed);
+  assert_eq!(res.state, WorkflowState::Succeeded);
   let job_result = res.jobs.get("test").unwrap();
-  assert_eq!(job_result.state, WorkflowState::Failed);
+  assert_eq!(job_result.state, WorkflowState::Succeeded);
   assert_eq!(job_result.steps.len(), 1);
 
-  assert_eq!(job_result.steps[0].state, WorkflowState::Failed);
-
-  runner.unregister_plugin("test-plugin");
+  assert_eq!(job_result.steps[0].state, WorkflowState::Succeeded);
 }
 
 #[astro_run_test::test]
@@ -317,6 +324,7 @@ async fn test_docker_cancel() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -329,7 +337,7 @@ async fn test_docker_cancel() {
     let job_id = workflow.jobs.get("test").unwrap().id.clone();
     async move {
       tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-      astro_run.cancel(&job_id).unwrap();
+      astro_run.cancel_job(&job_id).unwrap();
     }
   });
 
@@ -341,6 +349,121 @@ async fn test_docker_cancel() {
   assert_eq!(job_result.steps.len(), 1);
 
   assert_eq!(job_result.steps[0].state, WorkflowState::Cancelled);
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[astro_run_test::test]
+async fn test_host_cancel() {
+  let sleep = if cfg!(target_os = "linux") {
+    "sleep 30s"
+  } else {
+    "sleep 30"
+  };
+
+  let workflow = format!(
+    r#"
+  jobs:
+    test:
+      name: Test Job
+      steps:
+        - container: host/{}
+          run: |
+            {}
+            echo "Hello world"
+    "#,
+    std::env::consts::OS,
+    sleep
+  );
+
+  let runner = AstroRunner::builder().build().unwrap();
+
+  let astro_run = AstroRun::builder()
+    .runner(runner)
+    .plugin(assert_logs_plugin(vec![]))
+    .build();
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .await
+    .unwrap();
+
+  let ctx = astro_run
+    .execution_context()
+    .event(astro_run::WorkflowEvent::default())
+    .build();
+
+  tokio::task::spawn({
+    let astro_run = astro_run.clone();
+    let job_id = workflow.jobs.get("test").unwrap().id.clone();
+    async move {
+      tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+      astro_run.cancel_job(&job_id).unwrap();
+    }
+  });
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Cancelled);
+  let job_result = res.jobs.get("test").unwrap();
+  assert_eq!(job_result.state, WorkflowState::Cancelled);
+  assert_eq!(job_result.steps.len(), 1);
+
+  assert_eq!(job_result.steps[0].state, WorkflowState::Cancelled);
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[astro_run_test::test]
+async fn test_host_timeout() {
+  let sleep = if cfg!(target_os = "linux") {
+    "sleep 30s"
+  } else {
+    "sleep 30"
+  };
+
+  let workflow = format!(
+    r#"
+  jobs:
+    test:
+      name: Test Job
+      steps:
+        - container: host/{}
+          timeout: 3s
+          run: |
+            {}
+            echo "Hello world"
+    "#,
+    std::env::consts::OS,
+    sleep
+  );
+
+  let runner = AstroRunner::builder().build().unwrap();
+
+  let astro_run = AstroRun::builder()
+    .runner(runner)
+    .plugin(assert_logs_plugin(vec![]))
+    .build();
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .await
+    .unwrap();
+
+  let ctx = astro_run
+    .execution_context()
+    .event(astro_run::WorkflowEvent::default())
+    .build();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Failed);
+  let job_result = res.jobs.get("test").unwrap();
+  assert_eq!(job_result.state, WorkflowState::Failed);
+  assert_eq!(job_result.steps.len(), 1);
+
+  assert_eq!(job_result.steps[0].state, WorkflowState::Failed);
+  assert_eq!(job_result.steps[0].exit_code.unwrap(), 123);
 }
 
 #[astro_run_test::test]
@@ -365,6 +488,7 @@ async fn test_docker_timeout() {
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run
@@ -414,6 +538,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   let ctx = astro_run.execution_context().build();
