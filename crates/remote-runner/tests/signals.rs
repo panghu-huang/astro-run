@@ -102,6 +102,7 @@ async fn test_signal() -> Result<()> {
         PluginBuilder::new("test-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
+            Ok(())
           })
           .build(),
       )
@@ -191,6 +192,7 @@ async fn test_timeout() -> Result<()> {
         PluginBuilder::new("test-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
+            Ok(())
           })
           .build(),
       )
@@ -289,6 +291,7 @@ async fn test_cancel() -> Result<()> {
         PluginBuilder::new("test-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
+            Ok(())
           })
           .build(),
       )

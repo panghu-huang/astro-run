@@ -3,9 +3,9 @@ mod condition_matcher;
 
 pub use self::builder::ExecutionContextBuilder;
 use crate::{
-  AstroRunSignal, Condition, Context, Error, Job, JobId, JobRunResult, Result, RunResult, Runner,
-  SharedPluginDriver, Signal, SignalManager, Step, StepRunResult, StreamExt, Workflow, WorkflowLog,
-  WorkflowRunResult, WorkflowState, WorkflowStateEvent,
+  AstroRunSignal, Condition, Context, Error, Job, JobId, JobRunResult, Result, RunResult,
+  RunStepEvent, Runner, SharedPluginDriver, Signal, SignalManager, Step, StepRunResult, StreamExt,
+  Workflow, WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
 use std::sync::Arc;
 use tokio::time;
@@ -33,16 +33,16 @@ impl ExecutionContext {
       payload: step.clone(),
       workflow_event: self.condition_matcher.event.clone(),
     };
-    self.plugin_driver.on_run_step(event.clone());
-    self.runner.on_run_step(event.clone());
+
+    self.call_on_run_step(event.clone()).await;
 
     // Queued
     let event = WorkflowStateEvent::StepStateUpdated {
       id: step_id.clone(),
       state: WorkflowState::Queued,
     };
-    self.plugin_driver.on_state_change(event.clone());
-    self.runner.on_state_change(event);
+
+    self.call_on_state_change(event).await;
 
     // Job signal
     let job_signal = self
@@ -78,8 +78,8 @@ impl ExecutionContext {
           id: step_id.clone(),
           state: WorkflowState::Failed,
         };
-        self.plugin_driver.on_state_change(event.clone());
-        self.runner.on_state_change(event);
+
+        self.call_on_state_change(event).await;
 
         let result = StepRunResult {
           id: step_id,
@@ -89,8 +89,7 @@ impl ExecutionContext {
           completed_at: Some(completed_at),
         };
 
-        self.plugin_driver.on_step_completed(result.clone()).await;
-        self.runner.on_step_completed(result.clone());
+        self.call_on_step_completed(result.clone()).await;
 
         return result;
       }
@@ -100,8 +99,8 @@ impl ExecutionContext {
       id: step_id.clone(),
       state: WorkflowState::InProgress,
     };
-    self.plugin_driver.on_state_change(event.clone());
-    self.runner.on_state_change(event);
+
+    self.call_on_state_change(event).await;
 
     loop {
       tokio::select! {
@@ -129,8 +128,7 @@ impl ExecutionContext {
               time: chrono::Utc::now(),
             };
 
-            self.plugin_driver.on_log(log.clone());
-            self.runner.on_log(log);
+            self.call_on_log(log.clone()).await;
           } else {
             break;
           }
@@ -183,11 +181,9 @@ impl ExecutionContext {
       id: step_id.clone(),
       state: res.state.clone(),
     };
-    self.plugin_driver.on_state_change(event.clone());
-    self.runner.on_state_change(event);
+    self.call_on_state_change(event).await;
 
-    self.plugin_driver.on_step_completed(res.clone()).await;
-    self.runner.on_step_completed(res.clone());
+    self.call_on_step_completed(res.clone()).await;
 
     log::trace!("Step {:?} completed", step_id);
 
@@ -198,16 +194,18 @@ impl ExecutionContext {
     self.condition_matcher.is_match(condition).await
   }
 
-  pub fn on_run_workflow(&self, workflow: Workflow) {
+  pub async fn call_on_run_workflow(&self, workflow: Workflow) {
     let event = crate::RunWorkflowEvent {
       payload: workflow,
       workflow_event: self.condition_matcher.event.clone(),
     };
-    self.plugin_driver.on_run_workflow(event.clone());
-    self.runner.on_run_workflow(event);
+    self.plugin_driver.on_run_workflow(event.clone()).await;
+    if let Err(err) = self.runner.on_run_workflow(event).await {
+      log::error!("Failed to run workflow: {:?}", err);
+    }
   }
 
-  pub fn on_run_job(&self, job: Job) {
+  pub async fn call_on_run_job(&self, job: Job) {
     self
       .signal_manager
       .register_signal(job.id.clone(), AstroRunSignal::new());
@@ -216,28 +214,60 @@ impl ExecutionContext {
       payload: job,
       workflow_event: self.condition_matcher.event.clone(),
     };
-    self.plugin_driver.on_run_job(event.clone());
-    self.runner.on_run_job(event);
+    self.plugin_driver.on_run_job(event.clone()).await;
+    if let Err(err) = self.runner.on_run_job(event).await {
+      log::error!("Failed to run job: {:?}", err);
+    }
   }
 
-  pub fn on_state_change(&self, event: WorkflowStateEvent) {
-    self.plugin_driver.on_state_change(event.clone());
-    self.runner.on_state_change(event);
+  pub async fn call_on_state_change(&self, event: WorkflowStateEvent) {
+    self.plugin_driver.on_state_change(event.clone()).await;
+    if let Err(err) = self.runner.on_state_change(event).await {
+      log::error!("Failed to handle state change: {:?}", err);
+    }
   }
 
-  pub async fn on_job_completed(&self, result: JobRunResult) {
+  pub async fn call_on_job_completed(&self, result: JobRunResult) {
     self.signal_manager.unregister_signal(&result.id);
 
     self.plugin_driver.on_job_completed(result.clone()).await;
-    self.runner.on_job_completed(result);
+
+    if let Err(err) = self.runner.on_job_completed(result).await {
+      log::error!("Failed to handle job completed: {:?}", err);
+    }
   }
 
-  pub async fn on_workflow_completed(&self, result: WorkflowRunResult) {
+  pub async fn call_on_run_step(&self, event: RunStepEvent) {
+    self.plugin_driver.on_run_step(event.clone()).await;
+
+    if let Err(err) = self.runner.on_run_step(event).await {
+      log::error!("Failed to run step: {:?}", err);
+    }
+  }
+
+  pub async fn call_on_step_completed(&self, result: StepRunResult) {
+    self.plugin_driver.on_step_completed(result.clone()).await;
+    if let Err(err) = self.runner.on_step_completed(result.clone()).await {
+      log::error!("Failed to handle step completed: {:?}", err);
+    }
+  }
+
+  pub async fn call_on_workflow_completed(&self, result: WorkflowRunResult) {
     self
       .plugin_driver
       .on_workflow_completed(result.clone())
       .await;
-    self.runner.on_workflow_completed(result);
+
+    if let Err(err) = self.runner.on_workflow_completed(result).await {
+      log::error!("Failed to handle workflow completed: {:?}", err);
+    }
+  }
+
+  pub async fn call_on_log(&self, log: WorkflowLog) {
+    self.plugin_driver.on_log(log.clone()).await;
+    if let Err(err) = self.runner.on_log(log).await {
+      log::error!("Failed to handle log: {:?}", err);
+    }
   }
 
   pub fn cancel_job(&self, job_id: &JobId) -> Result<()> {

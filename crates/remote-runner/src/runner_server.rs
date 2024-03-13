@@ -126,7 +126,10 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           .plugin_driver
           .on_workflow_completed(result.clone())
           .await;
-        self.runner.on_workflow_completed(result);
+
+        if let Err(err) = self.runner.on_workflow_completed(result).await {
+          log::error!("Failed to handle workflow completed event: {}", err);
+        }
       }
       EventPayload::JobCompletedEvent(event) => {
         let result: astro_run::JobRunResult = event.try_into().map_err(|e| {
@@ -134,7 +137,9 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
         })?;
 
         self.plugin_driver.on_job_completed(result.clone()).await;
-        self.runner.on_job_completed(result);
+        if let Err(err) = self.runner.on_job_completed(result).await {
+          log::error!("Failed to handle job completed event: {}", err);
+        }
       }
       EventPayload::StepCompletedEvent(event) => {
         let result: astro_run::StepRunResult = event.try_into().map_err(|e| {
@@ -147,47 +152,59 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
 
         // Dispatch event to plugins and runner
         self.plugin_driver.on_step_completed(result.clone()).await;
-        self.runner.on_step_completed(result);
+        if let Err(err) = self.runner.on_step_completed(result).await {
+          log::error!("Failed to handle step completed event: {}", err);
+        }
       }
       EventPayload::LogEvent(event) => {
         let log: astro_run::WorkflowLog = event
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert log event: {}", e)))?;
 
-        self.plugin_driver.on_log(log.clone());
-        self.runner.on_log(log);
+        self.plugin_driver.on_log(log.clone()).await;
+        if let Err(err) = self.runner.on_log(log).await {
+          log::error!("Failed to handle log event: {}", err);
+        }
       }
       EventPayload::WorkflowStateEvent(event) => {
         let event: astro_run::WorkflowStateEvent = event
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert state event: {}", e)))?;
 
-        self.plugin_driver.on_state_change(event.clone());
-        self.runner.on_state_change(event);
+        self.plugin_driver.on_state_change(event.clone()).await;
+        if let Err(err) = self.runner.on_state_change(event).await {
+          log::error!("Failed to handle state event: {}", err);
+        }
       }
       EventPayload::RunStepEvent(event) => {
         let event: astro_run::RunStepEvent = event.try_into().map_err(|e| {
           tonic::Status::internal(format!("Failed to convert run step event: {}", e))
         })?;
 
-        self.plugin_driver.on_run_step(event.clone());
-        self.runner.on_run_step(event);
+        self.plugin_driver.on_run_step(event.clone()).await;
+        if let Err(err) = self.runner.on_run_step(event).await {
+          log::error!("Failed to handle run step event: {}", err);
+        }
       }
       EventPayload::RunJobEvent(event) => {
         let event: astro_run::RunJobEvent = event
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert job: {}", e)))?;
 
-        self.plugin_driver.on_run_job(event.clone());
-        self.runner.on_run_job(event);
+        self.plugin_driver.on_run_job(event.clone()).await;
+        if let Err(err) = self.runner.on_run_job(event).await {
+          log::error!("Failed to handle run job event: {}", err);
+        }
       }
       EventPayload::RunWorkflowEvent(event) => {
         let event: astro_run::RunWorkflowEvent = event
           .try_into()
           .map_err(|e| tonic::Status::internal(format!("Failed to convert workflow: {}", e)))?;
 
-        self.plugin_driver.on_run_workflow(event.clone());
-        self.runner.on_run_workflow(event);
+        self.plugin_driver.on_run_workflow(event.clone()).await;
+        if let Err(err) = self.runner.on_run_workflow(event).await {
+          log::error!("Failed to handle run workflow event: {}", err);
+        }
       }
       EventPayload::SignalEvent(signal) => {
         log::trace!("Received signal: {:?}", signal);

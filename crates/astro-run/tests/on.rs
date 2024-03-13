@@ -33,6 +33,8 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
       println!("{}: {}", *i, log.message);
       assert_eq!(log.message, excepted_logs[*i]);
       *i += 1;
+
+      Ok(())
     })
     .build()
 }

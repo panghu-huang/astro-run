@@ -1,7 +1,7 @@
 use astro_run::{
-  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Payload, Plugin, RunResult,
-  Runner, UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowEvent, WorkflowLog,
-  WorkflowState,
+  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Payload, Plugin,
+  PluginNoopResult, RunResult, Runner, UserActionStep, UserCommandStep, UserStep, Workflow,
+  WorkflowEvent, WorkflowLog, WorkflowState,
 };
 use parking_lot::Mutex;
 
@@ -58,15 +58,18 @@ impl AssetLogsPlugin {
   }
 }
 
+#[astro_run::async_trait]
 impl Plugin for AssetLogsPlugin {
   fn name(&self) -> &'static str {
     "test-plugin"
   }
 
-  fn on_log(&self, log: WorkflowLog) {
+  async fn on_log(&self, log: WorkflowLog) -> PluginNoopResult {
     let mut i = self.index.lock();
     assert_eq!(log.message, self.excepted_logs[*i]);
     *i += 1;
+
+    Ok(())
   }
 }
 
@@ -480,6 +483,8 @@ jobs:
           assert_eq!(workflow.name.unwrap(), "Test Workflow");
           assert_eq!(workflow.jobs.len(), 1);
           assert_eq!(workflow.id.inner(), "id");
+
+          Ok(())
         })
         .on_run_job(|event| {
           let job = event.payload;
@@ -499,6 +504,8 @@ jobs:
 
           let step = steps[2].clone();
           assert_eq!(step.run, "Hello World");
+
+          Ok(())
         })
         .on_run_step(|event| {
           let step = event.payload;
@@ -507,25 +514,37 @@ jobs:
             0 => {
               assert_eq!(step.name.unwrap(), "Pre test");
               assert_eq!(step.run, "pre test");
+
+              Ok(())
             }
             1 => {
               assert_eq!(step.name.unwrap(), "Test");
               assert_eq!(step.run, "test");
+
+              Ok(())
             }
             2 => {
               assert_eq!(step.run, "Hello World");
+
+              Ok(())
             }
             _ => panic!("Should not be called"),
           }
         })
         .on_step_completed(|res| {
           assert_eq!(res.state, WorkflowState::Succeeded);
+
+          Ok(())
         })
         .on_job_completed(|res| {
           assert_eq!(res.state, WorkflowState::Succeeded);
+
+          Ok(())
         })
         .on_workflow_completed(|res| {
           assert_eq!(res.state, WorkflowState::Succeeded);
+
+          Ok(())
         })
         .build(),
     )
@@ -672,6 +691,8 @@ jobs:
           let payload: WorkflowPayload = event.payload.payload().unwrap();
 
           assert_eq!(payload.0, "Test payload");
+
+          Ok(())
         })
         .build(),
     )

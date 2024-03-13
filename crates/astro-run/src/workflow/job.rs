@@ -20,10 +20,12 @@ impl Job {
   pub async fn run(&self, ctx: ExecutionContext) -> JobRunResult {
     if let Some(on) = &self.on {
       if !ctx.is_match(on).await {
-        ctx.on_state_change(WorkflowStateEvent::JobStateUpdated {
-          id: self.id.clone(),
-          state: WorkflowState::Skipped,
-        });
+        ctx
+          .call_on_state_change(WorkflowStateEvent::JobStateUpdated {
+            id: self.id.clone(),
+            state: WorkflowState::Skipped,
+          })
+          .await;
 
         return JobRunResult {
           id: self.id.clone(),
@@ -39,11 +41,13 @@ impl Job {
     let mut job_state = WorkflowState::InProgress;
 
     // Dispatch run job event
-    ctx.on_run_job(self.clone());
-    ctx.on_state_change(WorkflowStateEvent::JobStateUpdated {
-      id: self.id.clone(),
-      state: job_state.clone(),
-    });
+    ctx.call_on_run_job(self.clone()).await;
+    ctx
+      .call_on_state_change(WorkflowStateEvent::JobStateUpdated {
+        id: self.id.clone(),
+        state: job_state.clone(),
+      })
+      .await;
 
     let mut steps = Vec::new();
 
@@ -65,10 +69,12 @@ impl Job {
       if skipped {
         log::trace!("Step {} is skipped", step.id.to_string());
 
-        ctx.on_state_change(WorkflowStateEvent::StepStateUpdated {
-          id: step.id.clone(),
-          state: WorkflowState::Skipped,
-        });
+        ctx
+          .call_on_state_change(WorkflowStateEvent::StepStateUpdated {
+            id: step.id.clone(),
+            state: WorkflowState::Skipped,
+          })
+          .await;
 
         steps.push(StepRunResult {
           id: step.id.clone(),
@@ -101,10 +107,12 @@ impl Job {
 
     let completed_at = chrono::Utc::now();
 
-    ctx.on_state_change(WorkflowStateEvent::JobStateUpdated {
-      id: self.id.clone(),
-      state: job_state.clone(),
-    });
+    ctx
+      .call_on_state_change(WorkflowStateEvent::JobStateUpdated {
+        id: self.id.clone(),
+        state: job_state.clone(),
+      })
+      .await;
 
     let result = JobRunResult {
       id: self.id.clone(),
@@ -114,7 +122,7 @@ impl Job {
       steps,
     };
 
-    ctx.on_job_completed(result.clone()).await;
+    ctx.call_on_job_completed(result.clone()).await;
 
     result
   }

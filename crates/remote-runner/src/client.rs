@@ -1,4 +1,4 @@
-use astro_run::{Context, Error, Result};
+use astro_run::{Context, Error, PluginNoopResult, Result};
 use astro_run_protocol::{
   astro_run_remote_runner::{run_response, ConnectRequest, Event},
   tonic::{self, Request},
@@ -62,7 +62,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
     Ok(receiver)
   }
 
-  fn on_log(&self, log: astro_run::WorkflowLog) {
+  async fn on_log(&self, log: astro_run::WorkflowLog) -> PluginNoopResult {
     match Event::try_from(log) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -71,10 +71,12 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
       }
       #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
-    }
+    };
+
+    Ok(())
   }
 
-  fn on_step_completed(&self, result: astro_run::StepRunResult) {
+  async fn on_step_completed(&self, result: astro_run::StepRunResult) -> PluginNoopResult {
     match Event::try_from(result) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -83,10 +85,12 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
       }
       #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
-    }
+    };
+
+    Ok(())
   }
 
-  fn on_job_completed(&self, result: astro_run::JobRunResult) {
+  async fn on_job_completed(&self, result: astro_run::JobRunResult) -> PluginNoopResult {
     match Event::try_from(result) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -95,10 +99,12 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
       }
       #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
-    }
+    };
+
+    Ok(())
   }
 
-  fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) {
+  async fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) -> PluginNoopResult {
     match Event::try_from(result) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -107,10 +113,12 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
       }
       #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
-    }
+    };
+
+    Ok(())
   }
 
-  fn on_state_change(&self, event: astro_run::WorkflowStateEvent) {
+  async fn on_state_change(&self, event: astro_run::WorkflowStateEvent) -> PluginNoopResult {
     match Event::try_from(event) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -119,10 +127,12 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
       }
       #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
-    }
+    };
+
+    Ok(())
   }
 
-  fn on_run_step(&self, event: astro_run::RunStepEvent) {
+  async fn on_run_step(&self, event: astro_run::RunStepEvent) -> PluginNoopResult {
     match Event::try_from(event) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -131,10 +141,12 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
       }
       #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
-    }
+    };
+
+    Ok(())
   }
 
-  fn on_run_job(&self, event: astro_run::RunJobEvent) {
+  async fn on_run_job(&self, event: astro_run::RunJobEvent) -> PluginNoopResult {
     match Event::try_from(event) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -143,10 +155,12 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
       }
       #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
-    }
+    };
+
+    Ok(())
   }
 
-  fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) {
+  async fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) -> PluginNoopResult {
     match Event::try_from(event) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -155,7 +169,9 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
       }
       #[cfg(not(tarpaulin_include))]
       Err(err) => log::error!("Failed to create event: {}", err),
-    }
+    };
+
+    Ok(())
   }
 }
 

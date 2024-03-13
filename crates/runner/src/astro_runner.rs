@@ -3,7 +3,8 @@ use crate::{
   Plugin, PluginDriver, SharedPluginDriver,
 };
 use astro_run::{
-  stream, Context, Error, Result, RunResponse, RunResult, Runner, WorkflowEvent, WorkflowId,
+  stream, Context, Error, PluginNoopResult, Result, RunResponse, RunResult, Runner, WorkflowEvent,
+  WorkflowId,
 };
 use parking_lot::Mutex;
 use std::{collections::HashMap, env, fs, path::PathBuf, sync::Arc};
@@ -27,10 +28,12 @@ impl AstroRunner {
 
 #[astro_run::async_trait]
 impl Runner for AstroRunner {
-  fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) {
+  async fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) -> PluginNoopResult {
     if let Err(err) = self.cleanup_workflow_working_directory(result) {
       log::error!("AstroRunner: cleanup error: {}", err);
     }
+
+    Ok(())
   }
 
   async fn run(&self, ctx: Context) -> RunResponse {

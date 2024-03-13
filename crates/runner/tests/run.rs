@@ -10,6 +10,7 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
   AstroRunPlugin::builder("test-plugin")
     .on_log(move |log| {
       logs.lock().push(log.message);
+      Ok(())
     })
     .on_workflow_completed(move |_| {
       let logs = cloned_logs.lock();
@@ -18,6 +19,7 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
       for (i, log) in logs.iter().enumerate() {
         assert_eq!(log, &excepted_logs[i]);
       }
+      Ok(())
     })
     .build()
 }

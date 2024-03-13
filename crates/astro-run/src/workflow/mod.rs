@@ -36,10 +36,12 @@ impl Workflow {
   pub async fn run(&self, ctx: ExecutionContext) -> WorkflowRunResult {
     if let Some(on) = &self.on {
       if !ctx.is_match(on).await {
-        ctx.on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
-          id: self.id.clone(),
-          state: WorkflowState::Skipped,
-        });
+        ctx
+          .call_on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
+            id: self.id.clone(),
+            state: WorkflowState::Skipped,
+          })
+          .await;
 
         return WorkflowRunResult {
           id: self.id.clone(),
@@ -55,11 +57,13 @@ impl Workflow {
 
     let mut workflow_state = WorkflowState::InProgress;
     // Dispatch run workflow event
-    ctx.on_run_workflow(self.clone());
-    ctx.on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
-      id: self.id.clone(),
-      state: workflow_state.clone(),
-    });
+    ctx.call_on_run_workflow(self.clone()).await;
+    ctx
+      .call_on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
+        id: self.id.clone(),
+        state: workflow_state.clone(),
+      })
+      .await;
 
     let (sender, mut receiver) = channel::<Result>(10);
 
@@ -136,10 +140,12 @@ impl Workflow {
       completed_at.timestamp_millis() - started_at.timestamp_millis()
     );
 
-    ctx.on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
-      id: self.id.clone(),
-      state: workflow_state.clone(),
-    });
+    ctx
+      .call_on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
+        id: self.id.clone(),
+        state: workflow_state.clone(),
+      })
+      .await;
 
     let result = WorkflowRunResult {
       id: self.id.clone(),
@@ -149,7 +155,7 @@ impl Workflow {
       jobs: job_results,
     };
 
-    ctx.on_workflow_completed(result.clone()).await;
+    ctx.call_on_workflow_completed(result.clone()).await;
 
     result
   }

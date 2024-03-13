@@ -1,6 +1,6 @@
 use crate::{
-  Action, Job, JobRunResult, Plugin, Step, StepRunResult, UserActionStep, Workflow, WorkflowEvent,
-  WorkflowLog, WorkflowRunResult, WorkflowStateEvent,
+  Job, JobRunResult, Plugin, PluginNoopResult, PluginResolveActionResult, Step, StepRunResult,
+  UserActionStep, Workflow, WorkflowEvent, WorkflowLog, WorkflowRunResult, WorkflowStateEvent,
 };
 
 #[derive(Clone, Debug)]
@@ -15,15 +15,15 @@ pub type RunJobEvent = RunEvent<Job>;
 
 pub type RunStepEvent = RunEvent<Step>;
 
-type OnStateChange = dyn Fn(WorkflowStateEvent) -> () + Send + Sync;
-type OnLog = dyn Fn(WorkflowLog) -> () + Send + Sync;
-type OnRunWorkflow = dyn Fn(RunWorkflowEvent) -> () + Send + Sync;
-type OnRunJob = dyn Fn(RunJobEvent) -> () + Send + Sync;
-type OnRunStep = dyn Fn(RunStepEvent) -> () + Send + Sync;
-type OnWorkflowComplete = dyn Fn(WorkflowRunResult) -> () + Send + Sync;
-type OnJobComplete = dyn Fn(JobRunResult) -> () + Send + Sync;
-type OnStepComplete = dyn Fn(StepRunResult) -> () + Send + Sync;
-type OnResolveDynamicAction = dyn Fn(UserActionStep) -> Option<Box<dyn Action>> + Send + Sync;
+type OnStateChange = dyn Fn(WorkflowStateEvent) -> PluginNoopResult + Send + Sync;
+type OnLog = dyn Fn(WorkflowLog) -> PluginNoopResult + Send + Sync;
+type OnRunWorkflow = dyn Fn(RunWorkflowEvent) -> PluginNoopResult + Send + Sync;
+type OnRunJob = dyn Fn(RunJobEvent) -> PluginNoopResult + Send + Sync;
+type OnRunStep = dyn Fn(RunStepEvent) -> PluginNoopResult + Send + Sync;
+type OnWorkflowComplete = dyn Fn(WorkflowRunResult) -> PluginNoopResult + Send + Sync;
+type OnJobComplete = dyn Fn(JobRunResult) -> PluginNoopResult + Send + Sync;
+type OnStepComplete = dyn Fn(StepRunResult) -> PluginNoopResult + Send + Sync;
+type OnResolveDynamicAction = dyn Fn(UserActionStep) -> PluginResolveActionResult + Send + Sync;
 
 pub struct PluginBuilder {
   name: &'static str,
@@ -56,7 +56,7 @@ impl PluginBuilder {
 
   pub fn on_state_change<T>(mut self, on_state_change: T) -> Self
   where
-    T: Fn(WorkflowStateEvent) -> () + 'static + Send + Sync,
+    T: Fn(WorkflowStateEvent) -> PluginNoopResult + 'static + Send + Sync,
   {
     self.on_state_change = Some(Box::new(on_state_change));
     self
@@ -64,7 +64,7 @@ impl PluginBuilder {
 
   pub fn on_log<T>(mut self, on_log: T) -> Self
   where
-    T: Fn(WorkflowLog) -> () + 'static + Send + Sync,
+    T: Fn(WorkflowLog) -> PluginNoopResult + 'static + Send + Sync,
   {
     self.on_log = Some(Box::new(on_log));
     self
@@ -72,7 +72,7 @@ impl PluginBuilder {
 
   pub fn on_run_workflow<T>(mut self, on_run_workflow: T) -> Self
   where
-    T: Fn(RunWorkflowEvent) -> () + 'static + Send + Sync,
+    T: Fn(RunWorkflowEvent) -> PluginNoopResult + 'static + Send + Sync,
   {
     self.on_run_workflow = Some(Box::new(on_run_workflow));
     self
@@ -80,7 +80,7 @@ impl PluginBuilder {
 
   pub fn on_run_job<T>(mut self, on_run_job: T) -> Self
   where
-    T: Fn(RunJobEvent) -> () + 'static + Send + Sync,
+    T: Fn(RunJobEvent) -> PluginNoopResult + 'static + Send + Sync,
   {
     self.on_run_job = Some(Box::new(on_run_job));
     self
@@ -88,7 +88,7 @@ impl PluginBuilder {
 
   pub fn on_run_step<T>(mut self, on_run_step: T) -> Self
   where
-    T: Fn(RunStepEvent) -> () + 'static + Send + Sync,
+    T: Fn(RunStepEvent) -> PluginNoopResult + 'static + Send + Sync,
   {
     self.on_run_step = Some(Box::new(on_run_step));
     self
@@ -96,7 +96,7 @@ impl PluginBuilder {
 
   pub fn on_workflow_completed<T>(mut self, on_workflow_completed: T) -> Self
   where
-    T: Fn(WorkflowRunResult) -> () + Send + Sync + 'static,
+    T: Fn(WorkflowRunResult) -> PluginNoopResult + Send + Sync + 'static,
   {
     self.on_workflow_completed = Some(Box::new(on_workflow_completed));
 
@@ -105,7 +105,7 @@ impl PluginBuilder {
 
   pub fn on_job_completed<T>(mut self, on_job_completed: T) -> Self
   where
-    T: Fn(JobRunResult) -> () + Send + Sync + 'static,
+    T: Fn(JobRunResult) -> PluginNoopResult + Send + Sync + 'static,
   {
     self.on_job_completed = Some(Box::new(on_job_completed));
 
@@ -114,7 +114,7 @@ impl PluginBuilder {
 
   pub fn on_step_completed<T>(mut self, on_step_completed: T) -> Self
   where
-    T: Fn(StepRunResult) -> () + Send + Sync + 'static,
+    T: Fn(StepRunResult) -> PluginNoopResult + Send + Sync + 'static,
   {
     self.on_step_completed = Some(Box::new(on_step_completed));
 
@@ -123,7 +123,7 @@ impl PluginBuilder {
 
   pub fn on_resolve_dynamic_action<T>(mut self, on_resolve_dynamic_action: T) -> Self
   where
-    T: Fn(UserActionStep) -> Option<Box<dyn Action>> + Send + Sync + 'static,
+    T: Fn(UserActionStep) -> PluginResolveActionResult + Send + Sync + 'static,
   {
     self.on_resolve_dynamic_action = Some(Box::new(on_resolve_dynamic_action));
 
@@ -173,59 +173,75 @@ impl Plugin for AstroRunPlugin {
     self.name
   }
 
-  fn on_state_change(&self, event: WorkflowStateEvent) {
+  async fn on_state_change(&self, event: WorkflowStateEvent) -> PluginNoopResult {
     if let Some(on_state_change) = &self.on_state_change {
-      on_state_change(event);
+      on_state_change(event)?;
     }
+
+    Ok(())
   }
 
-  fn on_log(&self, log: WorkflowLog) {
+  async fn on_log(&self, log: WorkflowLog) -> PluginNoopResult {
     if let Some(on_log) = &self.on_log {
-      on_log(log);
+      on_log(log)?;
     }
+
+    Ok(())
   }
 
-  fn on_run_workflow(&self, event: RunWorkflowEvent) {
+  async fn on_run_workflow(&self, event: RunWorkflowEvent) -> PluginNoopResult {
     if let Some(on_run_workflow) = &self.on_run_workflow {
-      on_run_workflow(event);
+      on_run_workflow(event)?;
     }
+
+    Ok(())
   }
 
-  fn on_run_job(&self, event: RunJobEvent) {
+  async fn on_run_job(&self, event: RunJobEvent) -> PluginNoopResult {
     if let Some(on_run_job) = &self.on_run_job {
-      on_run_job(event);
+      on_run_job(event)?;
     }
+
+    Ok(())
   }
 
-  fn on_run_step(&self, event: RunStepEvent) -> () {
+  async fn on_run_step(&self, event: RunStepEvent) -> PluginNoopResult {
     if let Some(on_run_step) = &self.on_run_step {
-      on_run_step(event);
+      on_run_step(event)?;
     }
+
+    Ok(())
   }
 
-  async fn on_workflow_completed(&self, result: WorkflowRunResult) {
+  async fn on_workflow_completed(&self, result: WorkflowRunResult) -> PluginNoopResult {
     if let Some(on_workflow_completed) = &self.on_workflow_completed {
-      on_workflow_completed(result);
+      on_workflow_completed(result)?;
     }
+
+    Ok(())
   }
 
-  async fn on_job_completed(&self, result: JobRunResult) {
+  async fn on_job_completed(&self, result: JobRunResult) -> PluginNoopResult {
     if let Some(on_job_completed) = &self.on_job_completed {
-      on_job_completed(result);
+      on_job_completed(result)?;
     }
+
+    Ok(())
   }
 
-  async fn on_step_completed(&self, result: StepRunResult) {
+  async fn on_step_completed(&self, result: StepRunResult) -> PluginNoopResult {
     if let Some(on_step_completed) = &self.on_step_completed {
-      on_step_completed(result);
+      on_step_completed(result)?;
     }
+
+    Ok(())
   }
 
-  async fn on_resolve_dynamic_action(&self, step: UserActionStep) -> Option<Box<dyn Action>> {
+  async fn on_resolve_dynamic_action(&self, step: UserActionStep) -> PluginResolveActionResult {
     if let Some(on_resolve_dynamic_action) = &self.on_resolve_dynamic_action {
       return on_resolve_dynamic_action(step);
     }
 
-    None
+    Ok(None)
   }
 }

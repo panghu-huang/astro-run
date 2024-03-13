@@ -35,6 +35,7 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
       let mut i = index.lock();
       assert_eq!(log.message, excepted_logs[*i]);
       *i += 1;
+      Ok(())
     })
     .build()
 }
@@ -130,6 +131,7 @@ async fn test_run() -> Result<()> {
         PluginBuilder::new("test-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
+            Ok(())
           })
           .build(),
       )
@@ -247,6 +249,7 @@ fn assert_workflow_payload_plugin(expected: impl Into<String>) -> AstroRunPlugin
     .on_run_workflow(move |event| {
       let payload: WorkflowPayload = event.payload.payload().unwrap();
       assert_eq!(payload.0, expected);
+      Ok(())
     })
     .build()
 }
@@ -327,6 +330,7 @@ async fn test_remote_runner_workflow_payload() -> Result<()> {
         PluginBuilder::new("test-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
+            Ok(())
           })
           .build(),
       )
