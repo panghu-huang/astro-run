@@ -219,7 +219,7 @@ mod tests {
 
     impl crate::Payload for WorkflowPayload {
       fn try_into_string(&self) -> Result<String> {
-        Ok("Hello World".to_string())
+        Ok(self.0.clone())
       }
 
       fn try_from_string(payload: &String) -> Result<Self> {
