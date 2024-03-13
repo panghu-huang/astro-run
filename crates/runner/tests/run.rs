@@ -351,6 +351,121 @@ async fn test_docker_cancel() {
   assert_eq!(job_result.steps[0].state, WorkflowState::Cancelled);
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[astro_run_test::test]
+async fn test_host_cancel() {
+  let sleep = if cfg!(target_os = "linux") {
+    "sleep 30s"
+  } else {
+    "sleep 30"
+  };
+
+  let workflow = format!(
+    r#"
+  jobs:
+    test:
+      name: Test Job
+      steps:
+        - container: host/{}
+          run: |
+            {}
+            echo "Hello world"
+    "#,
+    std::env::consts::OS,
+    sleep
+  );
+
+  let runner = AstroRunner::builder().build().unwrap();
+
+  let astro_run = AstroRun::builder()
+    .runner(runner)
+    .plugin(assert_logs_plugin(vec![]))
+    .build();
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .await
+    .unwrap();
+
+  let ctx = astro_run
+    .execution_context()
+    .event(astro_run::WorkflowEvent::default())
+    .build();
+
+  tokio::task::spawn({
+    let astro_run = astro_run.clone();
+    let job_id = workflow.jobs.get("test").unwrap().id.clone();
+    async move {
+      tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+      astro_run.cancel_job(&job_id).unwrap();
+    }
+  });
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Cancelled);
+  let job_result = res.jobs.get("test").unwrap();
+  assert_eq!(job_result.state, WorkflowState::Cancelled);
+  assert_eq!(job_result.steps.len(), 1);
+
+  assert_eq!(job_result.steps[0].state, WorkflowState::Cancelled);
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[astro_run_test::test]
+async fn test_host_timeout() {
+  let sleep = if cfg!(target_os = "linux") {
+    "sleep 30s"
+  } else {
+    "sleep 30"
+  };
+
+  let workflow = format!(
+    r#"
+  jobs:
+    test:
+      name: Test Job
+      steps:
+        - container: host/{}
+          timeout: 3s
+          run: |
+            {}
+            echo "Hello world"
+    "#,
+    std::env::consts::OS,
+    sleep
+  );
+
+  let runner = AstroRunner::builder().build().unwrap();
+
+  let astro_run = AstroRun::builder()
+    .runner(runner)
+    .plugin(assert_logs_plugin(vec![]))
+    .build();
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .await
+    .unwrap();
+
+  let ctx = astro_run
+    .execution_context()
+    .event(astro_run::WorkflowEvent::default())
+    .build();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Failed);
+  let job_result = res.jobs.get("test").unwrap();
+  assert_eq!(job_result.state, WorkflowState::Failed);
+  assert_eq!(job_result.steps.len(), 1);
+
+  assert_eq!(job_result.steps[0].state, WorkflowState::Failed);
+  assert_eq!(job_result.steps[0].exit_code.unwrap(), 123);
+}
+
 #[astro_run_test::test]
 async fn test_docker_timeout() {
   let workflow = r#"

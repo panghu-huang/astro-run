@@ -1,7 +1,7 @@
 use astro_run::{
-  stream, AstroRun, AstroRunPlugin, Context, Error, JobRunResult, PluginNoopResult, RunJobEvent,
-  RunResult, RunStepEvent, RunWorkflowEvent, Runner, StepRunResult, Workflow, WorkflowLog,
-  WorkflowRunResult, WorkflowState, WorkflowStateEvent,
+  stream, AstroRun, AstroRunPlugin, Context, Error, JobRunResult, Plugin, PluginNoopResult,
+  RunJobEvent, RunResult, RunStepEvent, RunWorkflowEvent, Runner, StepRunResult, Workflow,
+  WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
 use parking_lot::Mutex;
 
@@ -51,6 +51,15 @@ impl Runner for TestRunner {
   }
 }
 
+struct EmptyPlugin;
+
+#[astro_run::async_trait]
+impl Plugin for EmptyPlugin {
+  fn name(&self) -> &'static str {
+    "empty-plugin"
+  }
+}
+
 fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
   let index = Mutex::new(0);
 
@@ -80,7 +89,7 @@ fn error_plugin() -> AstroRunPlugin {
 }
 
 #[astro_run_test::test]
-async fn test_error_plugin() {
+async fn test_plugin() {
   let yaml = r#"
 jobs:
   test:
@@ -94,6 +103,7 @@ jobs:
     .runner(TestRunner)
     .plugin(plugin)
     .plugin(assert_logs_plugin(vec!["Hello World"]))
+    .plugin(EmptyPlugin)
     .build();
 
   let workflow = Workflow::builder()

@@ -75,16 +75,25 @@ mod tests {
       }
     }
 
-    struct ErrorPlugin;
+    struct ErrorBeforeRunPlugin;
 
     #[astro_run::async_trait]
-    impl Plugin for ErrorPlugin {
+    impl Plugin for ErrorBeforeRunPlugin {
       fn name(&self) -> &'static str {
-        "error"
+        "error-before-run"
       }
 
       async fn on_before_run(&self, _ctx: Context) -> Result<Context> {
         Err(astro_run::Error::error("Error"))
+      }
+    }
+
+    struct ErrorAfterRunPlugin;
+
+    #[astro_run::async_trait]
+    impl Plugin for ErrorAfterRunPlugin {
+      fn name(&self) -> &'static str {
+        "error-before-run"
       }
 
       async fn on_after_run(&self, _ctx: Context) -> PluginNoopResult {
@@ -92,7 +101,11 @@ mod tests {
       }
     }
 
-    let driver = PluginDriver::new(vec![Box::new(TestPlugin), Box::new(ErrorPlugin)]);
+    let driver = PluginDriver::new(vec![
+      Box::new(TestPlugin),
+      Box::new(ErrorBeforeRunPlugin),
+      Box::new(ErrorAfterRunPlugin),
+    ]);
 
     let ctx = astro_run::Context {
       id: "test".into(),
