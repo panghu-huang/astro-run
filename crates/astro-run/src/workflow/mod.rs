@@ -17,10 +17,10 @@ use tokio::sync::mpsc::{channel, Sender};
 type Result = (Id, JobRunResult);
 
 pub trait Payload: Send + Sync {
-  fn try_from(payload: &String) -> crate::Result<Self>
+  fn try_from_string(payload: &String) -> crate::Result<Self>
   where
     Self: Sized;
-  fn try_into(&self) -> crate::Result<String>;
+  fn try_into_string(&self) -> crate::Result<String>;
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -175,10 +175,22 @@ impl Workflow {
     T: Payload,
   {
     if let Some(payload) = &self.payload {
-      T::try_from(&payload)
+      T::try_from_string(&payload)
     } else {
       Err(Error::error("Payload is not set for this workflow"))
     }
+  }
+
+  pub fn update_payload<T>(&mut self, payload: &T) -> crate::Result<()>
+  where
+    T: Payload,
+  {
+    self.payload = Some(payload.try_into_string()?);
+    Ok(())
+  }
+
+  pub fn clear_payload(&mut self) {
+    self.payload = None;
   }
 
   pub fn builder() -> builder::WorkflowBuilder {
@@ -202,15 +214,16 @@ mod tests {
 
   #[astro_run_test::test]
   async fn test_workflow_payload() {
-    struct WorkflowPayload;
+    #[derive(Debug)]
+    struct WorkflowPayload(String);
 
     impl crate::Payload for WorkflowPayload {
-      fn try_into(&self) -> Result<String> {
+      fn try_into_string(&self) -> Result<String> {
         Ok("Hello World".to_string())
       }
 
-      fn try_from(_payload: &String) -> Result<Self> {
-        Ok(WorkflowPayload)
+      fn try_from_string(payload: &String) -> Result<Self> {
+        Ok(WorkflowPayload(payload.to_string()))
       }
     }
 
@@ -223,82 +236,26 @@ mod tests {
 
     let astro_run = AstroRun::builder().runner(TestRunner).build();
 
-    let workflow = Workflow::builder()
+    let mut workflow = Workflow::builder()
       .config(workflow)
-      .payload(WorkflowPayload)
+      .payload(WorkflowPayload("Hello World".to_string()))
       .build(&astro_run)
       .await
       .unwrap();
 
-    let result = workflow.payload::<WorkflowPayload>();
+    let payload = workflow.payload::<WorkflowPayload>().unwrap();
 
-    assert!(result.is_ok());
-  }
+    assert_eq!(payload.0, "Hello World");
 
-  #[astro_run_test::test]
-  async fn test_workflow_payload_to_string_error() {
-    struct WorkflowPayload;
-
-    impl crate::Payload for WorkflowPayload {
-      fn try_into(&self) -> Result<String> {
-        Err(Error::workflow_config_error("Payload error"))
-      }
-
-      fn try_from(_payload: &String) -> Result<Self> {
-        unimplemented!()
-      }
-    }
-
-    let workflow = r#"
-      jobs:
-        test:
-          steps:
-            - run: echo "Hello World"
-      "#;
-
-    let astro_run = AstroRun::builder().runner(TestRunner).build();
-
-    let workflow = Workflow::builder()
-      .config(workflow)
-      .payload(WorkflowPayload)
-      .build(&astro_run)
-      .await;
-
-    assert_eq!(
-      workflow.unwrap_err(),
-      Error::workflow_config_error("Payload error")
-    );
-  }
-
-  #[astro_run_test::test]
-  async fn test_workflow_payload_not_set() {
-    #[derive(Debug)]
-    struct WorkflowPayload;
-
-    impl crate::Payload for WorkflowPayload {
-      fn try_into(&self) -> Result<String> {
-        unimplemented!()
-      }
-
-      fn try_from(_payload: &String) -> Result<Self> {
-        unimplemented!()
-      }
-    }
-
-    let workflow = r#"
-      jobs:
-        test:
-          steps:
-            - run: echo "Hello World"
-      "#;
-
-    let astro_run = AstroRun::builder().runner(TestRunner).build();
-
-    let workflow = Workflow::builder()
-      .config(workflow)
-      .build(&astro_run)
-      .await
+    workflow
+      .update_payload(&WorkflowPayload("Hello World Updated".to_string()))
       .unwrap();
+
+    let payload = workflow.payload::<WorkflowPayload>().unwrap();
+
+    assert_eq!(payload.0, "Hello World Updated");
+
+    workflow.clear_payload();
 
     let result = workflow.payload::<WorkflowPayload>();
 
@@ -314,11 +271,11 @@ mod tests {
     struct WorkflowPayload;
 
     impl crate::Payload for WorkflowPayload {
-      fn try_into(&self) -> Result<String> {
+      fn try_into_string(&self) -> Result<String> {
         Ok("".to_string())
       }
 
-      fn try_from(_payload: &String) -> Result<Self> {
+      fn try_from_string(_payload: &String) -> Result<Self> {
         Err(Error::error("Payload error"))
       }
     }

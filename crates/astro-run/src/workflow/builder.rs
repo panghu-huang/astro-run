@@ -42,7 +42,7 @@ impl WorkflowBuilder {
 
     let payload = match self.payload {
       Some(payload) => {
-        let payload = payload.as_ref().try_into()?;
+        let payload = payload.as_ref().try_into_string()?;
 
         Some(payload)
       }

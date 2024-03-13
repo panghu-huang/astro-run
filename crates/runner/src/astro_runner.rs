@@ -39,11 +39,7 @@ impl Runner for AstroRunner {
   async fn run(&self, ctx: Context) -> RunResponse {
     let (sender, receiver) = stream();
 
-    let ctx = self
-      .plugin_driver
-      .on_before_run(ctx)
-      .await
-      .map_err(|err| Error::error(format!("AstroRunner: on_before_run error: {}", err)))?;
+    let ctx = self.plugin_driver.on_before_run(ctx).await;
 
     let executor = self.create_executor(&ctx);
 

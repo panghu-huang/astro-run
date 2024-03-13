@@ -194,7 +194,7 @@ async fn test_before_run() {
     async fn on_before_run(
       &self,
       mut ctx: astro_run::Context,
-    ) -> Result<astro_run::Context, Box<dyn std::error::Error>> {
+    ) -> astro_run::Result<astro_run::Context> {
       ctx.command.run = "echo \"My custom run\"".to_string();
 
       Ok(ctx)
@@ -262,8 +262,8 @@ async fn test_before_run_error() {
     async fn on_before_run(
       &self,
       _ctx: astro_run::Context,
-    ) -> Result<astro_run::Context, Box<dyn std::error::Error>> {
-      Err("Error".into())
+    ) -> astro_run::Result<astro_run::Context> {
+      Err(astro_run::Error::error("Error"))
     }
   }
 

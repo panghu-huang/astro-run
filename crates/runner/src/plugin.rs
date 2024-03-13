@@ -1,10 +1,10 @@
-use astro_run::{Context, PluginNoopResult};
+use astro_run::{Context, PluginNoopResult, Result};
 use std::sync::Arc;
 
 #[astro_run::async_trait]
 pub trait Plugin: Send + Sync {
   fn name(&self) -> &'static str;
-  async fn on_before_run(&self, ctx: Context) -> Result<Context, Box<dyn std::error::Error>> {
+  async fn on_before_run(&self, ctx: Context) -> Result<Context> {
     Ok(ctx)
   }
   async fn on_after_run(&self, _ctx: Context) -> PluginNoopResult {
@@ -23,17 +23,21 @@ impl PluginDriver {
     PluginDriver { plugins }
   }
 
-  pub async fn on_before_run(&self, ctx: Context) -> Result<Context, Box<dyn std::error::Error>>
+  pub async fn on_before_run(&self, ctx: Context) -> Context
   where
     Self: Send + Sync,
   {
     let mut ctx = ctx;
 
     for plugin in &self.plugins {
-      ctx = plugin.on_before_run(ctx).await?;
+      if let Ok(updated_ctx) = plugin.on_before_run(ctx.clone()).await {
+        ctx = updated_ctx;
+      } else {
+        log::error!("Plugin {} on_before_run error", plugin.name());
+      }
     }
 
-    Ok(ctx)
+    ctx
   }
 
   pub async fn on_after_run(&self, ctx: Context) {
@@ -45,46 +49,62 @@ impl PluginDriver {
   }
 }
 
-// #[cfg(test)]
-// mod tests {
-//   use super::*;
+#[cfg(test)]
+mod tests {
+  use super::*;
 
-//   #[astro_run_test::test]
-//   async fn test_plugin_manager() {
+  #[astro_run_test::test]
+  async fn test_plugin_driver() {
+    struct TestPlugin;
 
-//     struct TestPlugin {
-//       name: &'static str,
-//     }
+    #[astro_run::async_trait]
+    impl Plugin for TestPlugin {
+      fn name(&self) -> &'static str {
+        "test"
+      }
 
-//     impl TestPlugin {
-//       fn new(name: &'static str) -> Self {
-//         TestPlugin { name }
-//       }
-//     }
+      async fn on_before_run(&self, ctx: Context) -> Result<Context> {
+        let mut ctx = ctx;
 
-//     impl Plugin for TestPlugin {
-//       fn name(&self) -> &'static str {
-//         self.name
-//       }
+        ctx.id = "test updated".into();
+        Ok(ctx)
+      }
 
-//       fn on_before_run(&self, ctx: Context) -> Result<Context, Box<dyn std::error::Error>> {
-//         Ok(ctx)
-//       }
+      async fn on_after_run(&self, _ctx: Context) -> PluginNoopResult {
+        Ok(())
+      }
+    }
 
-//       fn on_after_run(&self, _ctx: Context) {}
-//     }
+    struct ErrorPlugin;
 
-//     plugin_manager.register(TestPlugin::new("test1"));
-//     plugin_manager.register(TestPlugin::new("test2"));
+    #[astro_run::async_trait]
+    impl Plugin for ErrorPlugin {
+      fn name(&self) -> &'static str {
+        "error"
+      }
 
-//     assert_eq!(plugin_manager.size(), 2);
+      async fn on_before_run(&self, _ctx: Context) -> Result<Context> {
+        Err(astro_run::Error::error("Error"))
+      }
 
-//     plugin_manager.unregister("test1");
+      async fn on_after_run(&self, _ctx: Context) -> PluginNoopResult {
+        Err(astro_run::Error::error("Error"))
+      }
+    }
 
-//     assert_eq!(plugin_manager.size(), 1);
+    let driver = PluginDriver::new(vec![Box::new(TestPlugin), Box::new(ErrorPlugin)]);
 
-//     plugin_manager.unregister("test2");
+    let ctx = astro_run::Context {
+      id: "test".into(),
+      command: Default::default(),
+      event: None,
+      signal: astro_run::AstroRunSignal::new(),
+    };
 
-//     assert_eq!(plugin_manager.size(), 0);
-//   }
-// }
+    let ctx = driver.on_before_run(ctx).await;
+
+    assert_eq!(ctx.id, "test updated");
+
+    driver.on_after_run(ctx).await;
+  }
+}

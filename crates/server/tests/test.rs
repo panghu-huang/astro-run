@@ -73,6 +73,20 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
     .build()
 }
 
+fn success_plugin() -> AstroRunPlugin {
+  AstroRunPlugin::builder("error")
+    .on_run_workflow(|_| Ok(()))
+    .on_run_job(|_| Ok(()))
+    .on_run_step(|_| Ok(()))
+    .on_log(|_| Ok(()))
+    .on_state_change(|_| Ok(()))
+    .on_step_completed(|_| Ok(()))
+    .on_job_completed(|_| Ok(()))
+    .on_workflow_completed(|_| Ok(()))
+    .on_resolve_dynamic_action(|_| Ok(None))
+    .build()
+}
+
 fn error_plugin() -> AstroRunPlugin {
   AstroRunPlugin::builder("error")
     .on_run_workflow(|_| Err(Error::error("Error")))
@@ -115,6 +129,7 @@ async fn test_run() -> Result<()> {
         },
       ]))
       .plugin(error_plugin())
+      .plugin(success_plugin())
       .runner(server)
       .build();
 
