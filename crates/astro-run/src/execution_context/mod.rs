@@ -190,11 +190,15 @@ impl ExecutionContext {
     res
   }
 
-  pub async fn is_match(&self, condition: &Condition) -> bool {
+  pub fn cancel_job(&self, job_id: &JobId) -> Result<()> {
+    self.signal_manager.cancel_job(job_id)
+  }
+
+  pub(crate) async fn is_match(&self, condition: &Condition) -> bool {
     self.condition_matcher.is_match(condition).await
   }
 
-  pub async fn call_on_run_workflow(&self, workflow: Workflow) {
+  pub(crate) async fn call_on_run_workflow(&self, workflow: Workflow) {
     let event = crate::RunWorkflowEvent {
       payload: workflow,
       workflow_event: self.condition_matcher.event.clone(),
@@ -205,7 +209,7 @@ impl ExecutionContext {
     }
   }
 
-  pub async fn call_on_run_job(&self, job: Job) {
+  pub(crate) async fn call_on_run_job(&self, job: Job) {
     self
       .signal_manager
       .register_signal(job.id.clone(), AstroRunSignal::new());
@@ -220,14 +224,14 @@ impl ExecutionContext {
     }
   }
 
-  pub async fn call_on_state_change(&self, event: WorkflowStateEvent) {
+  pub(crate) async fn call_on_state_change(&self, event: WorkflowStateEvent) {
     self.plugin_driver.on_state_change(event.clone()).await;
     if let Err(err) = self.runner.on_state_change(event).await {
       log::error!("Failed to handle state change: {:?}", err);
     }
   }
 
-  pub async fn call_on_job_completed(&self, result: JobRunResult) {
+  pub(crate) async fn call_on_job_completed(&self, result: JobRunResult) {
     self.signal_manager.unregister_signal(&result.id);
 
     self.plugin_driver.on_job_completed(result.clone()).await;
@@ -237,7 +241,7 @@ impl ExecutionContext {
     }
   }
 
-  pub async fn call_on_run_step(&self, event: RunStepEvent) {
+  pub(crate) async fn call_on_run_step(&self, event: RunStepEvent) {
     self.plugin_driver.on_run_step(event.clone()).await;
 
     if let Err(err) = self.runner.on_run_step(event).await {
@@ -245,14 +249,14 @@ impl ExecutionContext {
     }
   }
 
-  pub async fn call_on_step_completed(&self, result: StepRunResult) {
+  pub(crate) async fn call_on_step_completed(&self, result: StepRunResult) {
     self.plugin_driver.on_step_completed(result.clone()).await;
     if let Err(err) = self.runner.on_step_completed(result.clone()).await {
       log::error!("Failed to handle step completed: {:?}", err);
     }
   }
 
-  pub async fn call_on_workflow_completed(&self, result: WorkflowRunResult) {
+  pub(crate) async fn call_on_workflow_completed(&self, result: WorkflowRunResult) {
     self
       .plugin_driver
       .on_workflow_completed(result.clone())
@@ -263,14 +267,10 @@ impl ExecutionContext {
     }
   }
 
-  pub async fn call_on_log(&self, log: WorkflowLog) {
+  pub(crate) async fn call_on_log(&self, log: WorkflowLog) {
     self.plugin_driver.on_log(log.clone()).await;
     if let Err(err) = self.runner.on_log(log).await {
       log::error!("Failed to handle log: {:?}", err);
     }
-  }
-
-  pub fn cancel_job(&self, job_id: &JobId) -> Result<()> {
-    self.signal_manager.cancel_job(job_id)
   }
 }

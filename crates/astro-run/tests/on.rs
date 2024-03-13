@@ -1,6 +1,6 @@
 use astro_run::{
-  stream, AstroRun, AstroRunPlugin, Context, PluginBuilder, RunResult, Runner, Workflow,
-  WorkflowEvent, WorkflowState,
+  stream, AstroRun, AstroRunPlugin, Context, RunResult, Runner, Workflow, WorkflowEvent,
+  WorkflowState,
 };
 use parking_lot::Mutex;
 
@@ -27,7 +27,7 @@ impl Runner for TestRunner {
 fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
   let index = Mutex::new(0);
 
-  PluginBuilder::new("test-plugin")
+  AstroRunPlugin::builder("test-plugin")
     .on_log(move |log| {
       let mut i = index.lock();
       println!("{}: {}", *i, log.message);

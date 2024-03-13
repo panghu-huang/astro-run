@@ -167,7 +167,7 @@ mod tests {
 
   #[astro_run_test::test]
   async fn plugin_manager_on_state_change() {
-    let plugin = PluginBuilder::new("test")
+    let plugin = AstroRunPlugin::builder("test")
       .on_state_change(|event| {
         if let WorkflowStateEvent::WorkflowStateUpdated { id, state } = event {
           assert_eq!(id, WorkflowId::new("test"));
@@ -180,7 +180,11 @@ mod tests {
       })
       .build();
 
-    let plugin_driver = PluginDriver::new(vec![Box::new(plugin)]);
+    let error_plugin = AstroRunPlugin::builder("error")
+      .on_state_change(|_| Err(Error::error("test")))
+      .build();
+
+    let plugin_driver = PluginDriver::new(vec![Box::new(plugin), Box::new(error_plugin)]);
 
     plugin_driver
       .on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
@@ -192,7 +196,7 @@ mod tests {
 
   #[astro_run_test::test]
   async fn plugin_manager_on_log() {
-    let plugin = PluginBuilder::new("test")
+    let plugin = AstroRunPlugin::builder("test")
       .on_log(|log| {
         assert_eq!(log.message, "test");
 
@@ -200,7 +204,11 @@ mod tests {
       })
       .build();
 
-    let plugin_driver = PluginDriver::new(vec![Box::new(plugin)]);
+    let error_plugin = AstroRunPlugin::builder("error")
+      .on_log(|_| Err(Error::error("test")))
+      .build();
+
+    let plugin_driver = PluginDriver::new(vec![Box::new(plugin), Box::new(error_plugin)]);
 
     plugin_driver
       .on_log(WorkflowLog {

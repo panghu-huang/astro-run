@@ -173,6 +173,7 @@ impl AstroRunRunner {
       }
     }
 
+    #[cfg(not(tarpaulin_include))]
     Ok(())
   }
 
@@ -289,13 +290,13 @@ impl AstroRunRunnerBuilder {
   pub async fn build(self) -> Result<AstroRunRunner> {
     let id = self
       .id
-      .ok_or_else(|| Error::internal_runtime_error("Missing id".to_string()))?;
+      .ok_or_else(|| Error::init_error("Missing id".to_string()))?;
     let url = self
       .url
-      .ok_or_else(|| Error::internal_runtime_error("Missing url".to_string()))?;
+      .ok_or_else(|| Error::init_error("Missing url".to_string()))?;
     let runner = self
       .runner
-      .ok_or_else(|| Error::internal_runtime_error("Missing runner".to_string()))?;
+      .ok_or_else(|| Error::init_error("Missing runner".to_string()))?;
 
     let client = AstroRunServiceClient::connect(url)
       .await

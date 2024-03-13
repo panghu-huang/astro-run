@@ -1,6 +1,7 @@
 use astro_run::{
-  stream, AstroRun, AstroRunPlugin, Context, PluginBuilder, Result, RunResult, Runner, Workflow,
-  WorkflowState,
+  stream, AstroRun, AstroRunPlugin, Context, Error, JobRunResult, PluginNoopResult, Result,
+  RunJobEvent, RunResult, RunStepEvent, RunWorkflowEvent, Runner, StepRunResult, Workflow,
+  WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
 use astro_run_server::{AstroRunRunner, AstroRunServer, DefaultScheduler};
 use parking_lot::Mutex;
@@ -24,12 +25,44 @@ impl Runner for TestRunner {
 
     Ok(rx)
   }
+
+  async fn on_run_workflow(&self, _: RunWorkflowEvent) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_run_job(&self, _: RunJobEvent) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_run_step(&self, _: RunStepEvent) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_log(&self, _: WorkflowLog) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_state_change(&self, _: WorkflowStateEvent) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_step_completed(&self, _: StepRunResult) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_job_completed(&self, _: JobRunResult) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
+
+  async fn on_workflow_completed(&self, _: WorkflowRunResult) -> PluginNoopResult {
+    Err(Error::error("Error"))
+  }
 }
 
 fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
   let index = Mutex::new(0);
 
-  PluginBuilder::new("assert-logs-plugin")
+  AstroRunPlugin::builder("assert-logs-plugin")
     .on_log(move |log| {
       let mut i = index.lock();
       assert_eq!(log.message, excepted_logs[*i]);
@@ -37,6 +70,20 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
 
       Ok(())
     })
+    .build()
+}
+
+fn error_plugin() -> AstroRunPlugin {
+  AstroRunPlugin::builder("error")
+    .on_run_workflow(|_| Err(Error::error("Error")))
+    .on_run_job(|_| Err(Error::error("Error")))
+    .on_run_step(|_| Err(Error::error("Error")))
+    .on_log(|_| Err(Error::error("Error")))
+    .on_state_change(|_| Err(Error::error("Error")))
+    .on_step_completed(|_| Err(Error::error("Error")))
+    .on_job_completed(|_| Err(Error::error("Error")))
+    .on_workflow_completed(|_| Err(Error::error("Error")))
+    .on_resolve_dynamic_action(|_| Err(Error::error("Error")))
     .build()
 }
 
@@ -67,6 +114,7 @@ async fn test_run() -> Result<()> {
           "No runner available"
         },
       ]))
+      .plugin(error_plugin())
       .runner(server)
       .build();
 
@@ -119,7 +167,7 @@ async fn test_run() -> Result<()> {
       .max_runs(5)
       .support_host(true)
       .plugin(
-        PluginBuilder::new("abort-plugin")
+        AstroRunPlugin::builder("abort-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
 
@@ -170,4 +218,28 @@ async fn no_available_runners() {
   let res = workflow.run(ctx).await;
 
   assert_eq!(res.state, WorkflowState::Failed);
+}
+
+#[astro_run_test::test]
+async fn test_build_runner_error() {
+  let error = AstroRunRunner::builder().build().await.err();
+
+  assert_eq!(error.unwrap(), Error::init_error("Missing id"));
+
+  let error = AstroRunRunner::builder()
+    .id("test-runner")
+    .build()
+    .await
+    .err();
+
+  assert_eq!(error.unwrap(), Error::init_error("Missing url"));
+
+  let error = AstroRunRunner::builder()
+    .id("test-runner")
+    .url("http://127.0.0.1:5338")
+    .build()
+    .await
+    .err();
+
+  assert_eq!(error.unwrap(), Error::init_error("Missing runner"));
 }

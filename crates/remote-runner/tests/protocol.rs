@@ -1,5 +1,5 @@
 use astro_run::{
-  stream, AstroRun, Context, EnvironmentVariable, JobRunResult, PluginBuilder, PluginNoopResult,
+  stream, AstroRun, AstroRunPlugin, Context, EnvironmentVariable, JobRunResult, PluginNoopResult,
   Result, RunResult, Runner, StepRunResult, Workflow, WorkflowLog, WorkflowRunResult,
   WorkflowState, WorkflowStateEvent,
 };
@@ -194,7 +194,7 @@ async fn test_protocol() -> Result<()> {
       .support_docker(true)
       .support_host(true)
       .plugin(
-        PluginBuilder::new("test-plugin")
+        AstroRunPlugin::builder("test-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
             Ok(())

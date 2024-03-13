@@ -1,4 +1,4 @@
-use astro_run::Context;
+use astro_run::{Context, PluginNoopResult};
 use std::sync::Arc;
 
 #[astro_run::async_trait]
@@ -7,7 +7,9 @@ pub trait Plugin: Send + Sync {
   async fn on_before_run(&self, ctx: Context) -> Result<Context, Box<dyn std::error::Error>> {
     Ok(ctx)
   }
-  async fn on_after_run(&self, _ctx: Context) {}
+  async fn on_after_run(&self, _ctx: Context) -> PluginNoopResult {
+    Ok(())
+  }
 }
 
 pub type SharedPluginDriver = Arc<PluginDriver>;
@@ -36,7 +38,9 @@ impl PluginDriver {
 
   pub async fn on_after_run(&self, ctx: Context) {
     for plugin in &self.plugins {
-      plugin.on_after_run(ctx.clone()).await;
+      if let Err(err) = plugin.on_after_run(ctx.clone()).await {
+        log::error!("Plugin {} on_after_run error: {}", plugin.name(), err);
+      }
     }
   }
 }

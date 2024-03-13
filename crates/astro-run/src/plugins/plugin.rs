@@ -39,7 +39,7 @@ pub struct PluginBuilder {
 }
 
 impl PluginBuilder {
-  pub fn new(name: &'static str) -> Self {
+  fn new(name: &'static str) -> Self {
     PluginBuilder {
       name,
       on_state_change: None,

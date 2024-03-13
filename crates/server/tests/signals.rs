@@ -1,5 +1,5 @@
 use astro_run::{
-  stream, AstroRun, Context, PluginBuilder, Result, RunResult, Signal, Workflow, WorkflowState,
+  stream, AstroRun, AstroRunPlugin, Context, Result, RunResult, Signal, Workflow, WorkflowState,
 };
 use astro_run_server::{AstroRunRunner, AstroRunServer};
 use std::time::Duration;
@@ -97,7 +97,7 @@ async fn test_signal() -> Result<()> {
         delay: Duration::from_secs(1),
       })
       .plugin(
-        PluginBuilder::new("abort-plugin")
+        AstroRunPlugin::builder("abort-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
 
@@ -186,7 +186,7 @@ async fn test_timeout() -> Result<()> {
         delay: Duration::from_secs(2),
       })
       .plugin(
-        PluginBuilder::new("abort-plugin")
+        AstroRunPlugin::builder("abort-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
 
@@ -285,7 +285,7 @@ async fn test_cancel() -> Result<()> {
         delay: Duration::from_secs(60),
       })
       .plugin(
-        PluginBuilder::new("abort-plugin")
+        AstroRunPlugin::builder("abort-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
 

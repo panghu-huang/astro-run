@@ -1,7 +1,7 @@
 use astro_run::{
-  stream, AstroRun, AstroRunPlugin, Context, EnvironmentVariable, JobRunResult, PluginBuilder,
-  PluginNoopResult, Result, RunResult, Runner, Workflow, WorkflowLog, WorkflowRunResult,
-  WorkflowState, WorkflowStateEvent,
+  stream, AstroRun, AstroRunPlugin, Context, EnvironmentVariable, JobRunResult, PluginNoopResult,
+  Result, RunResult, Runner, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState,
+  WorkflowStateEvent,
 };
 use astro_run_server::{AstroRunRunner, AstroRunServer};
 use parking_lot::Mutex;
@@ -119,7 +119,7 @@ impl Runner for TestRunner {
 fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
   let index = Mutex::new(0);
 
-  PluginBuilder::new("assert-logs-plugin")
+  AstroRunPlugin::builder("assert-logs-plugin")
     .on_log(move |log| {
       let mut i = index.lock();
       assert_eq!(log.message, excepted_logs[*i]);
@@ -213,7 +213,7 @@ async fn test_protocol() -> Result<()> {
       .support_host(true)
       .plugin(assert_logs_plugin(vec!["Hello World", "Hello World1"]))
       .plugin(
-        PluginBuilder::new("abort-plugin")
+        AstroRunPlugin::builder("abort-plugin")
           .on_workflow_completed(move |_| {
             tx.try_send(()).unwrap();
 

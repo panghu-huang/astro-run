@@ -1,7 +1,6 @@
 use astro_run::{
-  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Payload, Plugin,
-  PluginNoopResult, RunResult, Runner, UserActionStep, UserCommandStep, UserStep, Workflow,
-  WorkflowEvent, WorkflowLog, WorkflowState,
+  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Payload, RunResult, Runner,
+  UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowEvent, WorkflowState,
 };
 use parking_lot::Mutex;
 
@@ -44,33 +43,18 @@ impl Runner for TestRunner {
   }
 }
 
-struct AssetLogsPlugin {
-  excepted_logs: Vec<&'static str>,
-  index: Mutex<usize>,
-}
+fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
+  let index = Mutex::new(0);
 
-impl AssetLogsPlugin {
-  fn new(excepted_logs: Vec<&'static str>) -> Self {
-    AssetLogsPlugin {
-      excepted_logs,
-      index: Mutex::new(0),
-    }
-  }
-}
+  AstroRunPlugin::builder("test-plugin")
+    .on_log(move |log| {
+      let mut i = index.lock();
+      assert_eq!(log.message, excepted_logs[*i]);
+      *i += 1;
 
-#[astro_run::async_trait]
-impl Plugin for AssetLogsPlugin {
-  fn name(&self) -> &'static str {
-    "test-plugin"
-  }
-
-  async fn on_log(&self, log: WorkflowLog) -> PluginNoopResult {
-    let mut i = self.index.lock();
-    assert_eq!(log.message, self.excepted_logs[*i]);
-    *i += 1;
-
-    Ok(())
-  }
+      Ok(())
+    })
+    .build()
 }
 
 #[astro_run_test::test]
@@ -85,7 +69,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["Hello World"]))
+    .plugin(assert_logs_plugin(vec!["Hello World"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -136,7 +120,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["Hello World"]))
+    .plugin(assert_logs_plugin(vec!["Hello World"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -174,7 +158,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec![
+    .plugin(assert_logs_plugin(vec![
       "Hello World1",
       "Hello World2",
       "Hello World3",
@@ -214,7 +198,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["Hello World1"]))
+    .plugin(assert_logs_plugin(vec!["Hello World1"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -258,7 +242,7 @@ async fn test_depends_on() {
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec![
+    .plugin(assert_logs_plugin(vec![
       "Hello World1",
       "Hello World2",
       "Hello World3",
@@ -302,7 +286,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["Failed step"]))
+    .plugin(assert_logs_plugin(vec!["Failed step"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -338,7 +322,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["Failed step", "Hello World"]))
+    .plugin(assert_logs_plugin(vec!["Failed step", "Hello World"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -375,7 +359,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["Cancel step"]))
+    .plugin(assert_logs_plugin(vec!["Cancel step"]))
     .build();
 
   let workflow = Workflow::builder()
@@ -427,7 +411,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
-    .plugin(AssetLogsPlugin::new(vec!["test", "Hello World"]))
+    .plugin(assert_logs_plugin(vec!["test", "Hello World"]))
     .action("test", TestAction)
     .build();
 
@@ -548,11 +532,7 @@ jobs:
         })
         .build(),
     )
-    .plugin(AssetLogsPlugin::new(vec![
-      "pre test",
-      "test",
-      "Hello World",
-    ]))
+    .plugin(assert_logs_plugin(vec!["pre test", "test", "Hello World"]))
     .action("test", TestAction {})
     .build();
 
@@ -684,7 +664,7 @@ jobs:
 
   let astro_run = AstroRun::builder()
     .runner(TestRunner)
-    .plugin(AssetLogsPlugin::new(vec!["Hello World"]))
+    .plugin(assert_logs_plugin(vec!["Hello World"]))
     .plugin(
       AstroRunPlugin::builder("test-plugin")
         .on_run_workflow(|event| {

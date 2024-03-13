@@ -256,7 +256,7 @@ pub struct AstroRunRemoteRunnerServerBuilder {
 }
 
 impl AstroRunRemoteRunnerServerBuilder {
-  pub fn new() -> Self {
+  fn new() -> Self {
     Self {
       id: None,
       runner: None,
@@ -307,11 +307,9 @@ impl AstroRunRemoteRunnerServerBuilder {
   pub fn build(self) -> Result<AstroRunRemoteRunnerServer, Error> {
     let runner = self
       .runner
-      .ok_or_else(|| Error::internal_runtime_error("Runner is not set".to_string()))?;
+      .ok_or_else(|| Error::init_error("Runner is not set"))?;
 
-    let id = self
-      .id
-      .ok_or_else(|| Error::internal_runtime_error("Id is not set".to_string()))?;
+    let id = self.id.ok_or_else(|| Error::init_error("Id is not set"))?;
 
     let support_docker = self.support_docker.unwrap_or_else(|| {
       log::trace!("Support docker is not set, Checking if docker is installed and running");
