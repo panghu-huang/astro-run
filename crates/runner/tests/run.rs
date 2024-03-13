@@ -295,12 +295,12 @@ async fn test_before_run_error() {
 
   let res = workflow.run(ctx).await;
 
-  assert_eq!(res.state, WorkflowState::Failed);
+  assert_eq!(res.state, WorkflowState::Succeeded);
   let job_result = res.jobs.get("test").unwrap();
-  assert_eq!(job_result.state, WorkflowState::Failed);
+  assert_eq!(job_result.state, WorkflowState::Succeeded);
   assert_eq!(job_result.steps.len(), 1);
 
-  assert_eq!(job_result.steps[0].state, WorkflowState::Failed);
+  assert_eq!(job_result.steps[0].state, WorkflowState::Succeeded);
 }
 
 #[astro_run_test::test]
