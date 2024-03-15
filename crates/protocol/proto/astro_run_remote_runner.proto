@@ -35,4 +35,5 @@ service AstroRunRemoteRunner {
   rpc GetRunnerMetadata(ConnectRequest) returns (astro_run.RunnerMetadata) {}
   rpc Run(astro_run.Context) returns (stream RunResponse) {}
   rpc SendEvent(Event) returns (SendEventResponse) {}
+  rpc CallBeforeRunStepHook(astro_run.Command) returns (astro_run.Command) {}
 }

@@ -24,6 +24,8 @@ impl ExecutionContext {
   }
 
   pub async fn run(&self, step: Step) -> StepRunResult {
+    let step = self.call_on_before_run_step(step).await;
+
     let step_id = step.id.clone();
     let timeout = step.timeout;
 
@@ -181,6 +183,7 @@ impl ExecutionContext {
       id: step_id.clone(),
       state: res.state.clone(),
     };
+
     self.call_on_state_change(event).await;
 
     self.call_on_step_completed(res.clone()).await;
@@ -253,6 +256,16 @@ impl ExecutionContext {
     self.plugin_driver.on_step_completed(result.clone()).await;
     if let Err(err) = self.runner.on_step_completed(result.clone()).await {
       log::error!("Failed to handle step completed: {:?}", err);
+    }
+  }
+
+  pub(crate) async fn call_on_before_run_step(&self, step: Step) -> Step {
+    let step = self.plugin_driver.on_before_run_step(step).await;
+
+    if let Ok(step) = self.runner.on_before_run_step(step.clone()).await {
+      step
+    } else {
+      step
     }
   }
 

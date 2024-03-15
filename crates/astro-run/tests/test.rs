@@ -1,6 +1,7 @@
 use astro_run::{
-  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Payload, RunResult, Runner,
-  UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowEvent, WorkflowState,
+  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Error, HookBeforeRunStepResult,
+  Payload, Plugin, RunResult, Runner, Step, UserActionStep, UserCommandStep, UserStep, Workflow,
+  WorkflowEvent, WorkflowState,
 };
 use parking_lot::Mutex;
 
@@ -41,6 +42,23 @@ impl Runner for TestRunner {
 
     Ok(rx)
   }
+
+  async fn on_before_run_step(&self, _step: Step) -> HookBeforeRunStepResult {
+    Err(Error::error("Error"))
+  }
+}
+
+struct BeforeRunStepPlugin;
+
+#[astro_run::async_trait]
+impl Plugin for BeforeRunStepPlugin {
+  fn name(&self) -> &'static str {
+    "before-run-step-plugin"
+  }
+
+  async fn on_before_run_step(&self, step: Step) -> HookBeforeRunStepResult {
+    Ok(step)
+  }
 }
 
 fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
@@ -70,6 +88,7 @@ jobs:
   let astro_run = AstroRun::builder()
     .runner(TestRunner::new())
     .plugin(assert_logs_plugin(vec!["Hello World"]))
+    .plugin(BeforeRunStepPlugin)
     .build();
 
   let workflow = Workflow::builder()

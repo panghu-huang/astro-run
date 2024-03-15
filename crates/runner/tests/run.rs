@@ -1,4 +1,4 @@
-use astro_run::{AstroRun, AstroRunPlugin, PluginNoopResult, Workflow, WorkflowState};
+use astro_run::{AstroRun, AstroRunPlugin, HookNoopResult, Workflow, WorkflowState};
 use astro_runner::{AstroRunner, Command};
 use parking_lot::Mutex;
 use std::{fs, io::Write, sync::Arc};
@@ -200,7 +200,7 @@ async fn test_before_run() {
       Ok(ctx)
     }
 
-    async fn on_after_run(&self, ctx: astro_run::Context) -> PluginNoopResult {
+    async fn on_after_run(&self, ctx: astro_run::Context) -> HookNoopResult {
       assert_eq!(ctx.command.run, "echo \"My custom run\"");
 
       Ok(())

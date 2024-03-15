@@ -1,4 +1,4 @@
-use astro_run::{stream, AstroRun, Context, PluginNoopResult, RunResult, Runner, Workflow};
+use astro_run::{stream, AstroRun, Context, HookNoopResult, RunResult, Runner, Workflow};
 use astro_run_scheduler::*;
 
 struct RunnerController<T>
@@ -33,7 +33,7 @@ where
     Ok(rx)
   }
 
-  async fn on_job_completed(&self, result: astro_run::JobRunResult) -> PluginNoopResult {
+  async fn on_job_completed(&self, result: astro_run::JobRunResult) -> HookNoopResult {
     let steps = result.steps.len();
     assert_eq!(steps, self.expected_runners.len());
     self.scheduler.on_job_completed(result);
@@ -41,7 +41,7 @@ where
     Ok(())
   }
 
-  async fn on_step_completed(&self, result: astro_run::StepRunResult) -> PluginNoopResult {
+  async fn on_step_completed(&self, result: astro_run::StepRunResult) -> HookNoopResult {
     self.scheduler.on_step_completed(result);
 
     Ok(())

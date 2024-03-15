@@ -1,6 +1,6 @@
 use crate::{
-  stream::StreamReceiver, Context, JobRunResult, PluginNoopResult, StepRunResult, WorkflowLog,
-  WorkflowLogType, WorkflowRunResult, WorkflowStateEvent,
+  stream::StreamReceiver, Context, HookBeforeRunStepResult, HookNoopResult, JobRunResult,
+  StepRunResult, WorkflowLog, WorkflowLogType, WorkflowRunResult, WorkflowStateEvent,
 };
 pub use tokio_stream::{Stream, StreamExt};
 
@@ -74,28 +74,31 @@ pub type RunResponse = crate::Result<StreamReceiver>;
 ///
 #[async_trait::async_trait]
 pub trait Runner: Send + Sync {
-  async fn on_run_workflow(&self, _event: crate::RunWorkflowEvent) -> PluginNoopResult {
+  async fn on_run_workflow(&self, _event: crate::RunWorkflowEvent) -> HookNoopResult {
     Ok(())
   }
-  async fn on_run_job(&self, _event: crate::RunJobEvent) -> PluginNoopResult {
+  async fn on_run_job(&self, _event: crate::RunJobEvent) -> HookNoopResult {
     Ok(())
   }
-  async fn on_run_step(&self, _event: crate::RunStepEvent) -> PluginNoopResult {
+  async fn on_before_run_step(&self, step: crate::Step) -> HookBeforeRunStepResult {
+    Ok(step)
+  }
+  async fn on_run_step(&self, _event: crate::RunStepEvent) -> HookNoopResult {
     Ok(())
   }
-  async fn on_step_completed(&self, _result: StepRunResult) -> PluginNoopResult {
+  async fn on_state_change(&self, _event: WorkflowStateEvent) -> HookNoopResult {
     Ok(())
   }
-  async fn on_job_completed(&self, _result: JobRunResult) -> PluginNoopResult {
+  async fn on_log(&self, _log: WorkflowLog) -> HookNoopResult {
     Ok(())
   }
-  async fn on_workflow_completed(&self, _result: WorkflowRunResult) -> PluginNoopResult {
+  async fn on_step_completed(&self, _result: StepRunResult) -> HookNoopResult {
     Ok(())
   }
-  async fn on_state_change(&self, _event: WorkflowStateEvent) -> PluginNoopResult {
+  async fn on_job_completed(&self, _result: JobRunResult) -> HookNoopResult {
     Ok(())
   }
-  async fn on_log(&self, _log: WorkflowLog) -> PluginNoopResult {
+  async fn on_workflow_completed(&self, _result: WorkflowRunResult) -> HookNoopResult {
     Ok(())
   }
   async fn run(&self, config: Context) -> RunResponse;

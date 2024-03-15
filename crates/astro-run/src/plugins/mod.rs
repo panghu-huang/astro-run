@@ -1,44 +1,62 @@
 mod plugin;
 
 use crate::{
-  Action, Error, JobRunResult, StepRunResult, UserActionStep, WorkflowLog, WorkflowRunResult,
-  WorkflowStateEvent,
+  Action, Error, Job, JobRunResult, Step, StepRunResult, UserActionStep, Workflow, WorkflowEvent,
+  WorkflowLog, WorkflowRunResult, WorkflowStateEvent,
 };
 pub use plugin::*;
 use std::sync::Arc;
 
-pub type PluginNoopResult = Result<(), Error>;
-pub type PluginResolveActionResult = Result<Option<Box<dyn Action>>, Error>;
+#[derive(Clone, Debug)]
+pub struct RunEvent<T> {
+  pub payload: T,
+  pub workflow_event: Option<WorkflowEvent>,
+}
+
+pub type RunWorkflowEvent = RunEvent<Workflow>;
+
+pub type RunJobEvent = RunEvent<Job>;
+
+pub type RunStepEvent = RunEvent<Step>;
+
+pub type HookNoopResult = Result<(), Error>;
+
+pub type HookBeforeRunStepResult = Result<Step, Error>;
+
+pub type HookResolveActionResult = Result<Option<Box<dyn Action>>, Error>;
 
 #[async_trait::async_trait]
 pub trait Plugin: Send + Sync {
   fn name(&self) -> &'static str;
-  async fn on_state_change(&self, _event: WorkflowStateEvent) -> PluginNoopResult {
-    Ok(())
-  }
-  async fn on_log(&self, _log: WorkflowLog) -> PluginNoopResult {
-    Ok(())
-  }
-  async fn on_run_workflow(&self, _event: RunWorkflowEvent) -> PluginNoopResult {
-    Ok(())
-  }
-  async fn on_run_job(&self, _event: RunJobEvent) -> PluginNoopResult {
-    Ok(())
-  }
-  async fn on_run_step(&self, _event: RunStepEvent) -> PluginNoopResult {
-    Ok(())
-  }
-  async fn on_workflow_completed(&self, _result: WorkflowRunResult) -> PluginNoopResult {
-    Ok(())
-  }
-  async fn on_job_completed(&self, _result: JobRunResult) -> PluginNoopResult {
-    Ok(())
-  }
-  async fn on_step_completed(&self, _result: StepRunResult) -> PluginNoopResult {
-    Ok(())
-  }
-  async fn on_resolve_dynamic_action(&self, _step: UserActionStep) -> PluginResolveActionResult {
+  async fn on_resolve_dynamic_action(&self, _step: UserActionStep) -> HookResolveActionResult {
     Ok(None)
+  }
+  async fn on_run_workflow(&self, _event: RunWorkflowEvent) -> HookNoopResult {
+    Ok(())
+  }
+  async fn on_run_job(&self, _event: RunJobEvent) -> HookNoopResult {
+    Ok(())
+  }
+  async fn on_before_run_step(&self, step: Step) -> HookBeforeRunStepResult {
+    Ok(step)
+  }
+  async fn on_run_step(&self, _event: RunStepEvent) -> HookNoopResult {
+    Ok(())
+  }
+  async fn on_state_change(&self, _event: WorkflowStateEvent) -> HookNoopResult {
+    Ok(())
+  }
+  async fn on_log(&self, _log: WorkflowLog) -> HookNoopResult {
+    Ok(())
+  }
+  async fn on_step_completed(&self, _result: StepRunResult) -> HookNoopResult {
+    Ok(())
+  }
+  async fn on_job_completed(&self, _result: JobRunResult) -> HookNoopResult {
+    Ok(())
+  }
+  async fn on_workflow_completed(&self, _result: WorkflowRunResult) -> HookNoopResult {
+    Ok(())
   }
 }
 
@@ -141,6 +159,24 @@ impl PluginDriver {
     }
   }
 
+  pub async fn on_before_run_step(&self, step: Step) -> Step {
+    let mut step = step;
+    for plugin in &self.plugins {
+      match plugin.on_before_run_step(step.clone()).await {
+        Ok(new_step) => step = new_step,
+        Err(err) => {
+          log::error!(
+            "Plugin {} failed to handle before run step: {}",
+            plugin.name(),
+            err
+          );
+        }
+      }
+    }
+
+    step
+  }
+
   pub async fn on_resolve_dynamic_action(&self, step: UserActionStep) -> Option<Box<dyn Action>> {
     for plugin in &self.plugins {
       match plugin.on_resolve_dynamic_action(step.clone()).await {
@@ -190,6 +226,30 @@ mod tests {
       .on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
         id: WorkflowId::new("test"),
         state: WorkflowState::Cancelled,
+      })
+      .await;
+  }
+
+  #[astro_run_test::test]
+  async fn plugin_manager_on_before_run_step() {
+    let plugin = AstroRunPlugin::builder("test")
+      .on_before_run_step(|step| {
+        let mut step = step;
+        step.run = "Updated".to_string();
+
+        Ok(step)
+      })
+      .build();
+
+    let error_plugin = AstroRunPlugin::builder("error")
+      .on_before_run_step(|_| Err(Error::error("test")))
+      .build();
+
+    let plugin_driver = PluginDriver::new(vec![Box::new(plugin), Box::new(error_plugin)]);
+
+    plugin_driver
+      .on_before_run_step(Step {
+        ..Default::default()
       })
       .await;
   }

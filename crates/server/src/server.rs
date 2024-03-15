@@ -1,5 +1,5 @@
 use astro_run::{
-  stream, Context, Error, PluginNoopResult, RunResponse, Runner, StreamSender, WorkflowLogType,
+  stream, Context, Error, HookNoopResult, RunResponse, Runner, StreamSender, WorkflowLogType,
 };
 use astro_run_protocol::{
   astro_run_server, tonic, AstroRunService, AstroRunServiceServer, RunnerMetadata,
@@ -202,49 +202,49 @@ impl Runner for AstroRunServer {
     Ok(receiver)
   }
 
-  async fn on_step_completed(&self, result: astro_run::StepRunResult) -> PluginNoopResult {
+  async fn on_step_completed(&self, result: astro_run::StepRunResult) -> HookNoopResult {
     self.send_event_to_clients(result);
 
     Ok(())
   }
 
-  async fn on_job_completed(&self, result: astro_run::JobRunResult) -> PluginNoopResult {
+  async fn on_job_completed(&self, result: astro_run::JobRunResult) -> HookNoopResult {
     self.send_event_to_clients(result);
 
     Ok(())
   }
 
-  async fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) -> PluginNoopResult {
+  async fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) -> HookNoopResult {
     self.send_event_to_clients(result);
 
     Ok(())
   }
 
-  async fn on_run_step(&self, event: astro_run::RunStepEvent) -> PluginNoopResult {
+  async fn on_run_step(&self, event: astro_run::RunStepEvent) -> HookNoopResult {
     self.send_event_to_clients(event);
 
     Ok(())
   }
 
-  async fn on_run_job(&self, event: astro_run::RunJobEvent) -> PluginNoopResult {
+  async fn on_run_job(&self, event: astro_run::RunJobEvent) -> HookNoopResult {
     self.send_event_to_clients(event);
 
     Ok(())
   }
 
-  async fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) -> PluginNoopResult {
+  async fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) -> HookNoopResult {
     self.send_event_to_clients(event);
 
     Ok(())
   }
 
-  async fn on_log(&self, log: astro_run::WorkflowLog) -> PluginNoopResult {
+  async fn on_log(&self, log: astro_run::WorkflowLog) -> HookNoopResult {
     self.send_event_to_clients(log);
 
     Ok(())
   }
 
-  async fn on_state_change(&self, event: astro_run::WorkflowStateEvent) -> PluginNoopResult {
+  async fn on_state_change(&self, event: astro_run::WorkflowStateEvent) -> HookNoopResult {
     self.send_event_to_clients(event);
 
     Ok(())
