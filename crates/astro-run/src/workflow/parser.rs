@@ -112,7 +112,6 @@ impl<'a> WorkflowParser<'a> {
           timeout,
           secrets,
           on,
-          ..
         }) = step.clone()
         {
           let timeout = timeout.unwrap_or("60m".to_string());
@@ -332,6 +331,9 @@ jobs:
             name: Some("Save cache".to_string()),
             run: format!("save cache {} {}", options.path, options.key),
             continue_on_error: Some(true),
+            timeout: None,
+            secrets: None,
+            on: None,
             ..Default::default()
           })),
         })

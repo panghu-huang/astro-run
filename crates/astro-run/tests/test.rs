@@ -1,6 +1,7 @@
 use astro_run::{
-  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Payload, RunResult, Runner,
-  UserActionStep, UserCommandStep, UserStep, Workflow, WorkflowEvent, WorkflowState,
+  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Error, HookBeforeRunStepResult,
+  Payload, RunResult, Runner, Step, UserActionStep, UserCommandStep, UserStep, Workflow,
+  WorkflowEvent, WorkflowState,
 };
 use parking_lot::Mutex;
 
@@ -40,6 +41,10 @@ impl Runner for TestRunner {
     }
 
     Ok(rx)
+  }
+
+  async fn on_before_run_step(&self, _step: Step) -> HookBeforeRunStepResult {
+    Err(Error::error("Error"))
   }
 }
 

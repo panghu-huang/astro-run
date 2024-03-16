@@ -244,6 +244,35 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
 
     Ok(tonic::Response::new(metadata))
   }
+
+  async fn call_before_run_step_hook(
+    &self,
+    req: tonic::Request<astro_run_protocol::Command>,
+  ) -> Result<tonic::Response<astro_run_protocol::Command>, tonic::Status> {
+    let command = req.into_inner();
+    let step: astro_run::Step = command
+      .try_into()
+      .map_err(|e| tonic::Status::invalid_argument(format!("Failed to convert command: {}", e)))?;
+
+    // Call before run step hook
+    let step = self.plugin_driver.on_before_run_step(step).await;
+
+    // Call runner before run step hook
+    let step = match self.runner.on_before_run_step(step).await {
+      Ok(step) => step,
+      Err(err) => {
+        return Err(tonic::Status::internal(format!(
+          "Failed to call before run step hook: {}",
+          err
+        )))
+      }
+    };
+
+    let command = astro_run_protocol::Command::try_from(step)
+      .map_err(|e| tonic::Status::internal(format!("Failed to convert step: {}", e)))?;
+
+    Ok(tonic::Response::new(command))
+  }
 }
 
 pub struct AstroRunRemoteRunnerServerBuilder {

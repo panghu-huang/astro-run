@@ -1,5 +1,5 @@
 use astro_run::{
-  stream, AstroRun, AstroRunPlugin, Context, EnvironmentVariable, JobRunResult, PluginNoopResult,
+  stream, AstroRun, AstroRunPlugin, Context, EnvironmentVariable, HookNoopResult, JobRunResult,
   Result, RunResult, Runner, Workflow, WorkflowLog, WorkflowRunResult, WorkflowState,
   WorkflowStateEvent,
 };
@@ -32,7 +32,7 @@ impl Runner for TestRunner {
     Ok(rx)
   }
 
-  async fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) -> PluginNoopResult {
+  async fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) -> HookNoopResult {
     self.current_event_count.lock().add_assign(1);
     assert_eq!(event.payload.name.unwrap(), "CI");
     assert_eq!(event.workflow_event.unwrap().sha, "123456789");
@@ -40,7 +40,7 @@ impl Runner for TestRunner {
     Ok(())
   }
 
-  async fn on_run_job(&self, event: astro_run::RunJobEvent) -> PluginNoopResult {
+  async fn on_run_job(&self, event: astro_run::RunJobEvent) -> HookNoopResult {
     self.current_event_count.lock().add_assign(1);
 
     assert_eq!(event.workflow_event.unwrap().sha, "123456789");
@@ -73,27 +73,27 @@ impl Runner for TestRunner {
     Ok(())
   }
 
-  async fn on_state_change(&self, _event: WorkflowStateEvent) -> PluginNoopResult {
+  async fn on_state_change(&self, _event: WorkflowStateEvent) -> HookNoopResult {
     self.current_event_count.lock().add_assign(1);
 
     Ok(())
   }
 
-  async fn on_job_completed(&self, result: JobRunResult) -> PluginNoopResult {
-    self.current_event_count.lock().add_assign(1);
-    assert_eq!(result.state, WorkflowState::Succeeded);
-
-    Ok(())
-  }
-
-  async fn on_step_completed(&self, result: astro_run::StepRunResult) -> PluginNoopResult {
+  async fn on_job_completed(&self, result: JobRunResult) -> HookNoopResult {
     self.current_event_count.lock().add_assign(1);
     assert_eq!(result.state, WorkflowState::Succeeded);
 
     Ok(())
   }
 
-  async fn on_log(&self, log: WorkflowLog) -> PluginNoopResult {
+  async fn on_step_completed(&self, result: astro_run::StepRunResult) -> HookNoopResult {
+    self.current_event_count.lock().add_assign(1);
+    assert_eq!(result.state, WorkflowState::Succeeded);
+
+    Ok(())
+  }
+
+  async fn on_log(&self, log: WorkflowLog) -> HookNoopResult {
     self.current_event_count.lock().add_assign(1);
 
     let index = log.step_id.step_number();
@@ -106,7 +106,7 @@ impl Runner for TestRunner {
     Ok(())
   }
 
-  async fn on_workflow_completed(&self, result: WorkflowRunResult) -> PluginNoopResult {
+  async fn on_workflow_completed(&self, result: WorkflowRunResult) -> HookNoopResult {
     self.current_event_count.lock().add_assign(1);
     assert_eq!(result.state, WorkflowState::Succeeded);
 

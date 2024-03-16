@@ -231,6 +231,36 @@ pub mod astro_run_remote_runner_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        pub async fn call_before_run_step_hook(
+            &mut self,
+            request: impl tonic::IntoRequest<super::super::astro_run::Command>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::astro_run::Command>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/astro_run_remote_runner.AstroRunRemoteRunner/CallBeforeRunStepHook",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "astro_run_remote_runner.AstroRunRemoteRunner",
+                        "CallBeforeRunStepHook",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -262,6 +292,13 @@ pub mod astro_run_remote_runner_server {
             request: tonic::Request<super::Event>,
         ) -> std::result::Result<
             tonic::Response<super::SendEventResponse>,
+            tonic::Status,
+        >;
+        async fn call_before_run_step_hook(
+            &self,
+            request: tonic::Request<super::super::astro_run::Command>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::astro_run::Command>,
             tonic::Status,
         >;
     }
@@ -465,6 +502,52 @@ pub mod astro_run_remote_runner_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = SendEventSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/astro_run_remote_runner.AstroRunRemoteRunner/CallBeforeRunStepHook" => {
+                    #[allow(non_camel_case_types)]
+                    struct CallBeforeRunStepHookSvc<T: AstroRunRemoteRunner>(pub Arc<T>);
+                    impl<
+                        T: AstroRunRemoteRunner,
+                    > tonic::server::UnaryService<super::super::astro_run::Command>
+                    for CallBeforeRunStepHookSvc<T> {
+                        type Response = super::super::astro_run::Command;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::super::astro_run::Command>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                (*inner).call_before_run_step_hook(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = CallBeforeRunStepHookSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

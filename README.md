@@ -9,9 +9,9 @@ Astro Run is a highly extensible runner that can execute any workflow.
 
 ## Features
 
-* [Workflow runtime for Docker](https://github.com/panghu-huang/astro-run/blob/main/crates/runner)
-* Support for [gRPC server](https://github.com/panghu-huang/astro-run/blob/main/crates/server) to coordinate multiple runner clients
-* Support for [connecting to remote runners](https://github.com/panghu-huang/astro-run/blob/main/crates/remote-runner)
+- [Workflow runtime for Docker](https://github.com/panghu-huang/astro-run/blob/main/crates/runner)
+- Support for [gRPC server](https://github.com/panghu-huang/astro-run/blob/main/crates/server) to coordinate multiple runner clients
+- Support for [connecting to remote runners](https://github.com/panghu-huang/astro-run/blob/main/crates/remote-runner)
 
 ## Example
 
@@ -72,6 +72,7 @@ jobs:
   let workflow = Workflow::builder()
     .config(workflow)
     .build(&astro_run)
+    .await
     .unwrap();
 
   // Create a new execution context
@@ -86,11 +87,11 @@ Astro Run only defines the interface for Runners. Users can implement their own 
 
 ## More Examples
 
-* [Workflow runtime for Docker](https://github.com/panghu-huang/astro-run/blob/main/crates/runner/examples/basic.rs)
-* [Astro Run Plugins](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run/examples/plugins.rs)
-* [Astro run gRPC Server](https://github.com/panghu-huang/astro-run/blob/main/crates/server/examples/server.rs)
-* [gRPC Runner Client](https://github.com/panghu-huang/astro-run/blob/main/crates/server/examples/client.rs)
-* [Remote Runner](https://github.com/panghu-huang/astro-run/blob/main/crates/remote-runner/examples/runner-server.rs)
+- [Workflow runtime for Docker](https://github.com/panghu-huang/astro-run/blob/main/crates/runner/examples/basic.rs)
+- [Astro Run Plugins](https://github.com/panghu-huang/astro-run/blob/main/crates/astro-run/examples/plugins.rs)
+- [Astro run gRPC Server](https://github.com/panghu-huang/astro-run/blob/main/crates/server/examples/server.rs)
+- [gRPC Runner Client](https://github.com/panghu-huang/astro-run/blob/main/crates/server/examples/client.rs)
+- [Remote Runner](https://github.com/panghu-huang/astro-run/blob/main/crates/remote-runner/examples/runner-server.rs)
 
 ## Contributing
 

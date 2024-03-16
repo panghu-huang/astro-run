@@ -1,5 +1,5 @@
 use astro_run::{
-  stream, AstroRun, AstroRunPlugin, Context, Error, JobRunResult, PluginNoopResult, Result,
+  stream, AstroRun, AstroRunPlugin, Context, Error, JobRunResult, HookNoopResult, Result,
   RunJobEvent, RunResult, RunStepEvent, RunWorkflowEvent, Runner, StepRunResult, Workflow,
   WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
@@ -26,35 +26,35 @@ impl Runner for TestRunner {
     Ok(rx)
   }
 
-  async fn on_run_workflow(&self, _: RunWorkflowEvent) -> PluginNoopResult {
+  async fn on_run_workflow(&self, _: RunWorkflowEvent) -> HookNoopResult {
     Err(Error::error("Error"))
   }
 
-  async fn on_run_job(&self, _: RunJobEvent) -> PluginNoopResult {
+  async fn on_run_job(&self, _: RunJobEvent) -> HookNoopResult {
     Err(Error::error("Error"))
   }
 
-  async fn on_run_step(&self, _: RunStepEvent) -> PluginNoopResult {
+  async fn on_run_step(&self, _: RunStepEvent) -> HookNoopResult {
     Err(Error::error("Error"))
   }
 
-  async fn on_log(&self, _: WorkflowLog) -> PluginNoopResult {
+  async fn on_log(&self, _: WorkflowLog) -> HookNoopResult {
     Err(Error::error("Error"))
   }
 
-  async fn on_state_change(&self, _: WorkflowStateEvent) -> PluginNoopResult {
+  async fn on_state_change(&self, _: WorkflowStateEvent) -> HookNoopResult {
     Err(Error::error("Error"))
   }
 
-  async fn on_step_completed(&self, _: StepRunResult) -> PluginNoopResult {
+  async fn on_step_completed(&self, _: StepRunResult) -> HookNoopResult {
     Err(Error::error("Error"))
   }
 
-  async fn on_job_completed(&self, _: JobRunResult) -> PluginNoopResult {
+  async fn on_job_completed(&self, _: JobRunResult) -> HookNoopResult {
     Err(Error::error("Error"))
   }
 
-  async fn on_workflow_completed(&self, _: WorkflowRunResult) -> PluginNoopResult {
+  async fn on_workflow_completed(&self, _: WorkflowRunResult) -> HookNoopResult {
     Err(Error::error("Error"))
   }
 }

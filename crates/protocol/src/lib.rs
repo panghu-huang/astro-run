@@ -104,7 +104,7 @@ impl TryInto<astro_run::Command> for Command {
       continue_on_error: self.continue_on_error,
       environments,
       secrets: self.secrets,
-      timeout: Duration::from_secs(60 * 60),
+      timeout: Duration::from_secs(self.timeout),
     })
   }
 }

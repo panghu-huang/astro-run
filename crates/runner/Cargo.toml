@@ -1,6 +1,6 @@
 [package]
 name = "astro-runner"
-version = "0.1.5"
+version = "0.1.6"
 edition.workspace = true
 repository.workspace = true
 homepage.workspace = true
@@ -13,7 +13,7 @@ license.workspace = true
 
 [dependencies]
 tokio-stream = { workspace = true }
-astro-run = { path = "../astro-run", version = "0.1.5" }
+astro-run = { path = "../astro-run", version = "0.1.7" }
 tokio = { workspace = true, features = [
   "sync",
   "macros",

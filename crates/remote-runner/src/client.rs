@@ -1,4 +1,4 @@
-use astro_run::{Context, Error, PluginNoopResult, Result};
+use astro_run::{Context, Error, HookBeforeRunStepResult, HookNoopResult, Result};
 use astro_run_protocol::{
   astro_run_remote_runner::{run_response, ConnectRequest, Event},
   tonic::{self, Request},
@@ -62,7 +62,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
     Ok(receiver)
   }
 
-  async fn on_log(&self, log: astro_run::WorkflowLog) -> PluginNoopResult {
+  async fn on_log(&self, log: astro_run::WorkflowLog) -> HookNoopResult {
     match Event::try_from(log) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -76,7 +76,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
     Ok(())
   }
 
-  async fn on_step_completed(&self, result: astro_run::StepRunResult) -> PluginNoopResult {
+  async fn on_step_completed(&self, result: astro_run::StepRunResult) -> HookNoopResult {
     match Event::try_from(result) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -90,7 +90,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
     Ok(())
   }
 
-  async fn on_job_completed(&self, result: astro_run::JobRunResult) -> PluginNoopResult {
+  async fn on_job_completed(&self, result: astro_run::JobRunResult) -> HookNoopResult {
     match Event::try_from(result) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -104,7 +104,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
     Ok(())
   }
 
-  async fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) -> PluginNoopResult {
+  async fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) -> HookNoopResult {
     match Event::try_from(result) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -118,7 +118,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
     Ok(())
   }
 
-  async fn on_state_change(&self, event: astro_run::WorkflowStateEvent) -> PluginNoopResult {
+  async fn on_state_change(&self, event: astro_run::WorkflowStateEvent) -> HookNoopResult {
     match Event::try_from(event) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -132,7 +132,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
     Ok(())
   }
 
-  async fn on_run_step(&self, event: astro_run::RunStepEvent) -> PluginNoopResult {
+  async fn on_run_step(&self, event: astro_run::RunStepEvent) -> HookNoopResult {
     match Event::try_from(event) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -146,7 +146,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
     Ok(())
   }
 
-  async fn on_run_job(&self, event: astro_run::RunJobEvent) -> PluginNoopResult {
+  async fn on_run_job(&self, event: astro_run::RunJobEvent) -> HookNoopResult {
     match Event::try_from(event) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -160,7 +160,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
     Ok(())
   }
 
-  async fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) -> PluginNoopResult {
+  async fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) -> HookNoopResult {
     match Event::try_from(event) {
       Ok(event) => {
         if let Err(err) = self.event_sender.send(event) {
@@ -172,6 +172,33 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
     };
 
     Ok(())
+  }
+
+  async fn on_before_run_step(&self, step: astro_run::Step) -> HookBeforeRunStepResult {
+    let mut clients = self.clients.lock().clone();
+
+    let mut command = astro_run_protocol::Command::try_from(step)
+      .map_err(|err| astro_run::Error::error(err.to_string()))?;
+
+    for client in clients.values_mut() {
+      match client
+        .client
+        .call_before_run_step_hook(Request::new(command.clone()))
+        .await
+      {
+        Ok(response) => {
+          command = response.into_inner();
+        }
+        Err(err) => {
+          log::error!("Failed to call before run step hook: {}", err);
+          return Err(astro_run::Error::error(err.to_string()));
+        }
+      };
+    }
+
+    let step: astro_run::Step = command.try_into()?;
+
+    Ok(step)
   }
 }
 
@@ -271,11 +298,11 @@ impl AstroRunRemoteRunnerClient {
     loop {
       tokio::select! {
         response = stream.next() => {
-          if response.is_none() {
+          let Some(response) = response else {
             break;
-          }
+          };
 
-          match response.unwrap() {
+          match response {
             Ok(response) => {
               if let Some(payload) = response.payload {
                 match payload {

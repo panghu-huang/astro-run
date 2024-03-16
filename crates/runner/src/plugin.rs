@@ -1,4 +1,4 @@
-use astro_run::{Context, PluginNoopResult, Result};
+use astro_run::{Context, HookNoopResult, Result};
 use std::sync::Arc;
 
 #[astro_run::async_trait]
@@ -7,7 +7,7 @@ pub trait Plugin: Send + Sync {
   async fn on_before_run(&self, ctx: Context) -> Result<Context> {
     Ok(ctx)
   }
-  async fn on_after_run(&self, _ctx: Context) -> PluginNoopResult {
+  async fn on_after_run(&self, _ctx: Context) -> HookNoopResult {
     Ok(())
   }
 }
@@ -70,7 +70,7 @@ mod tests {
         Ok(ctx)
       }
 
-      async fn on_after_run(&self, _ctx: Context) -> PluginNoopResult {
+      async fn on_after_run(&self, _ctx: Context) -> HookNoopResult {
         Ok(())
       }
     }
@@ -96,7 +96,7 @@ mod tests {
         "error-before-run"
       }
 
-      async fn on_after_run(&self, _ctx: Context) -> PluginNoopResult {
+      async fn on_after_run(&self, _ctx: Context) -> HookNoopResult {
         Err(astro_run::Error::error("Error"))
       }
     }
