@@ -185,11 +185,24 @@ mod tests {
       })
       .build();
 
+    let update_name_plugin = AstroRunPlugin::builder("update_name")
+      .on_before_run_step(|step| {
+        let mut step = step;
+        step.name = Some("Updated".to_string());
+
+        Ok(step)
+      })
+      .build();
+
     let error_plugin = AstroRunPlugin::builder("error")
       .on_before_run_step(|_| Err(Error::error("test")))
       .build();
 
-    let plugin_driver = PluginDriver::new(vec![Box::new(plugin), Box::new(error_plugin)]);
+    let plugin_driver = PluginDriver::new(vec![
+      Box::new(plugin),
+      Box::new(error_plugin),
+      Box::new(update_name_plugin),
+    ]);
 
     plugin_driver
       .on_before_run_step(Step {
@@ -229,6 +242,22 @@ mod tests {
     impl Plugin for TestPlugin {
       fn name(&self) -> &'static str {
         "test"
+      }
+    }
+
+    struct ErrorPlugin;
+
+    #[async_trait::async_trait]
+    impl Plugin for ErrorPlugin {
+      fn name(&self) -> &'static str {
+        "error"
+      }
+
+      async fn on_resolve_dynamic_action(
+        &self,
+        _: UserActionStep,
+      ) -> Result<Option<Box<dyn Action>>, Error> {
+        Err(Error::error("test"))
       }
     }
 
