@@ -303,7 +303,7 @@ impl AstroRunRunnerBuilder {
       .map_err(|e| Error::internal_runtime_error(format!("Failed to connect: {}", e)))?;
 
     let support_docker = self.support_docker.unwrap_or_else(|| {
-      log::info!("Support docker is not set, Checking if docker is installed and running");
+      log::trace!("Support docker is not set, Checking if docker is installed and running");
 
       // Check if docker is installed and running
       std::process::Command::new("docker")

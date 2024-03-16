@@ -20,7 +20,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin --version 0.26.1
+        run: cargo install cargo-tarpaulin
 
       - name: Generate code coverage
         env:

@@ -59,7 +59,7 @@ impl Executor for DockerExecutor {
             .await
             .ok();
 
-          log::info!("Step received signal: {:?}", signal);
+          log::trace!("Step received signal: {:?}", signal);
           if let astro_run::Signal::Cancel = signal {
             sender.cancelled();
           } else {
