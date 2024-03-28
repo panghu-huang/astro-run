@@ -34,23 +34,21 @@ pub struct Workflow {
 
 impl Workflow {
   pub async fn run(&self, ctx: ExecutionContext) -> WorkflowRunResult {
-    if let Some(on) = &self.on {
-      if !ctx.is_match(on).await {
-        ctx
-          .call_on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
-            id: self.id.clone(),
-            state: WorkflowState::Skipped,
-          })
-          .await;
-
-        return WorkflowRunResult {
+    if self.should_skip(&ctx).await {
+      ctx
+        .call_on_state_change(WorkflowStateEvent::WorkflowStateUpdated {
           id: self.id.clone(),
           state: WorkflowState::Skipped,
-          started_at: None,
-          completed_at: None,
-          jobs: HashMap::new(),
-        };
-      }
+        })
+        .await;
+
+      return WorkflowRunResult {
+        id: self.id.clone(),
+        state: WorkflowState::Skipped,
+        started_at: None,
+        completed_at: None,
+        jobs: HashMap::new(),
+      };
     }
 
     let started_at = chrono::Utc::now();
@@ -168,6 +166,14 @@ impl Workflow {
         log::error!("Failed to send job result for job {}: {}", key, err);
       }
     });
+  }
+
+  pub async fn should_skip(&self, ctx: &ExecutionContext) -> bool {
+    if let Some(on) = &self.on {
+      !ctx.is_match(on).await
+    } else {
+      false
+    }
   }
 
   pub fn payload<T>(&self) -> crate::Result<T>

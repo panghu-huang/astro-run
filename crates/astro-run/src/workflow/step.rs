@@ -1,4 +1,4 @@
-use crate::{Command, Condition, ContainerOptions, EnvironmentVariables, StepId};
+use crate::{Command, Condition, ContainerOptions, EnvironmentVariables, ExecutionContext, StepId};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -13,6 +13,16 @@ pub struct Step {
   pub environments: EnvironmentVariables,
   pub secrets: Vec<String>,
   pub timeout: Duration,
+}
+
+impl Step {
+  pub async fn should_skip(&self, ctx: &ExecutionContext) -> bool {
+    if let Some(on) = &self.on {
+      !ctx.is_match(on).await
+    } else {
+      false
+    }
+  }
 }
 
 impl Into<Command> for Step {

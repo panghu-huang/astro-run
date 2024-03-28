@@ -18,23 +18,21 @@ pub struct Job {
 
 impl Job {
   pub async fn run(&self, ctx: ExecutionContext) -> JobRunResult {
-    if let Some(on) = &self.on {
-      if !ctx.is_match(on).await {
-        ctx
-          .call_on_state_change(WorkflowStateEvent::JobStateUpdated {
-            id: self.id.clone(),
-            state: WorkflowState::Skipped,
-          })
-          .await;
-
-        return JobRunResult {
+    if self.should_skip(&ctx).await {
+      ctx
+        .call_on_state_change(WorkflowStateEvent::JobStateUpdated {
           id: self.id.clone(),
           state: WorkflowState::Skipped,
-          started_at: None,
-          completed_at: None,
-          steps: vec![],
-        };
-      }
+        })
+        .await;
+
+      return JobRunResult {
+        id: self.id.clone(),
+        state: WorkflowState::Skipped,
+        started_at: None,
+        completed_at: None,
+        steps: vec![],
+      };
     }
 
     let started_at = chrono::Utc::now();
@@ -58,12 +56,8 @@ impl Job {
         _ => false,
       };
 
-      if !skipped {
-        if let Some(on) = &step.on {
-          if !ctx.is_match(on).await {
-            skipped = true;
-          }
-        }
+      if !skipped && step.should_skip(&ctx).await {
+        skipped = true;
       }
 
       if skipped {
@@ -125,5 +119,13 @@ impl Job {
     ctx.call_on_job_completed(result.clone()).await;
 
     result
+  }
+
+  pub async fn should_skip(&self, ctx: &ExecutionContext) -> bool {
+    if let Some(on) = &self.on {
+      !ctx.is_match(on).await
+    } else {
+      false
+    }
   }
 }
