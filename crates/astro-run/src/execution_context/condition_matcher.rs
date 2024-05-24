@@ -40,11 +40,12 @@ impl ConditionMatcher {
         let mut payload_lock = self.payload.lock();
         *payload_lock = Some(payload.clone());
 
-        return condition.is_match(&payload);
+        condition.is_match(&payload)
       }
       Err(err) => {
         log::trace!("Failed to get condition payload: {}", err);
-        return true;
+
+        true
       }
     }
   }
@@ -158,11 +159,9 @@ impl ConditionMatcher {
             ))
           })?;
 
-        let github_api = github_app.get_api(installation.id).await.map_err(|err| {
+        github_app.get_api(installation.id).await.map_err(|err| {
           Error::internal_runtime_error(format!("Failed to get github api: {}", err))
-        })?;
-
-        github_api
+        })?
       }
     };
 

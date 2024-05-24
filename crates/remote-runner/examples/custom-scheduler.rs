@@ -13,7 +13,7 @@ impl TestScheduler {
 impl Scheduler for TestScheduler {
   async fn schedule<'a, 'b: 'a>(
     &'b self,
-    runners: &'a Vec<RunnerMetadata>,
+    runners: &'a [RunnerMetadata],
     _ctx: &astro_run::Context,
   ) -> Option<&'a RunnerMetadata> {
     // Always return the first runner

@@ -106,7 +106,7 @@ impl AstroRunner {
       directory = directory.join(&event.repo_owner).join(&event.repo_name);
     }
 
-    directory = directory.join(&result.id.inner());
+    directory = directory.join(result.id.inner());
 
     if directory.exists() {
       fs::remove_dir_all(directory)?;
@@ -116,6 +116,7 @@ impl AstroRunner {
   }
 }
 
+#[derive(Default)]
 pub struct AstroRunnerBuilder {
   working_directory: Option<PathBuf>,
   plugins: Vec<Box<dyn Plugin>>,
@@ -123,10 +124,7 @@ pub struct AstroRunnerBuilder {
 
 impl AstroRunnerBuilder {
   pub fn new() -> Self {
-    Self {
-      working_directory: None,
-      plugins: vec![],
-    }
+    Self::default()
   }
 
   pub fn plugin<P: Plugin + 'static>(mut self, plugin: P) -> Self {
@@ -141,7 +139,7 @@ impl AstroRunnerBuilder {
   }
 
   pub fn build(self) -> Result<AstroRunner> {
-    let working_directory = self.working_directory.map(|i| Ok(i)).unwrap_or_else(|| {
+    let working_directory = self.working_directory.map(Ok).unwrap_or_else(|| {
       #[allow(deprecated)]
       env::home_dir()
         .map(|home| home.join("astro-run"))

@@ -18,6 +18,7 @@ pub struct Log {
 }
 
 impl Log {
+  #[allow(clippy::self_named_constructors)]
   pub fn log(message: impl Into<String>) -> Self {
     Self {
       log_type: WorkflowLogType::Log,

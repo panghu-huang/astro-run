@@ -59,7 +59,7 @@ pub fn init_logger() {
     let level = env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
     let level = log::Level::from_str(&level).unwrap_or(log::Level::Info);
 
-    let logger = Logger::new(level.clone());
+    let logger = Logger::new(level);
     log::set_logger(Box::leak(Box::new(logger))).unwrap();
     log::set_max_level(level.to_level_filter());
   });
@@ -71,7 +71,7 @@ pub fn init_logger_with_level(level: log::Level) {
   }
 
   LOGGER.get_or_init(|| {
-    let logger = Logger::new(level.clone());
+    let logger = Logger::new(level);
     log::set_logger(Box::leak(Box::new(logger))).unwrap();
     log::set_max_level(level.to_level_filter());
   });

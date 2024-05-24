@@ -33,11 +33,11 @@ pub enum WorkflowLogType {
   Log,
 }
 
-impl ToString for WorkflowLogType {
-  fn to_string(&self) -> String {
+impl std::fmt::Display for WorkflowLogType {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      WorkflowLogType::Error => "error".to_string(),
-      WorkflowLogType::Log => "log".to_string(),
+      WorkflowLogType::Error => write!(f, "error"),
+      WorkflowLogType::Log => write!(f, "log"),
     }
   }
 }

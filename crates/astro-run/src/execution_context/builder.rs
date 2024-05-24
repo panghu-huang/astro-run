@@ -5,6 +5,7 @@ use crate::{
 };
 use std::sync::Arc;
 
+#[derive(Default)]
 pub struct ExecutionContextBuilder {
   runner: Option<Arc<Box<dyn Runner>>>,
   plugin_driver: Option<SharedPluginDriver>,
@@ -15,13 +16,7 @@ pub struct ExecutionContextBuilder {
 
 impl ExecutionContextBuilder {
   pub fn new() -> Self {
-    ExecutionContextBuilder {
-      runner: None,
-      plugin_driver: None,
-      signal_manager: None,
-      event: None,
-      github_auth: None,
-    }
+    Self::default()
   }
 
   pub fn runner(mut self, runner: Arc<Box<dyn Runner>>) -> Self {
@@ -72,13 +67,11 @@ impl ExecutionContextBuilder {
       ))
       .unwrap();
 
-    let ctx = ExecutionContext {
+    ExecutionContext {
       runner,
       signal_manager,
       plugin_driver,
       condition_matcher: ConditionMatcher::new(self.event, self.github_auth),
-    };
-
-    ctx
+    }
   }
 }

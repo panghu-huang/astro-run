@@ -58,21 +58,21 @@ impl StepId {
   }
 }
 
-impl ToString for WorkflowId {
-  fn to_string(&self) -> String {
-    self.0.clone()
+impl std::fmt::Display for WorkflowId {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.0)
   }
 }
 
-impl ToString for JobId {
-  fn to_string(&self) -> String {
-    format!("{}/{}", self.0, self.1)
+impl std::fmt::Display for JobId {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}/{}", self.0, self.1)
   }
 }
 
-impl ToString for StepId {
-  fn to_string(&self) -> String {
-    format!("{}/{}/{}", self.0, self.1, self.2)
+impl std::fmt::Display for StepId {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}/{}/{}", self.0, self.1, self.2)
   }
 }
 

@@ -245,22 +245,6 @@ mod tests {
       }
     }
 
-    struct ErrorPlugin;
-
-    #[async_trait::async_trait]
-    impl Plugin for ErrorPlugin {
-      fn name(&self) -> &'static str {
-        "error"
-      }
-
-      async fn on_resolve_dynamic_action(
-        &self,
-        _: UserActionStep,
-      ) -> Result<Option<Box<dyn Action>>, Error> {
-        Err(Error::error("test"))
-      }
-    }
-
     let plugin_driver = PluginDriver::new(vec![Box::new(TestPlugin)]);
 
     plugin_driver

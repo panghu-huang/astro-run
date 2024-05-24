@@ -40,7 +40,7 @@ pub enum Condition {
 impl PushCondition {
   pub fn is_match(&self, payload: &ConditionPayload) -> bool {
     if let Some(branches) = &self.branches {
-      if !is_match_patterns(&vec![payload.branch.clone()], &branches) {
+      if !is_match_patterns(&vec![payload.branch.clone()], branches) {
         return false;
       }
     }
@@ -58,7 +58,7 @@ impl PushCondition {
 impl PullRequestCondition {
   pub fn is_match(&self, payload: &ConditionPayload) -> bool {
     if let Some(branches) = &self.branches {
-      if !is_match_patterns(&vec![payload.branch.clone()], &branches) {
+      if !is_match_patterns(&vec![payload.branch.clone()], branches) {
         return false;
       }
     }

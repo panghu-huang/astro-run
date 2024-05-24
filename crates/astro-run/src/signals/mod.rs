@@ -6,16 +6,14 @@ use crate::{Error, JobId, Result};
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct SignalManager {
   pub signals: Arc<Mutex<HashMap<JobId, AstroRunSignal>>>,
 }
 
 impl SignalManager {
   pub fn new() -> Self {
-    SignalManager {
-      signals: Arc::new(Mutex::new(HashMap::new())),
-    }
+    Self::default()
   }
 
   pub fn register_signal(&self, job_id: JobId, signal: AstroRunSignal) {
@@ -23,7 +21,7 @@ impl SignalManager {
   }
 
   pub fn unregister_signal(&self, job_id: &JobId) {
-    self.signals.lock().remove(&job_id);
+    self.signals.lock().remove(job_id);
   }
 
   pub fn get_signal(&self, job_id: &JobId) -> Option<AstroRunSignal> {
@@ -33,7 +31,7 @@ impl SignalManager {
   pub fn cancel_job(&self, job_id: &JobId) -> Result<()> {
     let signal = self
       .get_signal(job_id)
-      .ok_or_else(|| Error::error(format!("Job {} not found", job_id.to_string())))?;
+      .ok_or_else(|| Error::error(format!("Job {} not found", job_id)))?;
 
     signal.cancel()?;
 

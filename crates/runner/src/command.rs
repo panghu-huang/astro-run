@@ -1,6 +1,9 @@
 use astro_run::{Error, Result, RunResult, StreamSender};
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, process::Stdio};
+use std::{
+  path::{Path, PathBuf},
+  process::Stdio,
+};
 use tokio::{
   io::{AsyncBufReadExt, BufReader},
   process::Command as Cmd,
@@ -29,8 +32,8 @@ impl Command {
     self
   }
 
-  pub fn dir(&mut self, dir: &PathBuf) -> &mut Self {
-    self.current_dir = Some(dir.clone());
+  pub fn dir(&mut self, dir: &Path) -> &mut Self {
+    self.current_dir = Some(dir.to_path_buf());
 
     self
   }

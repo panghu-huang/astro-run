@@ -33,8 +33,8 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
 
     let clients = self.clients.lock().clone();
     let runners: Vec<RunnerMetadata> = clients
-      .iter()
-      .map(|(_, client)| client.metadata.clone())
+      .values()
+      .map(|client| client.metadata.clone())
       .collect();
 
     let runner = match self.scheduler.schedule(&runners, &context).await {
@@ -286,7 +286,7 @@ impl AstroRunRemoteRunnerClient {
       .run(Request::new(context.clone().try_into()?))
       .await
       .map_err(|e| {
-        let error = format!("Failed to run: {}", e.to_string());
+        let error = format!("Failed to run: {}", e);
         log::error!("{}", error);
         sender.error(error.clone());
         sender.end(astro_run::RunResult::Failed { exit_code: 1 });
@@ -323,10 +323,7 @@ impl AstroRunRemoteRunnerClient {
                       .ok_or(Error::internal_runtime_error(
                         "Missing result in response".to_string(),
                       ))?
-                      .try_into()
-                      .map_err(|e| {
-                        Error::internal_runtime_error(format!("Failed to parse result: {}", e))
-                      })?;
+                      .into();
 
                     sender.end(result);
                   }
@@ -334,7 +331,7 @@ impl AstroRunRemoteRunnerClient {
               }
             }
             Err(e) => {
-              let error = format!("Failed to run: {}", e.to_string());
+              let error = format!("Failed to run: {}", e);
               sender.error(error.clone());
               sender.end(astro_run::RunResult::Failed { exit_code: 1 });
               return Err(Error::internal_runtime_error(error));
@@ -348,7 +345,7 @@ impl AstroRunRemoteRunnerClient {
             .client
             .send_event(Request::new(event))
             .await
-            .map_err(|e| Error::internal_runtime_error(e))?;
+            .map_err(Error::internal_runtime_error)?;
         }
       }
     }
@@ -357,13 +354,14 @@ impl AstroRunRemoteRunnerClient {
   }
 }
 
+#[derive(Default)]
 pub struct AstroRunRemoteRunnerClientBuilder {
   scheduler: Option<Box<dyn astro_run_scheduler::Scheduler>>,
 }
 
 impl AstroRunRemoteRunnerClientBuilder {
   pub fn new() -> Self {
-    AstroRunRemoteRunnerClientBuilder { scheduler: None }
+    Self::default()
   }
 
   pub fn scheduler<T>(mut self, scheduler: T) -> Self

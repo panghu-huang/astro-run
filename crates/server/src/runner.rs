@@ -44,9 +44,7 @@ impl AstroRunRunner {
         support_host: self.support_host,
       })
       .await
-      .map_err(|e| {
-        Error::internal_runtime_error(format!("Failed to subscribe events: {}", e.to_string()))
-      })?;
+      .map_err(|e| Error::internal_runtime_error(format!("Failed to subscribe events: {}", e)))?;
 
     let mut stream = stream.into_inner();
 
@@ -234,15 +232,7 @@ pub struct AstroRunRunnerBuilder {
 
 impl AstroRunRunnerBuilder {
   pub fn new() -> Self {
-    AstroRunRunnerBuilder {
-      runner: None,
-      id: None,
-      url: None,
-      max_runs: 10,
-      support_docker: None,
-      support_host: true,
-      plugins: vec![],
-    }
+    Self::default()
   }
 
   pub fn runner<T>(mut self, runner: T) -> Self
@@ -322,5 +312,19 @@ impl AstroRunRunnerBuilder {
       plugin_driver: Arc::new(PluginDriver::new(self.plugins)),
       signals: Arc::new(Mutex::new(HashMap::new())),
     })
+  }
+}
+
+impl Default for AstroRunRunnerBuilder {
+  fn default() -> Self {
+    Self {
+      runner: None,
+      id: None,
+      url: None,
+      max_runs: 10,
+      support_docker: None,
+      support_host: true,
+      plugins: vec![],
+    }
   }
 }
