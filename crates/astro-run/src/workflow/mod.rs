@@ -17,7 +17,7 @@ use tokio::sync::mpsc::{channel, Sender};
 type Result = (Id, JobRunResult);
 
 pub trait Payload: Send + Sync {
-  fn try_from_string(payload: &String) -> crate::Result<Self>
+  fn try_from_string(payload: &str) -> crate::Result<Self>
   where
     Self: Sized;
   fn try_into_string(&self) -> crate::Result<String>;
@@ -181,7 +181,7 @@ impl Workflow {
     T: Payload,
   {
     if let Some(payload) = &self.payload {
-      T::try_from_string(&payload)
+      T::try_from_string(payload)
     } else {
       Err(Error::error("Payload is not set for this workflow"))
     }
@@ -228,7 +228,7 @@ mod tests {
         Ok(self.0.clone())
       }
 
-      fn try_from_string(payload: &String) -> Result<Self> {
+      fn try_from_string(payload: &str) -> Result<Self> {
         Ok(WorkflowPayload(payload.to_string()))
       }
     }
@@ -281,7 +281,7 @@ mod tests {
         Ok("".to_string())
       }
 
-      fn try_from_string(_payload: &String) -> Result<Self> {
+      fn try_from_string(_payload: &str) -> Result<Self> {
         Err(Error::error("Payload error"))
       }
     }

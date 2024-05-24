@@ -39,7 +39,7 @@ impl Stream for StreamReceiver {
 
     let logs = state.logs.clone();
     let total = logs.len();
-    let current_index = self.current_index.lock().clone();
+    let current_index = *self.current_index.lock();
 
     if current_index < total {
       let log = logs[current_index].clone();

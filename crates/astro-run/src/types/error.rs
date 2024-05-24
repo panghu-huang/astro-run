@@ -47,6 +47,7 @@ impl Error {
     Self::InitError(message.to_string())
   }
 
+  #[allow(clippy::self_named_constructors)]
   pub fn error<T: ToString>(message: T) -> Self {
     Self::Error(message.to_string())
   }

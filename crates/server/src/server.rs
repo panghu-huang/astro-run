@@ -47,7 +47,7 @@ impl AstroRunService for AstroRunServer {
     let req = request.into_inner();
     let metadata: astro_run_scheduler::RunnerMetadata =
       req.try_into().map_err(|err: astro_run::Error| {
-        Status::invalid_argument(format!("Failed to convert metadata: {}", err.to_string()))
+        Status::invalid_argument(format!("Failed to convert metadata: {}", err))
       })?;
 
     if metadata.version != crate::VERSION {
@@ -105,7 +105,6 @@ impl AstroRunService for AstroRunServer {
     let running = self.state.lock().running.clone();
     let client = running
       .get(&id)
-      .clone()
       .ok_or_else(|| Status::not_found(format!("No running job with id {}", id)))?;
 
     let result = inner
@@ -253,13 +252,7 @@ impl Runner for AstroRunServer {
 
 impl AstroRunServer {
   pub fn new() -> Self {
-    Self {
-      state: Arc::new(Mutex::new(SharedState {
-        running: HashMap::new(),
-        clients: HashMap::new(),
-      })),
-      scheduler: Arc::new(Box::new(DefaultScheduler::new())),
-    }
+    Self::default()
   }
 
   pub fn with_scheduler<T>(scheduler: T) -> Self
@@ -306,6 +299,18 @@ impl AstroRunServer {
       if let Err(err) = client.sender.try_send(Ok(event.clone())) {
         log::error!("Failed to send event to client: {}", err);
       }
+    }
+  }
+}
+
+impl Default for AstroRunServer {
+  fn default() -> Self {
+    Self {
+      state: Arc::new(Mutex::new(SharedState {
+        running: HashMap::new(),
+        clients: HashMap::new(),
+      })),
+      scheduler: Arc::new(Box::new(DefaultScheduler::new())),
     }
   }
 }

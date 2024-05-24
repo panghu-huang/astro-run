@@ -32,7 +32,7 @@ impl<'a> WorkflowParser<'a> {
         match action {
           Some(action) => action.normalize(user_action_step)?,
           None => {
-            return Err(Error::workflow_config_error(&format!(
+            return Err(Error::workflow_config_error(format!(
               "Action `{}` is not found",
               user_action_step.uses
             )));

@@ -20,6 +20,12 @@ pub struct DefaultScheduler {
 
 impl DefaultScheduler {
   pub fn new() -> Self {
+    Self::default()
+  }
+}
+
+impl Default for DefaultScheduler {
+  fn default() -> Self {
     Self {
       state: Arc::new(Mutex::new(SchedulerState {
         runs_count: HashMap::new(),
@@ -34,7 +40,7 @@ impl DefaultScheduler {
 impl Scheduler for DefaultScheduler {
   async fn schedule<'a, 'b: 'a>(
     &'b self,
-    runners: &'a Vec<RunnerMetadata>,
+    runners: &'a [RunnerMetadata],
     ctx: &Context,
   ) -> Option<&'a RunnerMetadata> {
     log::trace!("Scheduling runners: {:?}", runners);
@@ -125,7 +131,7 @@ impl Scheduler for DefaultScheduler {
 impl DefaultScheduler {
   fn pick_runner<'a, 'b: 'a>(
     &'b self,
-    runners: &'a Vec<RunnerMetadata>,
+    runners: &'a [RunnerMetadata],
     container: Option<String>,
   ) -> Option<&'a RunnerMetadata> {
     let is_runs_on_host = container
@@ -142,7 +148,7 @@ impl DefaultScheduler {
 
   fn pick_docker_runner<'a, 'b: 'a>(
     &'b self,
-    runners: &'a Vec<RunnerMetadata>,
+    runners: &'a [RunnerMetadata],
   ) -> Option<&'a RunnerMetadata> {
     let runs_count = self.state.lock().runs_count.clone();
     let min_runs = runners
@@ -155,7 +161,7 @@ impl DefaultScheduler {
 
   fn pick_host_runner<'a, 'b: 'a>(
     &'b self,
-    runners: &'a Vec<RunnerMetadata>,
+    runners: &'a [RunnerMetadata],
     container: String,
   ) -> Option<&'a RunnerMetadata> {
     runners.iter().filter(|r| r.support_host).find(|r| {

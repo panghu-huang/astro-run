@@ -8,6 +8,7 @@ pub async fn create_executable_file(file_path: &PathBuf, content: &String) -> Re
   {
     file = fs::OpenOptions::new()
       .create(true)
+      .truncate(true)
       .write(true)
       .mode(0o777)
       .open(file_path)
@@ -20,7 +21,7 @@ pub async fn create_executable_file(file_path: &PathBuf, content: &String) -> Re
 
   if !content.starts_with("#!") {
     // Add shebang
-    file.write(b"#!/bin/sh\n").await?;
+    file.write_all(b"#!/bin/sh\n").await?;
   }
 
   file.write_all(content.as_bytes()).await?;

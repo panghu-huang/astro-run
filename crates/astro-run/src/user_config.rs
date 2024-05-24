@@ -43,6 +43,7 @@ pub struct UserActionStep {
   pub timeout: Option<String>,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum UserStep {

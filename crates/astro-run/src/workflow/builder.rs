@@ -1,6 +1,7 @@
 use super::{parser::WorkflowParser, Workflow};
 use crate::{AstroRun, Error, Id, Payload, Result, UserWorkflow};
 
+#[derive(Default)]
 pub struct WorkflowBuilder {
   id: Option<Id>,
   config: Option<String>,
@@ -9,11 +10,7 @@ pub struct WorkflowBuilder {
 
 impl WorkflowBuilder {
   pub fn new() -> Self {
-    Self {
-      id: None,
-      config: None,
-      payload: None,
-    }
+    Self::default()
   }
 
   pub fn id(mut self, id: impl Into<Id>) -> Self {

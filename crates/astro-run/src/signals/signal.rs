@@ -30,19 +30,11 @@ pub struct AstroRunSignal {
 
 impl AstroRunSignal {
   pub fn new() -> Self {
-    Self {
-      state: Arc::new(Mutex::new(SignalState {
-        signal: None,
-        waker: None,
-        is_notified: false,
-      })),
-    }
+    Self::default()
   }
 
   pub fn recv(&self) -> Receiver {
-    let receiver = Receiver { signal: self };
-
-    receiver
+    Receiver { signal: self }
   }
 
   pub fn cancel(&self) -> Result<()> {
@@ -53,7 +45,9 @@ impl AstroRunSignal {
 
     state.signal = Some(Signal::Cancel);
 
-    state.waker.take().map(|waker| waker.wake());
+    if let Some(waker) = state.waker.take() {
+      waker.wake()
+    }
 
     Ok(())
   }
@@ -67,7 +61,9 @@ impl AstroRunSignal {
 
     state.signal = Some(Signal::Timeout);
 
-    state.waker.take().map(|waker| waker.wake());
+    if let Some(waker) = state.waker.take() {
+      waker.wake()
+    }
 
     Ok(())
   }
@@ -102,11 +98,11 @@ impl<'a> Future for Receiver<'a> {
   }
 }
 
-impl ToString for Signal {
-  fn to_string(&self) -> String {
+impl std::fmt::Display for Signal {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      Signal::Cancel => "cancel".to_string(),
-      Signal::Timeout => "timeout".to_string(),
+      Signal::Cancel => write!(f, "cancel"),
+      Signal::Timeout => write!(f, "timeout"),
     }
   }
 }
@@ -117,6 +113,18 @@ impl From<&str> for Signal {
       "cancel" => Signal::Cancel,
       "timeout" => Signal::Timeout,
       _ => panic!("Invalid signal: {}", s),
+    }
+  }
+}
+
+impl Default for AstroRunSignal {
+  fn default() -> Self {
+    Self {
+      state: Arc::new(Mutex::new(SignalState {
+        signal: None,
+        waker: None,
+        is_notified: false,
+      })),
     }
   }
 }

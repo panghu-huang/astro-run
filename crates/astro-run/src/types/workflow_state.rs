@@ -14,27 +14,21 @@ pub enum WorkflowState {
 
 impl WorkflowState {
   pub fn is_terminal(&self) -> bool {
-    match self {
+    matches!(
+      self,
       WorkflowState::Succeeded
-      | WorkflowState::Failed
-      | WorkflowState::Cancelled
-      | WorkflowState::Skipped => true,
-      _ => false,
-    }
+        | WorkflowState::Failed
+        | WorkflowState::Cancelled
+        | WorkflowState::Skipped
+    )
   }
 
   pub fn is_in_progress(&self) -> bool {
-    match self {
-      WorkflowState::InProgress => true,
-      _ => false,
-    }
+    matches!(self, WorkflowState::InProgress)
   }
 
   pub fn is_queued(&self) -> bool {
-    match self {
-      WorkflowState::Queued => true,
-      _ => false,
-    }
+    matches!(self, WorkflowState::Queued)
   }
 }
 

@@ -1,6 +1,6 @@
 use astro_run::{
-  stream, AstroRun, AstroRunPlugin, Context, Error, JobRunResult, Payload, HookNoopResult,
-  Result, RunJobEvent, RunResult, RunStepEvent, RunWorkflowEvent, Runner, StepRunResult, Workflow,
+  stream, AstroRun, AstroRunPlugin, Context, Error, HookNoopResult, JobRunResult, Payload, Result,
+  RunJobEvent, RunResult, RunStepEvent, RunWorkflowEvent, Runner, StepRunResult, Workflow,
   WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
 use astro_run_remote_runner::{
@@ -293,11 +293,11 @@ async fn connect_to_invalid_url() {
 struct WorkflowPayload(String);
 
 impl Payload for WorkflowPayload {
-  fn try_from_string(payload: &String) -> astro_run::Result<Self>
+  fn try_from_string(payload: &str) -> astro_run::Result<Self>
   where
     Self: Sized,
   {
-    Ok(WorkflowPayload(payload.clone()))
+    Ok(WorkflowPayload(payload.to_owned()))
   }
 
   fn try_into_string(&self) -> astro_run::Result<String> {

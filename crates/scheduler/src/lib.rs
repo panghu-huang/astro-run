@@ -24,7 +24,7 @@ pub trait Scheduler: Send + Sync {
   fn on_workflow_completed(&self, _result: WorkflowRunResult) {}
   async fn schedule<'a, 'b: 'a>(
     &'b self,
-    runners: &'a Vec<RunnerMetadata>,
+    runners: &'a [RunnerMetadata],
     ctx: &Context,
   ) -> Option<&'a RunnerMetadata>;
 }

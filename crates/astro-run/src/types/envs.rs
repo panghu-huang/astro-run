@@ -9,12 +9,12 @@ pub enum EnvironmentVariable {
   Boolean(bool),
 }
 
-impl ToString for EnvironmentVariable {
-  fn to_string(&self) -> String {
+impl std::fmt::Display for EnvironmentVariable {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      EnvironmentVariable::String(s) => s.to_string(),
-      EnvironmentVariable::Number(n) => n.to_string(),
-      EnvironmentVariable::Boolean(b) => b.to_string(),
+      EnvironmentVariable::String(s) => write!(f, "{}", s),
+      EnvironmentVariable::Number(n) => write!(f, "{}", n),
+      EnvironmentVariable::Boolean(b) => write!(f, "{}", b),
     }
   }
 }
