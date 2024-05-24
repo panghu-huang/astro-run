@@ -12,8 +12,8 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-astro-run = { path = "../astro-run", version = "0.1.7" }
-astro-run-protocol = { path = "../protocol", version = "0.1.6", features = [
+astro-run = { workspace = true }
+astro-run-protocol = { workspace = true, features = [
   "astro-run-remote-runner",
 ] }
 
@@ -31,8 +31,8 @@ tokio = { workspace = true, features = [
   "time",
 ] }
 
-astro-run-scheduler = { path = "../scheduler", version = "0.1.2" }
+astro-run-scheduler = { workspace = true }
 
 [dev-dependencies]
-astro-run-test = { path = "../test" }
-astro-run-logger = { path = "../logger" }
+astro-run-test = { workspace = true }
+astro-run-logger = { workspace = true }

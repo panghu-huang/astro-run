@@ -17,13 +17,12 @@ astro-run-remote-runner = []
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-prost = "0.11.9"
-tonic = "0.9.2"
-prost-types = "0.11.9"
-astro-run = { path = "../astro-run", version = "0.1.7" }
+prost = { workspace = true }
+tonic = { workspace = true }
+prost-types = { workspace = true }
+astro-run = { workspace = true }
 chrono = { workspace = true }
-
-astro-run-scheduler = { path = "../scheduler", version = "0.1.2" }
+astro-run-scheduler = { workspace = true }
 
 [build-dependencies]
-tonic-build = "0.9.2"
+tonic-build = { workspace = true }
