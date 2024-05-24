@@ -645,11 +645,11 @@ jobs:
 struct WorkflowPayload(String);
 
 impl Payload for WorkflowPayload {
-  fn try_from_string(payload: &String) -> astro_run::Result<Self>
+  fn try_from_string(payload: &str) -> astro_run::Result<Self>
   where
     Self: Sized,
   {
-    Ok(WorkflowPayload(payload.clone()))
+    Ok(WorkflowPayload(payload.to_owned()))
   }
 
   fn try_into_string(&self) -> astro_run::Result<String> {

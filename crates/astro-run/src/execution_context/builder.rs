@@ -13,6 +13,12 @@ pub struct ExecutionContextBuilder {
   github_auth: Option<GithubAuthorization>,
 }
 
+impl Default for ExecutionContextBuilder {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl ExecutionContextBuilder {
   pub fn new() -> Self {
     ExecutionContextBuilder {
@@ -72,13 +78,11 @@ impl ExecutionContextBuilder {
       ))
       .unwrap();
 
-    let ctx = ExecutionContext {
+    ExecutionContext {
       runner,
       signal_manager,
       plugin_driver,
       condition_matcher: ConditionMatcher::new(self.event, self.github_auth),
-    };
-
-    ctx
+    }
   }
 }

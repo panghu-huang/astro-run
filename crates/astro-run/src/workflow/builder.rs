@@ -7,6 +7,12 @@ pub struct WorkflowBuilder {
   payload: Option<Box<dyn Payload>>,
 }
 
+impl Default for WorkflowBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WorkflowBuilder {
   pub fn new() -> Self {
     Self {

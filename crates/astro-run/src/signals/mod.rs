@@ -11,6 +11,12 @@ pub struct SignalManager {
   pub signals: Arc<Mutex<HashMap<JobId, AstroRunSignal>>>,
 }
 
+impl Default for SignalManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SignalManager {
   pub fn new() -> Self {
     SignalManager {
@@ -23,7 +29,7 @@ impl SignalManager {
   }
 
   pub fn unregister_signal(&self, job_id: &JobId) {
-    self.signals.lock().remove(&job_id);
+    self.signals.lock().remove(job_id);
   }
 
   pub fn get_signal(&self, job_id: &JobId) -> Option<AstroRunSignal> {

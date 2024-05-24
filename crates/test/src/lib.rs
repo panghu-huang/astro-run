@@ -9,15 +9,13 @@ use syn::{
 static IS_SUPPORT_DOCKER: OnceLock<bool> = OnceLock::new();
 
 fn is_support_docker() -> bool {
-  IS_SUPPORT_DOCKER
-    .get_or_init(|| {
-      // Check if docker is installed and running
-      std::process::Command::new("docker")
-        .arg("ps")
-        .status()
-        .map_or(false, |status| status.success())
-    })
-    .clone()
+  *IS_SUPPORT_DOCKER.get_or_init(|| {
+    // Check if docker is installed and running
+    std::process::Command::new("docker")
+      .arg("ps")
+      .status()
+      .map_or(false, |status| status.success())
+  })
 }
 
 struct Args {
@@ -28,11 +26,11 @@ impl Parse for Args {
   fn parse(input: ParseStream) -> syn::Result<Self> {
     match input.parse::<syn::Ident>() {
       Ok(ident) => {
-        return Ok(Self {
+        Ok(Self {
           is_docker: ident == "docker",
         })
       }
-      Err(_) => return Ok(Self { is_docker: false }),
+      Err(_) => Ok(Self { is_docker: false }),
     }
   }
 }

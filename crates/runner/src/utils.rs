@@ -20,7 +20,7 @@ pub async fn create_executable_file(file_path: &PathBuf, content: &String) -> Re
 
   if !content.starts_with("#!") {
     // Add shebang
-    file.write(b"#!/bin/sh\n").await?;
+    file.write_all(b"#!/bin/sh\n").await?;
   }
 
   file.write_all(content.as_bytes()).await?;

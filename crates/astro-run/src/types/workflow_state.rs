@@ -14,27 +14,21 @@ pub enum WorkflowState {
 
 impl WorkflowState {
   pub fn is_terminal(&self) -> bool {
-    match self {
+    matches!(
+      self,
       WorkflowState::Succeeded
-      | WorkflowState::Failed
-      | WorkflowState::Cancelled
-      | WorkflowState::Skipped => true,
-      _ => false,
-    }
+        | WorkflowState::Failed
+        | WorkflowState::Cancelled
+        | WorkflowState::Skipped
+    )
   }
 
   pub fn is_in_progress(&self) -> bool {
-    match self {
-      WorkflowState::InProgress => true,
-      _ => false,
-    }
+    matches!(self, WorkflowState::InProgress)
   }
 
   pub fn is_queued(&self) -> bool {
-    match self {
-      WorkflowState::Queued => true,
-      _ => false,
-    }
+    matches!(self, WorkflowState::Queued)
   }
 }
 
@@ -44,34 +38,34 @@ mod tests {
 
   #[test]
   fn test_is_terminal() {
-    assert_eq!(WorkflowState::Pending.is_terminal(), false);
-    assert_eq!(WorkflowState::Queued.is_terminal(), false);
-    assert_eq!(WorkflowState::InProgress.is_terminal(), false);
-    assert_eq!(WorkflowState::Succeeded.is_terminal(), true);
-    assert_eq!(WorkflowState::Failed.is_terminal(), true);
-    assert_eq!(WorkflowState::Cancelled.is_terminal(), true);
-    assert_eq!(WorkflowState::Skipped.is_terminal(), true);
+    assert!(!WorkflowState::Pending.is_terminal());
+    assert!(!WorkflowState::Queued.is_terminal());
+    assert!(!WorkflowState::InProgress.is_terminal());
+    assert!(WorkflowState::Succeeded.is_terminal());
+    assert!(WorkflowState::Failed.is_terminal());
+    assert!(WorkflowState::Cancelled.is_terminal());
+    assert!(WorkflowState::Skipped.is_terminal());
   }
 
   #[test]
   fn test_is_in_progress() {
-    assert_eq!(WorkflowState::Pending.is_in_progress(), false);
-    assert_eq!(WorkflowState::Queued.is_in_progress(), false);
-    assert_eq!(WorkflowState::InProgress.is_in_progress(), true);
-    assert_eq!(WorkflowState::Succeeded.is_in_progress(), false);
-    assert_eq!(WorkflowState::Failed.is_in_progress(), false);
-    assert_eq!(WorkflowState::Cancelled.is_in_progress(), false);
-    assert_eq!(WorkflowState::Skipped.is_in_progress(), false);
+    assert!(!WorkflowState::Pending.is_in_progress());
+    assert!(!WorkflowState::Queued.is_in_progress());
+    assert!(WorkflowState::InProgress.is_in_progress());
+    assert!(!WorkflowState::Succeeded.is_in_progress());
+    assert!(!WorkflowState::Failed.is_in_progress());
+    assert!(!WorkflowState::Cancelled.is_in_progress());
+    assert!(!WorkflowState::Skipped.is_in_progress());
   }
 
   #[test]
   fn test_is_queued() {
-    assert_eq!(WorkflowState::Pending.is_queued(), false);
-    assert_eq!(WorkflowState::Queued.is_queued(), true);
-    assert_eq!(WorkflowState::InProgress.is_queued(), false);
-    assert_eq!(WorkflowState::Succeeded.is_queued(), false);
-    assert_eq!(WorkflowState::Failed.is_queued(), false);
-    assert_eq!(WorkflowState::Cancelled.is_queued(), false);
-    assert_eq!(WorkflowState::Skipped.is_queued(), false);
+    assert!(!WorkflowState::Pending.is_queued());
+    assert!(WorkflowState::Queued.is_queued());
+    assert!(!WorkflowState::InProgress.is_queued());
+    assert!(!WorkflowState::Succeeded.is_queued());
+    assert!(!WorkflowState::Failed.is_queued());
+    assert!(!WorkflowState::Cancelled.is_queued());
+    assert!(!WorkflowState::Skipped.is_queued());
   }
 }

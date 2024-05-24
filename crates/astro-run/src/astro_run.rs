@@ -15,11 +15,11 @@ pub struct AstroRun {
 
 impl AstroRun {
   pub fn builder() -> AstroRunBuilder {
-    AstroRunBuilder::new()
+    AstroRunBuilder::default()
   }
 
   pub fn cancel_job(&self, job_id: &JobId) -> Result<()> {
-    self.signal_manager.cancel_job(&job_id)
+    self.signal_manager.cancel_job(job_id)
   }
 
   pub fn execution_context(&self) -> ExecutionContextBuilder {
@@ -44,6 +44,7 @@ impl AstroRun {
   }
 }
 
+#[derive(Default)]
 pub struct AstroRunBuilder {
   runner: Option<Box<dyn Runner>>,
   plugins: Vec<Box<dyn Plugin>>,
@@ -52,15 +53,6 @@ pub struct AstroRunBuilder {
 }
 
 impl AstroRunBuilder {
-  pub fn new() -> Self {
-    AstroRunBuilder {
-      runner: None,
-      github_auth: None,
-      plugins: vec![],
-      actions: HashMap::new(),
-    }
-  }
-
   pub fn runner<T>(mut self, runner: T) -> Self
   where
     T: Runner + 'static,
@@ -107,3 +99,5 @@ impl AstroRunBuilder {
     }
   }
 }
+
+

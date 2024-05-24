@@ -91,16 +91,16 @@ impl From<astro_run::WorkflowEvent> for WorkflowEvent {
   }
 }
 
-impl Into<astro_run::WorkflowEvent> for WorkflowEvent {
-  fn into(self) -> astro_run::WorkflowEvent {
+impl From<WorkflowEvent> for astro_run::WorkflowEvent {
+  fn from(val: WorkflowEvent) -> Self {
     astro_run::WorkflowEvent {
-      event: self.event,
-      repo_owner: self.repo_owner,
-      repo_name: self.repo_name,
-      pr_number: self.pr_number,
-      sha: self.sha,
-      ref_name: self.ref_name,
-      branch: self.branch,
+      event: val.event,
+      repo_owner: val.repo_owner,
+      repo_name: val.repo_name,
+      pr_number: val.pr_number,
+      sha: val.sha,
+      ref_name: val.ref_name,
+      branch: val.branch,
     }
   }
 }

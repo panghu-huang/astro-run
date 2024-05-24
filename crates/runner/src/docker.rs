@@ -65,7 +65,7 @@ impl Docker {
   }
 
   fn generate_docker_command(&self) -> String {
-    let mut docker_command: Vec<String> = vec!["docker", "run", "--tty"]
+    let mut docker_command: Vec<String> = ["docker", "run", "--tty"]
       .iter()
       .map(|item| item.to_string())
       .collect();
@@ -110,15 +110,13 @@ impl Docker {
     //   docker_command.push(format!("/bin/sh -e {}", entrypoint.to_string()));
     // }
 
-    let command = docker_command.join(" ");
-
-    command
+    docker_command.join(" ")
   }
 }
 
-impl Into<Command> for Docker {
-  fn into(self) -> Command {
-    let command = self.generate_docker_command();
+impl From<Docker> for Command {
+  fn from(val: Docker) -> Command {
+    let command = val.generate_docker_command();
     Command::new(command)
   }
 }

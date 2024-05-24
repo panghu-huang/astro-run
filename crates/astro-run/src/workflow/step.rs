@@ -25,17 +25,17 @@ impl Step {
   }
 }
 
-impl Into<Command> for Step {
-  fn into(self) -> Command {
+impl From<Step> for Command {
+  fn from(val: Step) -> Self {
     Command {
-      id: self.id,
-      name: self.name,
-      container: self.container,
-      run: self.run,
-      continue_on_error: self.continue_on_error,
-      environments: self.environments,
-      secrets: self.secrets,
-      timeout: self.timeout,
+      id: val.id,
+      name: val.name,
+      container: val.container,
+      run: val.run,
+      continue_on_error: val.continue_on_error,
+      environments: val.environments,
+      secrets: val.secrets,
+      timeout: val.timeout,
     }
   }
 }

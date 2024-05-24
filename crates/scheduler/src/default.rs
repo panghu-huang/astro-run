@@ -18,6 +18,12 @@ pub struct DefaultScheduler {
   pub state: Arc<Mutex<SchedulerState>>,
 }
 
+impl Default for DefaultScheduler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DefaultScheduler {
   pub fn new() -> Self {
     Self {

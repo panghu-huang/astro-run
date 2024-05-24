@@ -50,7 +50,7 @@ impl Runner for TestRunner {
     assert_eq!(job.name.unwrap(), "Test Job");
     let step = job.steps[0].clone();
     assert_eq!(step.run, "Hello World");
-    assert_eq!(step.continue_on_error, false);
+    assert!(!step.continue_on_error);
     assert_eq!(step.timeout, std::time::Duration::from_secs(60 * 60));
     let container = step.container.unwrap();
     assert_eq!(container.name, "alpine");

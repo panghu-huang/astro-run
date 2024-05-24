@@ -11,9 +11,9 @@ pub use pb::*;
 use std::{collections::HashMap, time::Duration};
 pub use tonic;
 
-impl Into<astro_run::WorkflowState> for WorkflowState {
-  fn into(self) -> astro_run::WorkflowState {
-    match self {
+impl From<WorkflowState> for astro_run::WorkflowState {
+  fn from(val: WorkflowState) -> Self {
+    match val {
       WorkflowState::Pending => astro_run::WorkflowState::Pending,
       WorkflowState::Queued => astro_run::WorkflowState::Queued,
       WorkflowState::InProgress => astro_run::WorkflowState::InProgress,
@@ -158,7 +158,7 @@ impl TryFrom<astro_run::Context> for Context {
     Ok(Context {
       id: value.id,
       command: Some(value.command.try_into()?),
-      event: value.event.map(|e| WorkflowEvent::from(e)),
+      event: value.event.map(WorkflowEvent::from),
     })
   }
 }

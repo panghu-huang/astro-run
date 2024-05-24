@@ -11,9 +11,9 @@ impl From<astro_run::RunResult> for run_result::Result {
   }
 }
 
-impl Into<astro_run::RunResult> for run_result::Result {
-  fn into(self) -> astro_run::RunResult {
-    match self {
+impl From<run_result::Result> for astro_run::RunResult {
+  fn from(val: run_result::Result) -> Self {
+    match val {
       run_result::Result::Cancelled(_) => astro_run::RunResult::Cancelled,
       run_result::Result::Failed(exit_code) => astro_run::RunResult::Failed { exit_code },
       run_result::Result::Succeeded(_) => astro_run::RunResult::Succeeded,

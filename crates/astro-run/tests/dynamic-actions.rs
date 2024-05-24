@@ -99,7 +99,7 @@ jobs:
     .await
     .unwrap();
 
-  let dynamic_step = workflow.jobs.get("test").unwrap().steps.get(0).unwrap();
+  let dynamic_step = workflow.jobs.get("test").unwrap().steps.first().unwrap();
 
   assert_eq!(dynamic_step.run, "Hello World");
   assert_eq!(dynamic_step.name, Some("Hello World".to_string()));

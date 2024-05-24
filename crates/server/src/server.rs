@@ -47,7 +47,7 @@ impl AstroRunService for AstroRunServer {
     let req = request.into_inner();
     let metadata: astro_run_scheduler::RunnerMetadata =
       req.try_into().map_err(|err: astro_run::Error| {
-        Status::invalid_argument(format!("Failed to convert metadata: {}", err.to_string()))
+        Status::invalid_argument(format!("Failed to convert metadata: {}", err))
       })?;
 
     if metadata.version != crate::VERSION {
@@ -105,7 +105,6 @@ impl AstroRunService for AstroRunServer {
     let running = self.state.lock().running.clone();
     let client = running
       .get(&id)
-      .clone()
       .ok_or_else(|| Status::not_found(format!("No running job with id {}", id)))?;
 
     let result = inner
@@ -249,6 +248,12 @@ impl Runner for AstroRunServer {
 
     Ok(())
   }
+}
+
+impl Default for AstroRunServer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AstroRunServer {

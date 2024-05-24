@@ -193,7 +193,7 @@ jobs:
     assert_eq!(job.name, Some("Test Job".to_string()));
     // assert_eq!(job.working_dir, Some("/home/runner/work".to_string()));
 
-    let step = job.steps.get(0).unwrap();
+    let step = job.steps.first().unwrap();
 
     if let UserStep::Command(command_step) = step {
       let UserCommandStep {
@@ -392,7 +392,7 @@ jobs:
     let job = workflow.jobs.get("job").unwrap();
     assert_eq!(&job.on, &on);
 
-    let step = job.steps.get(0).unwrap();
+    let step = job.steps.first().unwrap();
     if let UserStep::Command(command_step) = step {
       assert_eq!(&command_step.on, &on);
     } else {
@@ -445,7 +445,7 @@ jobs:
     let job = workflow.jobs.get("job").unwrap();
     assert_eq!(job.on, on);
 
-    let step = job.steps.get(0).unwrap();
+    let step = job.steps.first().unwrap();
     if let UserStep::Command(command_step) = step {
       assert_eq!(
         command_step.on,

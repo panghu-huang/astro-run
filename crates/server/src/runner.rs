@@ -45,7 +45,7 @@ impl AstroRunRunner {
       })
       .await
       .map_err(|e| {
-        Error::internal_runtime_error(format!("Failed to subscribe events: {}", e.to_string()))
+        Error::internal_runtime_error(format!("Failed to subscribe events: {}", e))
       })?;
 
     let mut stream = stream.into_inner();
@@ -230,6 +230,12 @@ pub struct AstroRunRunnerBuilder {
   support_docker: Option<bool>,
   support_host: bool,
   plugins: Vec<Box<dyn Plugin>>,
+}
+
+impl Default for AstroRunRunnerBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AstroRunRunnerBuilder {
