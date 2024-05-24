@@ -13,7 +13,7 @@ license.workspace = true
 
 [dependencies]
 tokio-stream = { workspace = true }
-astro-run = { path = "../astro-run", version = "0.1.7" }
+astro-run = { workspace = true }
 tokio = { workspace = true, features = [
   "sync",
   "macros",
@@ -28,5 +28,5 @@ serde = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]
-astro-run-test = { path = "../test" }
-astro-run-logger = { path = "../logger" }
+astro-run-test = { workspace = true }
+astro-run-logger = { workspace = true }

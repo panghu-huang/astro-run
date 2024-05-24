@@ -17,10 +17,8 @@ name = "astro_run"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-humantime = "2.1.0"
-serde_yaml = "0.9.17"
-
-# Workspace dependencies
+humantime = { workspace = true }
+serde_yaml = { workspace = true }
 parking_lot = { workspace = true }
 tokio = { workspace = true, features = [
   "sync",
@@ -37,12 +35,12 @@ log = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 tokio-stream = { workspace = true }
-glob = "0.3.1"
-octocrate = "0.1.5"
-async-trait = "0.1.73"
+glob = { workspace = true }
+octocrate = { workspace = true }
+async-trait = { workspace = true }
 
 [dev-dependencies]
-astro-run-test = { path = "../test" }
-astro-run-logger = { path = "../logger" }
+astro-run-test = { workspace = true }
+astro-run-logger = { workspace = true }
 
 dotenv = { workspace = true }

@@ -12,7 +12,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-astro-run = { path = "../astro-run", version = "0.1.3" }
+astro-run = { workspace = true }
 parking_lot = { workspace = true }
 log = { workspace = true }
 
@@ -26,5 +26,5 @@ tokio = { workspace = true, features = [
   "rt-multi-thread",
   "time",
 ] }
-astro-run-test = { path = "../test" }
-astro-run-logger = { path = "../logger" }
+astro-run-test = { workspace = true }
+astro-run-logger = { workspace = true }
