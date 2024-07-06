@@ -8,7 +8,6 @@ use std::collections::HashMap;
 pub struct WorkflowParser<'a> {
   pub id: Id,
   pub user_workflow: UserWorkflow,
-  pub payload: Option<String>,
   pub astro_run: &'a AstroRun,
 }
 
@@ -157,7 +156,7 @@ impl<'a> WorkflowParser<'a> {
       name: user_workflow.name,
       on: user_workflow.on,
       jobs,
-      payload: self.payload,
+      // payload: self.payload,
     })
   }
 }
@@ -217,7 +216,6 @@ jobs:
       id: "test-id".to_string(),
       user_workflow,
       astro_run: &astro_run,
-      payload: None,
     };
 
     let workflow = parser.parse().await.unwrap();
@@ -269,7 +267,6 @@ jobs:
       id: "test-id".to_string(),
       user_workflow,
       astro_run: &astro_run,
-      payload: None,
     };
 
     let workflow = parser.parse().await;
@@ -349,7 +346,6 @@ jobs:
       id: "test-id".to_string(),
       user_workflow: serde_yaml::from_str(workflow).unwrap(),
       astro_run: &astro_run,
-      payload: None,
     };
 
     let workflow = parser.parse().await.unwrap();
@@ -415,7 +411,6 @@ jobs:
       id: "test-id".to_string(),
       user_workflow: serde_yaml::from_str(workflow).unwrap(),
       astro_run: &astro_run,
-      payload: None,
     };
 
     let error = parser.parse().await.unwrap_err();
@@ -441,7 +436,6 @@ jobs:
       id: "test-id".to_string(),
       user_workflow: serde_yaml::from_str(workflow).unwrap(),
       astro_run: &astro_run,
-      payload: None,
     };
 
     let error = parser.parse().await.unwrap_err();

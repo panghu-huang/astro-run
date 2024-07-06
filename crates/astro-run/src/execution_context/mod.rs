@@ -7,21 +7,48 @@ use crate::{
   RunStepEvent, Runner, SharedPluginDriver, Signal, SignalManager, Step, StepRunResult, StreamExt,
   Workflow, WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
-use std::sync::Arc;
+use serde::{de::DeserializeOwned, Serialize};
+use std::{any::Any, ops::DerefMut, sync::Arc};
 use tokio::time;
 
-#[derive(Clone)]
+#[typetag::serde]
+pub trait ContextPayload: Any + Send + Sync {
+  fn as_any(&self) -> &dyn Any;
+}
+
+// #[derive(Clone)]
 pub struct ExecutionContext {
   runner: Arc<Box<dyn Runner>>,
   plugin_driver: SharedPluginDriver,
   signal_manager: SignalManager,
   condition_matcher: condition_matcher::ConditionMatcher,
+  payload: Option<Box<dyn ContextPayload>>,
+}
+
+impl Clone for ExecutionContext {
+  fn clone(&self) -> Self {
+    let payload = self.payload.as_ref().map(|p| {
+      let payload_string = serde_json::to_string(p).unwrap();
+
+      let payload: Box<dyn ContextPayload> = serde_json::from_str(&payload_string).unwrap();
+
+      payload
+    });
+
+    ExecutionContext {
+      runner: self.runner.clone(),
+      plugin_driver: self.plugin_driver.clone(),
+      signal_manager: self.signal_manager.clone(),
+      condition_matcher: self.condition_matcher.clone(),
+      payload,
+    }
+  }
 }
 
 impl ExecutionContext {
-  pub fn builder() -> ExecutionContextBuilder {
-    ExecutionContextBuilder::new()
-  }
+  // pub fn builder() -> ExecutionContextBuilder {
+  //   ExecutionContextBuilder::new()
+  // }
 
   pub async fn run(&self, step: Step) -> StepRunResult {
     let step = self.call_on_before_run_step(step).await;
@@ -286,4 +313,33 @@ impl ExecutionContext {
       log::error!("Failed to handle log: {:?}", err);
     }
   }
+
+  pub fn builder() -> ExecutionContextBuilder {
+    ExecutionContextBuilder::new()
+  }
+
+  pub fn payload<P>(&self) -> Option<&P>
+  where
+    P: ContextPayload + 'static,
+  {
+    self
+      .payload
+      .as_ref()
+      .map(|p| p.as_any())
+      .and_then(|p| p.downcast_ref::<P>())
+  }
+
+  pub fn set_payload<P>(&mut self, payload: P)
+  where
+    P: ContextPayload + 'static,
+  {
+    self.payload = Some(Box::new(payload));
+  }
 }
+
+// impl<P> ExecutionContext<P>
+// where
+//   P: Serialize + DeserializeOwned + Send + Sync + 'static,
+// {
+
+// }

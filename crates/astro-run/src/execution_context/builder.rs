@@ -1,8 +1,9 @@
 use super::condition_matcher::ConditionMatcher;
 use crate::{
-  Error, ExecutionContext, GithubAuthorization, Runner, SharedPluginDriver, SignalManager,
-  WorkflowEvent,
+  ContextPayload, Error, ExecutionContext, GithubAuthorization, Runner, SharedPluginDriver,
+  SignalManager, WorkflowEvent,
 };
+use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
 
 #[derive(Default)]
@@ -12,11 +13,19 @@ pub struct ExecutionContextBuilder {
   signal_manager: Option<SignalManager>,
   event: Option<WorkflowEvent>,
   github_auth: Option<GithubAuthorization>,
+  payload: Option<Box<dyn ContextPayload>>,
 }
 
 impl ExecutionContextBuilder {
-  pub fn new() -> Self {
-    Self::default()
+  pub fn new() -> ExecutionContextBuilder {
+    ExecutionContextBuilder {
+      runner: None,
+      plugin_driver: None,
+      signal_manager: None,
+      event: None,
+      github_auth: None,
+      payload: None,
+    }
   }
 
   pub fn runner(mut self, runner: Arc<Box<dyn Runner>>) -> Self {
@@ -45,6 +54,14 @@ impl ExecutionContextBuilder {
     self
   }
 
+  pub fn payload<P>(mut self, payload: P) -> Self
+  where
+    P: ContextPayload + 'static,
+  {
+    self.payload = Some(Box::new(payload) as Box<dyn ContextPayload>);
+    self
+  }
+
   pub fn build(self) -> ExecutionContext {
     let runner = self
       .runner
@@ -67,11 +84,14 @@ impl ExecutionContextBuilder {
       ))
       .unwrap();
 
+    let payload = self.payload;
+
     ExecutionContext {
       runner,
       signal_manager,
       plugin_driver,
       condition_matcher: ConditionMatcher::new(self.event, self.github_auth),
+      payload,
     }
   }
 }
