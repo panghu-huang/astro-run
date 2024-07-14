@@ -15,7 +15,6 @@ pub trait ContextPayload: Any + Send + Sync {
   fn as_any(&self) -> &dyn Any;
 }
 
-// #[derive(Clone)]
 pub struct ExecutionContext {
   runner: Arc<Box<dyn Runner>>,
   plugin_driver: SharedPluginDriver,
@@ -45,10 +44,6 @@ impl Clone for ExecutionContext {
 }
 
 impl ExecutionContext {
-  // pub fn builder() -> ExecutionContextBuilder {
-  //   ExecutionContextBuilder::new()
-  // }
-
   pub async fn run(&self, step: Step) -> StepRunResult {
     let step = self.call_on_before_run_step(step).await;
 
@@ -335,10 +330,3 @@ impl ExecutionContext {
     self.payload = Some(Box::new(payload));
   }
 }
-
-// impl<P> ExecutionContext<P>
-// where
-//   P: Serialize + DeserializeOwned + Send + Sync + 'static,
-// {
-
-// }

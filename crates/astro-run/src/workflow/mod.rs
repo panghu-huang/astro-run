@@ -22,7 +22,6 @@ pub struct Workflow {
   pub name: Option<String>,
   pub on: Option<Condition>,
   pub jobs: HashMap<String, Job>,
-  // pub payload: Option<T>,
 }
 
 impl Workflow {
@@ -192,7 +191,6 @@ mod tests {
 
   #[astro_run_test::test]
   async fn test_workflow_payload() {
-    println!("22");
     let workflow = r#"
       jobs:
         test:

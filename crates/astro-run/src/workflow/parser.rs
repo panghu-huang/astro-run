@@ -152,11 +152,9 @@ impl<'a> WorkflowParser<'a> {
 
     Ok(Workflow {
       id: WorkflowId::new(id),
-      // event: self.event,
       name: user_workflow.name,
       on: user_workflow.on,
       jobs,
-      // payload: self.payload,
     })
   }
 }
