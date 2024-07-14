@@ -7,8 +7,7 @@ use crate::{
   RunStepEvent, Runner, SharedPluginDriver, Signal, SignalManager, Step, StepRunResult, StreamExt,
   Workflow, WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
-use serde::{de::DeserializeOwned, Serialize};
-use std::{any::Any, ops::DerefMut, sync::Arc};
+use std::{any::Any, sync::Arc};
 use tokio::time;
 
 #[typetag::serde]

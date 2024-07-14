@@ -2,7 +2,6 @@ use crate::{
   Action, ActionDriver, ExecutionContext, ExecutionContextBuilder, GithubAuthorization, JobId,
   Plugin, PluginDriver, Result, Runner, SharedActionDriver, SharedPluginDriver, SignalManager,
 };
-use serde::{de::DeserializeOwned, Serialize};
 use std::{collections::HashMap, sync::Arc};
 
 #[derive(Clone)]

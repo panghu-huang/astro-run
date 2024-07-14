@@ -3,7 +3,6 @@ use crate::{
   ContextPayload, Error, ExecutionContext, GithubAuthorization, Runner, SharedPluginDriver,
   SignalManager, WorkflowEvent,
 };
-use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
 
 #[derive(Default)]
