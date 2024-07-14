@@ -1,8 +1,8 @@
-use astro_run::{Error, Plugin, PluginDriver, Runner, SharedPluginDriver};
-use astro_run_protocol::{
-  astro_run_remote_runner::{self, event::Payload as EventPayload, RunResponse, SendEventResponse},
-  tonic, AstroRunRemoteRunner, RunnerMetadata,
-};
+use astro_run::{Context, Error, Plugin, PluginDriver, Runner, SharedPluginDriver, StepId};
+use astro_run_protocol::remote_runner::RemoteRunnerExt;
+use astro_run_protocol::remote_runner::RemoteRunnerServer;
+use astro_run_protocol::tonic;
+use astro_run_protocol::{RunEvent, RunResponse, RunnerMetadata};
 use parking_lot::Mutex;
 use std::{collections::HashMap, env, sync::Arc};
 use tokio::sync::mpsc;
@@ -15,7 +15,7 @@ pub struct AstroRunRemoteRunnerServer {
   support_host: bool,
   runner: Arc<Box<dyn Runner>>,
   plugin_driver: SharedPluginDriver,
-  signals: Arc<Mutex<HashMap<String, astro_run::AstroRunSignal>>>,
+  signals: Arc<Mutex<HashMap<StepId, astro_run::AstroRunSignal>>>,
 }
 
 impl AstroRunRemoteRunnerServer {
@@ -28,7 +28,7 @@ impl AstroRunRemoteRunnerServer {
       .parse()
       .map_err(|_| Error::internal_runtime_error("Failed to parse address"))?;
 
-    let service = astro_run_protocol::AstroRunRemoteRunnerServer::new(self);
+    let service = RemoteRunnerServer::new(self);
 
     tonic::transport::Server::builder()
       .add_service(service)
@@ -50,13 +50,7 @@ impl AstroRunRemoteRunnerServer {
       let mut stream = runner.run(ctx).await?;
 
       while let Some(log) = stream.next().await {
-        if let Err(err) = sender
-          .send(
-            RunResponse::log(id.clone(), log)
-              .map_err(|e| tonic::Status::internal(format!("Cannot send log to client: {}", e))),
-          )
-          .await
-        {
+        if let Err(err) = sender.send(Ok(RunResponse::log(id.clone(), log))).await {
           log::error!("Cannot send log to client: {}", err);
         }
       }
@@ -67,8 +61,7 @@ impl AstroRunRemoteRunnerServer {
 
       if let Err(err) = sender
         .send(
-          RunResponse::end(id, result)
-            .map_err(|e| tonic::Status::internal(format!("Cannot send result to client: {}", e))),
+          Ok(RunResponse::result(id, result))
         )
         .await
       {
@@ -81,19 +74,16 @@ impl AstroRunRemoteRunnerServer {
 }
 
 #[tonic::async_trait]
-impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
-  type RunStream = ReceiverStream<Result<RunResponse, tonic::Status>>;
+impl RemoteRunnerExt for AstroRunRemoteRunnerServer {
+  type RunStream = ReceiverStream<tonic::Result<RunResponse>>;
 
   async fn run(
     &self,
-    request: tonic::Request<astro_run_protocol::Context>,
+    request: tonic::Request<Context>,
   ) -> Result<tonic::Response<Self::RunStream>, tonic::Status> {
     let (tx, rx) = mpsc::channel(30);
 
     let context = request.into_inner();
-    let context: astro_run::Context = context
-      .try_into()
-      .map_err(|e| tonic::Status::internal(format!("Failed to convert context: {}", e)))?;
 
     self
       .signals
@@ -109,19 +99,12 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
 
   async fn send_event(
     &self,
-    request: tonic::Request<astro_run_remote_runner::Event>,
-  ) -> Result<tonic::Response<astro_run_remote_runner::SendEventResponse>, tonic::Status> {
+    request: tonic::Request<RunEvent>,
+  ) -> Result<tonic::Response<astro_run_protocol::Empty>, tonic::Status> {
     let event = request.into_inner();
-    let event = event
-      .payload
-      .ok_or_else(|| tonic::Status::internal("Payload is empty".to_string()))?;
 
     match event {
-      EventPayload::WorkflowCompletedEvent(event) => {
-        let result: astro_run::WorkflowRunResult = event.try_into().map_err(|e| {
-          tonic::Status::internal(format!("Failed to convert workflow completed event: {}", e))
-        })?;
-
+      RunEvent::WorkflowCompleted(result) => {
         self
           .plugin_driver
           .on_workflow_completed(result.clone())
@@ -131,24 +114,17 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           log::error!("Failed to handle workflow completed event: {}", err);
         }
       }
-      EventPayload::JobCompletedEvent(event) => {
-        let result: astro_run::JobRunResult = event.try_into().map_err(|e| {
-          tonic::Status::internal(format!("Failed to convert job completed event: {}", e))
-        })?;
-
+      RunEvent::JobCompleted(result) => {
         self.plugin_driver.on_job_completed(result.clone()).await;
         if let Err(err) = self.runner.on_job_completed(result).await {
           log::error!("Failed to handle job completed event: {}", err);
         }
       }
-      EventPayload::StepCompletedEvent(event) => {
-        let result: astro_run::StepRunResult = event.try_into().map_err(|e| {
-          tonic::Status::internal(format!("Failed to convert step completed event: {}", e))
-        })?;
-
+      RunEvent::StepCompleted(result) => {
         // Remove signal once step is completed
-        let step_id = result.id.to_string();
-        self.signals.lock().remove(&step_id);
+        let step_id = &result.id;
+
+        self.signals.lock().remove(step_id);
 
         // Dispatch event to plugins and runner
         self.plugin_driver.on_step_completed(result.clone()).await;
@@ -156,62 +132,46 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
           log::error!("Failed to handle step completed event: {}", err);
         }
       }
-      EventPayload::LogEvent(event) => {
-        let log: astro_run::WorkflowLog = event
-          .try_into()
-          .map_err(|e| tonic::Status::internal(format!("Failed to convert log event: {}", e)))?;
-
+      RunEvent::StepLog(log) => {
         self.plugin_driver.on_log(log.clone()).await;
         if let Err(err) = self.runner.on_log(log).await {
           log::error!("Failed to handle log event: {}", err);
         }
       }
-      EventPayload::WorkflowStateEvent(event) => {
-        let event: astro_run::WorkflowStateEvent = event
-          .try_into()
-          .map_err(|e| tonic::Status::internal(format!("Failed to convert state event: {}", e)))?;
-
+      RunEvent::StateChange(event) => {
         self.plugin_driver.on_state_change(event.clone()).await;
+
         if let Err(err) = self.runner.on_state_change(event).await {
           log::error!("Failed to handle state event: {}", err);
         }
       }
-      EventPayload::RunStepEvent(event) => {
-        let event: astro_run::RunStepEvent = event.try_into().map_err(|e| {
-          tonic::Status::internal(format!("Failed to convert run step event: {}", e))
-        })?;
-
+      RunEvent::RunStep(event) => {
         self.plugin_driver.on_run_step(event.clone()).await;
+
         if let Err(err) = self.runner.on_run_step(event).await {
           log::error!("Failed to handle run step event: {}", err);
         }
       }
-      EventPayload::RunJobEvent(event) => {
-        let event: astro_run::RunJobEvent = event
-          .try_into()
-          .map_err(|e| tonic::Status::internal(format!("Failed to convert job: {}", e)))?;
-
+      RunEvent::RunJob(event) => {
         self.plugin_driver.on_run_job(event.clone()).await;
+
         if let Err(err) = self.runner.on_run_job(event).await {
           log::error!("Failed to handle run job event: {}", err);
         }
       }
-      EventPayload::RunWorkflowEvent(event) => {
-        let event: astro_run::RunWorkflowEvent = event
-          .try_into()
-          .map_err(|e| tonic::Status::internal(format!("Failed to convert workflow: {}", e)))?;
-
+      RunEvent::RunWorkflow(event) => {
         self.plugin_driver.on_run_workflow(event.clone()).await;
+
         if let Err(err) = self.runner.on_run_workflow(event).await {
           log::error!("Failed to handle run workflow event: {}", err);
         }
       }
-      EventPayload::SignalEvent(signal) => {
+      RunEvent::Signal(signal) => {
         log::trace!("Received signal: {:?}", signal);
-        let astro_run_signal = self.signals.lock().get(&signal.id).cloned();
+        let astro_run_signal = self.signals.lock().get(&signal.step_id).cloned();
 
         if let Some(astro_run_signal) = astro_run_signal {
-          match astro_run::Signal::from(signal.action.as_str()) {
+          match signal.signal {
             astro_run::Signal::Cancel => {
               astro_run_signal.cancel().ok();
             }
@@ -220,17 +180,17 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
             }
           }
         } else {
-          log::trace!("Signal {} is not found", signal.id);
+          log::trace!("Signal {} is not found", signal.step_id);
         }
       }
     }
 
-    Ok(tonic::Response::new(SendEventResponse {}))
+    Ok(tonic::Response::new(astro_run_protocol::Empty {}))
   }
 
   async fn get_runner_metadata(
     &self,
-    _req: tonic::Request<astro_run_remote_runner::ConnectRequest>,
+    _req: tonic::Request<astro_run_protocol::Empty>,
   ) -> Result<tonic::Response<RunnerMetadata>, tonic::Status> {
     let metadata = RunnerMetadata {
       id: self.id.clone(),
@@ -247,12 +207,10 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
 
   async fn call_before_run_step_hook(
     &self,
-    req: tonic::Request<astro_run_protocol::Command>,
+    req: tonic::Request<astro_run::Command>,
   ) -> Result<tonic::Response<astro_run_protocol::Command>, tonic::Status> {
     let command = req.into_inner();
-    let step: astro_run::Step = command
-      .try_into()
-      .map_err(|e| tonic::Status::invalid_argument(format!("Failed to convert command: {}", e)))?;
+    let step: astro_run::Step = command.into();
 
     // Call before run step hook
     let step = self.plugin_driver.on_before_run_step(step).await;
@@ -268,10 +226,7 @@ impl AstroRunRemoteRunner for AstroRunRemoteRunnerServer {
       }
     };
 
-    let command = astro_run_protocol::Command::try_from(step)
-      .map_err(|e| tonic::Status::internal(format!("Failed to convert step: {}", e)))?;
-
-    Ok(tonic::Response::new(command))
+    Ok(tonic::Response::new(step.into()))
   }
 }
 

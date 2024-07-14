@@ -177,7 +177,7 @@ jobs:
 
   assert_eq!(job.steps.len(), 3);
 
-  let step = job.steps.get(0).unwrap();
+  let step = job.steps.first().unwrap();
   assert_eq!(step.state, WorkflowState::Skipped);
 
   let step = job.steps.get(1).unwrap();
@@ -254,7 +254,7 @@ jobs:
 
   assert_eq!(job.steps.len(), 3);
 
-  let step = job.steps.get(0).unwrap();
+  let step = job.steps.first().unwrap();
   assert_eq!(step.state, WorkflowState::Skipped);
 
   let step = job.steps.get(1).unwrap();

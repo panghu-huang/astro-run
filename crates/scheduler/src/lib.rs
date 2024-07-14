@@ -1,9 +1,10 @@
 mod default;
 
+use serde::{Deserialize, Serialize};
 use astro_run::{Context, Job, JobRunResult, Step, StepRunResult, Workflow, WorkflowRunResult};
 pub use default::DefaultScheduler;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RunnerMetadata {
   pub id: String,
   pub os: String,

@@ -132,91 +132,79 @@ mod tests {
       "src/runner/lib.rs".to_string(),
     ];
 
-    assert_eq!(
-      is_match_patterns(&paths, &vec!["src/main.rs".to_string()]),
-      true
-    );
+    assert!(is_match_patterns(&paths, &vec!["src/main.rs".to_string()]),);
 
-    assert_eq!(
-      is_match_patterns(&paths, &vec!["src/runner/main.rs".to_string()]),
-      true
-    );
+    assert!(is_match_patterns(
+      &paths,
+      &vec!["src/runner/main.rs".to_string()]
+    ),);
 
-    assert_eq!(
-      is_match_patterns(&paths, &vec!["src/runner/*.rs".to_string()]),
-      true
-    );
+    assert!(is_match_patterns(
+      &paths,
+      &vec!["src/runner/*.rs".to_string()]
+    ),);
 
-    assert_eq!(
-      is_match_patterns(&paths, &vec!["src/runner/**/*.rs".to_string()]),
-      true
-    );
+    assert!(is_match_patterns(
+      &paths,
+      &vec!["src/runner/**/*.rs".to_string()]
+    ),);
 
-    assert_eq!(
-      is_match_patterns(&paths, &vec!["src/runner/**/main.rs".to_string()]),
-      true
-    );
+    assert!(is_match_patterns(
+      &paths,
+      &vec!["src/runner/**/main.rs".to_string()]
+    ),);
 
-    assert_eq!(
-      is_match_patterns(&paths, &vec!["src/runner/**/lib.rs".to_string()]),
-      true
-    );
+    assert!(is_match_patterns(
+      &paths,
+      &vec!["src/runner/**/lib.rs".to_string()]
+    ),);
 
     // Negative tests
-    assert_eq!(
-      is_match_patterns(&paths, &vec!["scripts/**/lib.rs".to_string()]),
-      false
-    );
+    assert!(!is_match_patterns(
+      &paths,
+      &vec!["scripts/**/lib.rs".to_string()]
+    ),);
 
-    assert_eq!(
-      is_match_patterns(&paths, &vec!["src/runner/**/lib.js".to_string()]),
-      false
-    );
+    assert!(!is_match_patterns(
+      &paths,
+      &vec!["src/runner/**/lib.js".to_string()]
+    ),);
   }
 
   #[test]
   fn is_match_branches() {
     let branches = vec!["master".to_string(), "develop".to_string()];
 
-    assert_eq!(
-      is_match_patterns(&vec!["master".to_string()], &branches),
-      true
-    );
+    assert!(is_match_patterns(&vec!["master".to_string()], &branches),);
 
-    assert_eq!(
-      is_match_patterns(&vec!["develop".to_string()], &branches),
-      true
-    );
+    assert!(is_match_patterns(&vec!["develop".to_string()], &branches),);
 
-    assert_eq!(
-      is_match_patterns(&vec!["feature/branch".to_string()], &branches),
-      false
-    );
+    assert!(!is_match_patterns(
+      &vec!["feature/branch".to_string()],
+      &branches
+    ),);
   }
 
   #[test]
   fn is_match_features() {
     let features = vec!["feature/*".to_string()];
 
-    assert_eq!(
-      is_match_patterns(&vec!["feature/branch".to_string()], &features),
-      true
-    );
+    assert!(is_match_patterns(
+      &vec!["feature/branch".to_string()],
+      &features
+    ),);
 
-    assert_eq!(
-      is_match_patterns(&vec!["feature/branch/branch".to_string()], &features),
-      true
-    );
+    assert!(is_match_patterns(
+      &vec!["feature/branch/branch".to_string()],
+      &features
+    ),);
 
-    assert_eq!(
-      is_match_patterns(&vec!["feature".to_string()], &features),
-      false
-    );
+    assert!(!is_match_patterns(&vec!["feature".to_string()], &features),);
 
-    assert_eq!(
-      is_match_patterns(&vec!["feature-branch".to_string()], &features),
-      false
-    );
+    assert!(!is_match_patterns(
+      &vec!["feature-branch".to_string()],
+      &features
+    ),);
   }
 
   #[test]
@@ -232,7 +220,7 @@ mod tests {
       paths: vec!["src/main.rs".to_string()],
     };
 
-    assert_eq!(condition.is_match(&payload), true);
+    assert!(condition.is_match(&payload));
 
     let payload = ConditionPayload {
       event: "pull_request".to_string(),
@@ -240,7 +228,7 @@ mod tests {
       paths: vec!["src/main.rs".to_string()],
     };
 
-    assert_eq!(condition.is_match(&payload), false);
+    assert!(!condition.is_match(&payload));
   }
 
   #[test]
@@ -256,7 +244,7 @@ mod tests {
       paths: vec!["src/main.rs".to_string()],
     };
 
-    assert_eq!(condition.is_match(&payload), true);
+    assert!(condition.is_match(&payload));
   }
 
   #[test]
@@ -278,7 +266,7 @@ mod tests {
       paths: vec!["src/main.rs".to_string()],
     };
 
-    assert_eq!(condition.is_match(&payload), true);
+    assert!(condition.is_match(&payload));
   }
 
   #[test]
@@ -292,8 +280,8 @@ mod tests {
       paths: vec!["src/main.rs".to_string()],
     };
 
-    assert_eq!(push.is_match(&payload), true);
-    assert_eq!(pull_request.is_match(&payload), false);
+    assert!(push.is_match(&payload));
+    assert!(!pull_request.is_match(&payload));
   }
 
   #[test]
@@ -306,7 +294,7 @@ mod tests {
       paths: vec![],
     };
 
-    assert_eq!(pull_request.is_match(&payload), false);
+    assert!(!pull_request.is_match(&payload));
   }
 
   #[test]
@@ -325,7 +313,7 @@ mod tests {
       paths: vec!["src/main.rs".to_string()],
     };
 
-    assert_eq!(condition.is_match(&payload), false);
+    assert!(!condition.is_match(&payload));
   }
 
   #[test]
@@ -337,6 +325,6 @@ mod tests {
       ],
     );
 
-    assert_eq!(v, false);
+    assert!(!v);
   }
 }

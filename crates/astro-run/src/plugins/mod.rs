@@ -1,6 +1,7 @@
 mod plugin;
 mod plugin_driver;
 
+use serde::{Deserialize, Serialize};
 use crate::{
   Action, Error, Job, JobRunResult, Step, StepRunResult, UserActionStep, Workflow, WorkflowEvent,
   WorkflowLog, WorkflowRunResult, WorkflowStateEvent,
@@ -8,7 +9,7 @@ use crate::{
 pub use plugin::*;
 pub use plugin_driver::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RunEvent<T> {
   pub payload: T,
   pub workflow_event: Option<WorkflowEvent>,

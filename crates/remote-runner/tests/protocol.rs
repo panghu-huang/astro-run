@@ -236,6 +236,8 @@ async fn test_protocol() -> Result<()> {
 
     oneshot_tx.send(()).unwrap();
 
+    println!("Server prepared to serve at 127.0.0.1:5338");
+
     tokio::select! {
       _ = rx.recv() => {}
       _ = runner_server.serve("127.0.0.1:5338") => {}

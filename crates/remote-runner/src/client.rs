@@ -1,16 +1,15 @@
 use astro_run::{Context, Error, HookBeforeRunStepResult, HookNoopResult, Result};
-use astro_run_protocol::{
-  astro_run_remote_runner::{run_response, ConnectRequest, Event},
-  tonic::{self, Request},
-};
-use astro_run_scheduler::RunnerMetadata;
+use astro_run_protocol::remote_runner::RemoteRunnerClient;
+use astro_run_protocol::tonic;
+use astro_run_protocol::RunnerMetadata;
+use astro_run_protocol::{RunEvent, RunResponse};
 use astro_run_scheduler::Scheduler;
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
 
-type GRPCClient = astro_run_protocol::AstroRunRemoteRunnerClient<tonic::transport::Channel>;
+type GRPCClient = RemoteRunnerClient<tonic::transport::Channel>;
 
 #[derive(Clone)]
 struct Client {
@@ -23,7 +22,7 @@ struct Client {
 pub struct AstroRunRemoteRunnerClient {
   clients: Arc<Mutex<HashMap<String, Client>>>,
   scheduler: Arc<Box<dyn Scheduler>>,
-  event_sender: broadcast::Sender<Event>,
+  event_sender: broadcast::Sender<RunEvent>,
 }
 
 #[astro_run::async_trait]
@@ -63,113 +62,81 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
   }
 
   async fn on_log(&self, log: astro_run::WorkflowLog) -> HookNoopResult {
-    match Event::try_from(log) {
-      Ok(event) => {
-        if let Err(err) = self.event_sender.send(event) {
-          log::error!("Failed to send event: {}", err);
-        }
-      }
-      #[cfg(not(tarpaulin_include))]
-      Err(err) => log::error!("Failed to create event: {}", err),
-    };
+    let event = RunEvent::StepLog(log);
+
+    if let Err(err) = self.event_sender.send(event) {
+      log::error!("Failed to send event: {}", err);
+    }
 
     Ok(())
   }
 
   async fn on_step_completed(&self, result: astro_run::StepRunResult) -> HookNoopResult {
-    match Event::try_from(result) {
-      Ok(event) => {
-        if let Err(err) = self.event_sender.send(event) {
-          log::error!("Failed to send event: {}", err);
-        }
-      }
-      #[cfg(not(tarpaulin_include))]
-      Err(err) => log::error!("Failed to create event: {}", err),
-    };
+    let event = RunEvent::StepCompleted(result);
+
+    if let Err(err) = self.event_sender.send(event) {
+      log::error!("Failed to send event: {}", err);
+    }
 
     Ok(())
   }
 
   async fn on_job_completed(&self, result: astro_run::JobRunResult) -> HookNoopResult {
-    match Event::try_from(result) {
-      Ok(event) => {
-        if let Err(err) = self.event_sender.send(event) {
-          log::error!("Failed to send event: {}", err);
-        }
-      }
-      #[cfg(not(tarpaulin_include))]
-      Err(err) => log::error!("Failed to create event: {}", err),
-    };
+    let event = RunEvent::JobCompleted(result);
+
+    if let Err(err) = self.event_sender.send(event) {
+      log::error!("Failed to send event: {}", err);
+    }
 
     Ok(())
   }
 
   async fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) -> HookNoopResult {
-    match Event::try_from(result) {
-      Ok(event) => {
-        if let Err(err) = self.event_sender.send(event) {
-          log::error!("Failed to send event: {}", err);
-        }
-      }
-      #[cfg(not(tarpaulin_include))]
-      Err(err) => log::error!("Failed to create event: {}", err),
-    };
+    let event = RunEvent::WorkflowCompleted(result);
+
+    if let Err(err) = self.event_sender.send(event) {
+      log::error!("Failed to send event: {}", err);
+    }
 
     Ok(())
   }
 
   async fn on_state_change(&self, event: astro_run::WorkflowStateEvent) -> HookNoopResult {
-    match Event::try_from(event) {
-      Ok(event) => {
-        if let Err(err) = self.event_sender.send(event) {
-          log::error!("Failed to send event: {}", err);
-        }
-      }
-      #[cfg(not(tarpaulin_include))]
-      Err(err) => log::error!("Failed to create event: {}", err),
-    };
+    let event = RunEvent::StateChange(event);
+
+    if let Err(err) = self.event_sender.send(event) {
+      log::error!("Failed to send event: {}", err);
+    }
 
     Ok(())
   }
 
   async fn on_run_step(&self, event: astro_run::RunStepEvent) -> HookNoopResult {
-    match Event::try_from(event) {
-      Ok(event) => {
-        if let Err(err) = self.event_sender.send(event) {
-          log::error!("Failed to send event: {}", err);
-        }
-      }
-      #[cfg(not(tarpaulin_include))]
-      Err(err) => log::error!("Failed to create event: {}", err),
-    };
+    let event = RunEvent::RunStep(event);
+
+    if let Err(err) = self.event_sender.send(event) {
+      log::error!("Failed to send event: {}", err);
+    }
 
     Ok(())
   }
 
   async fn on_run_job(&self, event: astro_run::RunJobEvent) -> HookNoopResult {
-    match Event::try_from(event) {
-      Ok(event) => {
-        if let Err(err) = self.event_sender.send(event) {
-          log::error!("Failed to send event: {}", err);
-        }
-      }
-      #[cfg(not(tarpaulin_include))]
-      Err(err) => log::error!("Failed to create event: {}", err),
-    };
+    let event = RunEvent::RunJob(event);
+
+    if let Err(err) = self.event_sender.send(event) {
+      log::error!("Failed to send event: {}", err);
+    }
 
     Ok(())
   }
 
   async fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) -> HookNoopResult {
-    match Event::try_from(event) {
-      Ok(event) => {
-        if let Err(err) = self.event_sender.send(event) {
-          log::error!("Failed to send event: {}", err);
-        }
-      }
-      #[cfg(not(tarpaulin_include))]
-      Err(err) => log::error!("Failed to create event: {}", err),
-    };
+    let event = RunEvent::RunWorkflow(event);
+
+    if let Err(err) = self.event_sender.send(event) {
+      log::error!("Failed to send event: {}", err);
+    }
 
     Ok(())
   }
@@ -177,15 +144,10 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
   async fn on_before_run_step(&self, step: astro_run::Step) -> HookBeforeRunStepResult {
     let mut clients = self.clients.lock().clone();
 
-    let mut command = astro_run_protocol::Command::try_from(step)
-      .map_err(|err| astro_run::Error::error(err.to_string()))?;
+    let mut command = step.into();
 
     for client in clients.values_mut() {
-      match client
-        .client
-        .call_before_run_step_hook(Request::new(command.clone()))
-        .await
-      {
+      match client.client.call_before_run_step_hook(command).await {
         Ok(response) => {
           command = response.into_inner();
         }
@@ -196,9 +158,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
       };
     }
 
-    let step: astro_run::Step = command.try_into()?;
-
-    Ok(step)
+    Ok(command.into())
   }
 }
 
@@ -234,10 +194,7 @@ impl AstroRunRemoteRunnerClient {
     while let Ok(event) = receiver.recv().await {
       let clients = self.clients.lock().clone();
       for (_, mut client) in clients {
-        let event = Request::new(event.clone());
-
-        if let Err(err) = client.client.send_event(event).await {
-          #[cfg(not(tarpaulin_include))]
+        if let Err(err) = client.client.send_event(event.clone()).await {
           log::error!("Failed to send event: {}", err);
         }
       }
@@ -253,7 +210,7 @@ impl AstroRunRemoteRunnerClient {
       .map_err(|e| Error::internal_runtime_error(format!("Failed to connect: {}", e)))?;
 
     let res = client
-      .get_runner_metadata(Request::new(ConnectRequest {}))
+      .get_runner_metadata(astro_run_protocol::Empty {})
       .await
       .map_err(|e| {
         Error::internal_runtime_error(format!("Failed to get runner metadata: {}", e))
@@ -272,26 +229,23 @@ impl AstroRunRemoteRunnerClient {
 
     Ok(Client {
       id: metadata.id.clone(),
-      metadata: metadata
-        .try_into()
-        .map_err(|e| Error::internal_runtime_error(format!("Failed to parse metadata: {}", e)))?,
+      metadata,
       client,
     })
   }
 
   async fn run(sender: astro_run::StreamSender, client: Client, context: Context) -> Result<()> {
     let mut client = client;
-    let response = client
-      .client
-      .run(Request::new(context.clone().try_into()?))
-      .await
-      .map_err(|e| {
-        let error = format!("Failed to run: {}", e);
-        log::error!("{}", error);
-        sender.error(error.clone());
-        sender.end(astro_run::RunResult::Failed { exit_code: 1 });
-        Error::internal_runtime_error(error)
-      })?;
+
+    let response = client.client.run(context.clone()).await.map_err(|e| {
+      let error = format!("Failed to run: {}", e);
+      log::error!("{}", error);
+
+      sender.error(error.clone());
+      sender.end(astro_run::RunResult::Failed { exit_code: 1 });
+
+      Error::internal_runtime_error(error)
+    })?;
 
     let mut stream = response.into_inner();
 
@@ -304,46 +258,39 @@ impl AstroRunRemoteRunnerClient {
 
           match response {
             Ok(response) => {
-              if let Some(payload) = response.payload {
-                match payload {
-                  run_response::Payload::Log(log) => {
-                    let log: astro_run::WorkflowLog = log.try_into().map_err(|e| {
-                      Error::internal_runtime_error(format!("Failed to parse log: {}", e))
-                    })?;
-
+                match response {
+                  RunResponse::Log { step_id: _, log } => {
                     if log.is_error() {
                       sender.error(log.message);
                     } else {
                       sender.log(log.message);
                     }
                   }
-                  run_response::Payload::Result(result) => {
-                    let result: astro_run::RunResult = result
-                      .result
-                      .ok_or(Error::internal_runtime_error(
-                        "Missing result in response".to_string(),
-                      ))?
-                      .into();
-
+                  RunResponse::Result { step_id: _, result } => {
                     sender.end(result);
                   }
                 }
-              }
             }
             Err(e) => {
               let error = format!("Failed to run: {}", e);
+
               sender.error(error.clone());
               sender.end(astro_run::RunResult::Failed { exit_code: 1 });
+
               return Err(Error::internal_runtime_error(error));
             }
           }
         }
         signal = context.signal.recv() => {
-          let event = Event::new_signal(context.id.clone(), signal);
+          let signal_event = astro_run_protocol::SignalEvent {
+            step_id: context.id.clone(),
+            signal,
+          };
+          let event = RunEvent::Signal(signal_event);
 
           client
             .client
-            .send_event(Request::new(event))
+            .send_event(event)
             .await
             .map_err(Error::internal_runtime_error)?;
         }

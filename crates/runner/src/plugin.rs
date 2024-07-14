@@ -51,6 +51,8 @@ impl PluginDriver {
 
 #[cfg(test)]
 mod tests {
+  use astro_run::StepId;
+
   use super::*;
 
   #[astro_run_test::test]
@@ -66,7 +68,8 @@ mod tests {
       async fn on_before_run(&self, ctx: Context) -> Result<Context> {
         let mut ctx = ctx;
 
-        ctx.id = "test updated".into();
+        ctx.id = StepId::try_from("abc/1/1").unwrap();
+
         Ok(ctx)
       }
 
@@ -108,7 +111,7 @@ mod tests {
     ]);
 
     let ctx = astro_run::Context {
-      id: "test".into(),
+      id: StepId::try_from("aaa/1/1").unwrap(),
       command: Default::default(),
       event: None,
       signal: astro_run::AstroRunSignal::new(),
@@ -116,7 +119,7 @@ mod tests {
 
     let ctx = driver.on_before_run(ctx).await;
 
-    assert_eq!(ctx.id, "test updated");
+    assert_eq!(ctx.id, StepId::try_from("abc/1/1").unwrap());
 
     driver.on_after_run(ctx).await;
   }

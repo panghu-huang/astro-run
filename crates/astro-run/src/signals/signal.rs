@@ -1,12 +1,13 @@
 use crate::{Error, Result};
 use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
 use std::{
   future::Future,
   sync::Arc,
   task::{Context, Poll, Waker},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Signal {
   Cancel,
   Timeout,
@@ -137,12 +138,12 @@ mod tests {
   #[test]
   fn test_set_signal_twice() {
     let signal = AstroRunSignal::new();
-    assert_eq!(signal.is_cancelled(), false);
-    assert_eq!(signal.is_timeout(), false);
+    assert!(!signal.is_cancelled());
+    assert!(!signal.is_timeout());
 
     signal.cancel().unwrap();
-    assert_eq!(signal.is_cancelled(), true);
-    assert_eq!(signal.is_timeout(), false);
+    assert!(signal.is_cancelled());
+    assert!(!signal.is_timeout());
 
     let err = signal.timeout().unwrap_err();
 
@@ -155,8 +156,9 @@ mod tests {
   #[astro_run_test::test]
   async fn test_wait_for_cancel_signal() {
     let signal = AstroRunSignal::new();
-    assert_eq!(signal.is_cancelled(), false);
-    assert_eq!(signal.is_timeout(), false);
+
+    assert!(!signal.is_cancelled());
+    assert!(!signal.is_timeout());
 
     let receiver = signal.recv();
 
@@ -169,15 +171,16 @@ mod tests {
     });
 
     assert_eq!(receiver.await, Signal::Cancel);
-    assert_eq!(signal.is_cancelled(), true);
-    assert_eq!(signal.is_timeout(), false);
+    assert!(signal.is_cancelled());
+    assert!(!signal.is_timeout());
   }
 
   #[astro_run_test::test]
   async fn test_wait_for_timeout_signal() {
     let signal = AstroRunSignal::new();
-    assert_eq!(signal.is_cancelled(), false);
-    assert_eq!(signal.is_timeout(), false);
+
+    assert!(!signal.is_cancelled());
+    assert!(!signal.is_timeout());
 
     let receiver = signal.recv();
 
@@ -190,8 +193,8 @@ mod tests {
     });
 
     assert_eq!(receiver.await, Signal::Timeout);
-    assert_eq!(signal.is_cancelled(), false);
-    assert_eq!(signal.is_timeout(), true);
+    assert!(!signal.is_cancelled());
+    assert!(signal.is_timeout());
   }
 
   #[astro_run_test::test]
@@ -210,8 +213,9 @@ mod tests {
   async fn test_wait_signal_twice() {
     std::future::poll_fn(|cx| {
       let signal = AstroRunSignal::new();
-      assert_eq!(signal.is_cancelled(), false);
-      assert_eq!(signal.is_timeout(), false);
+
+      assert!(!signal.is_cancelled());
+      assert!(!signal.is_timeout());
 
       signal.cancel().unwrap();
 
@@ -221,8 +225,8 @@ mod tests {
 
       assert_eq!(res, Poll::Ready(Signal::Cancel));
 
-      assert_eq!(signal.is_cancelled(), true);
-      assert_eq!(signal.is_timeout(), false);
+      assert!(signal.is_cancelled());
+      assert!(!signal.is_timeout());
 
       let res = receiver.poll(cx);
 

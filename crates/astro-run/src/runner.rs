@@ -2,16 +2,17 @@ use crate::{
   stream::StreamReceiver, Context, HookBeforeRunStepResult, HookNoopResult, JobRunResult,
   StepRunResult, WorkflowLog, WorkflowLogType, WorkflowRunResult, WorkflowStateEvent,
 };
+use serde::{Deserialize, Serialize};
 pub use tokio_stream::{Stream, StreamExt};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RunResult {
   Succeeded,
   Failed { exit_code: i32 },
   Cancelled,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Log {
   pub log_type: WorkflowLogType,
   pub message: String,
