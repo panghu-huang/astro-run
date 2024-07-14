@@ -1,12 +1,13 @@
 use crate::{Error, Result};
 use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
 use std::{
   future::Future,
   sync::Arc,
   task::{Context, Poll, Waker},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Signal {
   Cancel,
   Timeout,

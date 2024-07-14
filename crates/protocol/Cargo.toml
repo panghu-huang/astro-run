@@ -20,9 +20,13 @@ astro-run-remote-runner = []
 prost = { workspace = true }
 tonic = { workspace = true }
 prost-types = { workspace = true }
+bytes = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
 astro-run = { workspace = true }
 chrono = { workspace = true }
 astro-run-scheduler = { workspace = true }
 
 [build-dependencies]
+proto = { workspace = true }
 tonic-build = { workspace = true }

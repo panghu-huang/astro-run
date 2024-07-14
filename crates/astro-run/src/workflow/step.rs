@@ -39,3 +39,19 @@ impl From<Step> for Command {
     }
   }
 }
+
+impl From<Command> for Step {
+  fn from(command: Command) -> Step {
+    Step {
+      id: command.id,
+      name: command.name,
+      container: command.container,
+      run: command.run,
+      continue_on_error: command.continue_on_error,
+      environments: command.environments,
+      secrets: command.secrets,
+      timeout: command.timeout,
+      on: None,
+    }
+  }
+}

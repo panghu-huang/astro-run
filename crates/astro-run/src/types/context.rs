@@ -14,9 +14,10 @@ pub struct Command {
   pub timeout: Duration,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Context {
-  pub id: String,
+  pub id: StepId,
+  #[serde(skip)]
   pub signal: AstroRunSignal,
   pub command: Command,
   pub event: Option<WorkflowEvent>,

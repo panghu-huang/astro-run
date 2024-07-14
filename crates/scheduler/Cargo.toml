@@ -15,6 +15,7 @@ license.workspace = true
 astro-run = { workspace = true }
 parking_lot = { workspace = true }
 log = { workspace = true }
+serde = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = [

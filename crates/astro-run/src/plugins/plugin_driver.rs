@@ -261,6 +261,6 @@ mod tests {
       })
       .await;
 
-    assert_eq!(action.is_none(), true);
+    assert!(action.is_none());
   }
 }

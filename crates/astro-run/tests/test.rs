@@ -1,5 +1,5 @@
 use astro_run::{
-  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, ContextPayload, Error,
+  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Error,
   HookBeforeRunStepResult, RunResult, Runner, Step, UserActionStep, UserCommandStep, UserStep,
   Workflow, WorkflowEvent, WorkflowState,
 };

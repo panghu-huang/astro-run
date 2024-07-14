@@ -1,20 +1,19 @@
+use proto::proto;
+
 fn main() {
-  let build = std::env::var("ASTRO_RUN_PROTOCOL_BUILD")
-    .map(|e| e == "true")
-    .unwrap_or(false);
+  let remote_runner_service = proto! {
+    package remote_runner;
+    codec crate::common::JsonCodec;
 
-  if !build {
-    return;
-  }
+    service RemoteRunner {
+      rpc GetRunnerMetadata(crate::Empty) returns (astro_run_scheduler::RunnerMetadata) {}
+      rpc Run(astro_run::Context) returns (stream crate::RunResponse) {}
+      rpc SendEvent(crate::RunEvent) returns (crate::Empty) {}
+      rpc CallBeforeRunStepHook(astro_run::Command) returns (astro_run::Command) {}
+    }
+  };
 
-  tonic_build::configure()
-    .out_dir("src/pb")
-    .compile(
-      &[
-        "proto/astro_run_server.proto",
-        "proto/astro_run_remote_runner.proto",
-      ],
-      &["proto"],
-    )
-    .unwrap();
+  tonic_build::manual::Builder::new()
+    .out_dir("./src/proto")
+    .compile(&[remote_runner_service])
 }

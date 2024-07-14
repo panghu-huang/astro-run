@@ -85,7 +85,7 @@ impl ExecutionContext {
     let mut receiver = match self
       .runner
       .run(Context {
-        id: step_id.to_string(),
+        id: step_id.clone(),
         signal: signal.clone(),
         command: step.into(),
         event: self.condition_matcher.event.clone(),
