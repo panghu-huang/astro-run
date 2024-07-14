@@ -214,8 +214,5 @@ jobs:
 
   let err = ctx.cancel_job(job_id).unwrap_err();
 
-  assert_eq!(
-    Error::error(format!("Job {} not found", job_id.to_string())),
-    err
-  );
+  assert_eq!(Error::error(format!("Job {} not found", job_id)), err);
 }

@@ -6,10 +6,10 @@ mod step;
 pub use self::job::Job;
 pub use self::step::Step;
 use crate::{
-  Condition, Error, ExecutionContext, Id, JobRunResult, WorkflowId, WorkflowRunResult,
-  WorkflowState, WorkflowStateEvent,
+  Condition, ExecutionContext, Id, JobRunResult, WorkflowId, WorkflowRunResult, WorkflowState,
+  WorkflowStateEvent,
 };
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::mpsc::{channel, Sender};
 
@@ -176,12 +176,10 @@ impl Workflow {
 
 #[cfg(test)]
 mod tests {
-  use std::any::{Any, TypeId};
+  use std::any::Any;
 
   use super::*;
-  use crate::{
-    async_trait, serde_context_payload, AstroRun, Context, Error, Result, RunResponse, Runner,
-  };
+  use crate::{async_trait, serde_context_payload, AstroRun, Context, RunResponse, Runner};
 
   struct TestRunner;
 
@@ -204,7 +202,7 @@ mod tests {
 
     let astro_run = AstroRun::builder().runner(TestRunner).build();
 
-    let workflow = Workflow::builder()
+    let _workflow = Workflow::builder()
       .config(workflow)
       .build(&astro_run)
       .await

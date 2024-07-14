@@ -228,9 +228,10 @@ jobs:
     assert_eq!(job.name.clone().unwrap(), "Test Job");
     assert_eq!(job.steps.len(), 1);
 
-    let step = job.steps.get(0).unwrap();
+    let step = job.steps.first().unwrap();
+
     assert_eq!(step.name.clone().unwrap(), "Test Step");
-    assert_eq!(step.continue_on_error, true);
+    assert!(step.continue_on_error);
     assert_eq!(step.timeout, std::time::Duration::from_secs(600));
     assert_eq!(step.environments.len(), 1);
     assert_eq!(
@@ -242,7 +243,7 @@ jobs:
     let job = workflow.jobs.get("test-job2").unwrap();
     assert_eq!(job.steps.len(), 2);
 
-    let step = job.steps.get(0).unwrap();
+    let step = job.steps.first().unwrap();
     assert_eq!(step.run, "echo \"Hello World2\"");
 
     let step = job.steps.get(1).unwrap();
@@ -354,7 +355,7 @@ jobs:
 
     assert_eq!(steps.len(), 4);
 
-    let step = steps.get(0).unwrap();
+    let step = steps.first().unwrap();
     assert_eq!(step.name, Some("Pre cache".to_string()));
     assert_eq!(step.run, "pre cache /tmp test".to_string());
     assert_eq!(step.timeout, std::time::Duration::from_secs(600));
@@ -373,9 +374,10 @@ jobs:
     assert_eq!(step.run, "Hello World".to_string());
 
     let step = steps.get(3).unwrap();
+
     assert_eq!(step.name, Some("Save cache".to_string()));
     assert_eq!(step.run, "save cache /tmp test".to_string());
-    assert_eq!(step.continue_on_error, true);
+    assert!(step.continue_on_error);
   }
 
   #[astro_run_test::test]
