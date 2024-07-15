@@ -137,7 +137,7 @@ pub mod remote_runner_client {
         }
         pub async fn send_event(
             &mut self,
-            request: impl tonic::IntoRequest<crate::RunEvent>,
+            request: impl tonic::IntoRequest<crate::ProtocolEvent>,
         ) -> std::result::Result<tonic::Response<crate::Empty>, tonic::Status> {
             self.inner
                 .ready()
@@ -212,7 +212,7 @@ pub mod remote_runner_server {
         ) -> std::result::Result<tonic::Response<Self::RunStream>, tonic::Status>;
         async fn send_event(
             &self,
-            request: tonic::Request<crate::RunEvent>,
+            request: tonic::Request<crate::ProtocolEvent>,
         ) -> std::result::Result<tonic::Response<crate::Empty>, tonic::Status>;
         async fn call_before_run_step_hook(
             &self,
@@ -390,7 +390,9 @@ pub mod remote_runner_server {
                 "/remote_runner.RemoteRunner/SendEvent" => {
                     #[allow(non_camel_case_types)]
                     struct SendEventSvc<T: RemoteRunner>(pub Arc<T>);
-                    impl<T: RemoteRunner> tonic::server::UnaryService<crate::RunEvent>
+                    impl<
+                        T: RemoteRunner,
+                    > tonic::server::UnaryService<crate::ProtocolEvent>
                     for SendEventSvc<T> {
                         type Response = crate::Empty;
                         type Future = BoxFuture<
@@ -399,7 +401,7 @@ pub mod remote_runner_server {
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<crate::RunEvent>,
+                            request: tonic::Request<crate::ProtocolEvent>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move { (*inner).send_event(request).await };

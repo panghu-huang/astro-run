@@ -7,7 +7,7 @@ pub use tonic;
 pub struct Empty {}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum RunEvent {
+pub enum ProtocolEvent {
   RunStep(astro_run::RunStepEvent),
   RunJob(astro_run::RunJobEvent),
   RunWorkflow(astro_run::RunWorkflowEvent),
