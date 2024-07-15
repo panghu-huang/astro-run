@@ -2,7 +2,7 @@ use astro_run::{Context, Error, Plugin, PluginDriver, Runner, SharedPluginDriver
 use astro_run_protocol::remote_runner::RemoteRunnerExt;
 use astro_run_protocol::remote_runner::RemoteRunnerServer;
 use astro_run_protocol::tonic;
-use astro_run_protocol::{RunEvent, RunResponse, RunnerMetadata};
+use astro_run_protocol::{ProtocolEvent, RunResponse, RunnerMetadata};
 use parking_lot::Mutex;
 use std::{collections::HashMap, env, sync::Arc};
 use tokio::sync::mpsc;
@@ -99,12 +99,12 @@ impl RemoteRunnerExt for AstroRunRemoteRunnerServer {
 
   async fn send_event(
     &self,
-    request: tonic::Request<RunEvent>,
+    request: tonic::Request<ProtocolEvent>,
   ) -> Result<tonic::Response<astro_run_protocol::Empty>, tonic::Status> {
     let event = request.into_inner();
 
     match event {
-      RunEvent::WorkflowCompleted(result) => {
+      ProtocolEvent::WorkflowCompleted(result) => {
         self
           .plugin_driver
           .on_workflow_completed(result.clone())
@@ -114,13 +114,13 @@ impl RemoteRunnerExt for AstroRunRemoteRunnerServer {
           log::error!("Failed to handle workflow completed event: {}", err);
         }
       }
-      RunEvent::JobCompleted(result) => {
+      ProtocolEvent::JobCompleted(result) => {
         self.plugin_driver.on_job_completed(result.clone()).await;
         if let Err(err) = self.runner.on_job_completed(result).await {
           log::error!("Failed to handle job completed event: {}", err);
         }
       }
-      RunEvent::StepCompleted(result) => {
+      ProtocolEvent::StepCompleted(result) => {
         // Remove signal once step is completed
         let step_id = &result.id;
 
@@ -132,41 +132,41 @@ impl RemoteRunnerExt for AstroRunRemoteRunnerServer {
           log::error!("Failed to handle step completed event: {}", err);
         }
       }
-      RunEvent::StepLog(log) => {
+      ProtocolEvent::StepLog(log) => {
         self.plugin_driver.on_log(log.clone()).await;
         if let Err(err) = self.runner.on_log(log).await {
           log::error!("Failed to handle log event: {}", err);
         }
       }
-      RunEvent::StateChange(event) => {
+      ProtocolEvent::StateChange(event) => {
         self.plugin_driver.on_state_change(event.clone()).await;
 
         if let Err(err) = self.runner.on_state_change(event).await {
           log::error!("Failed to handle state event: {}", err);
         }
       }
-      RunEvent::RunStep(event) => {
+      ProtocolEvent::RunStep(event) => {
         self.plugin_driver.on_run_step(event.clone()).await;
 
         if let Err(err) = self.runner.on_run_step(event).await {
           log::error!("Failed to handle run step event: {}", err);
         }
       }
-      RunEvent::RunJob(event) => {
+      ProtocolEvent::RunJob(event) => {
         self.plugin_driver.on_run_job(event.clone()).await;
 
         if let Err(err) = self.runner.on_run_job(event).await {
           log::error!("Failed to handle run job event: {}", err);
         }
       }
-      RunEvent::RunWorkflow(event) => {
+      ProtocolEvent::RunWorkflow(event) => {
         self.plugin_driver.on_run_workflow(event.clone()).await;
 
         if let Err(err) = self.runner.on_run_workflow(event).await {
           log::error!("Failed to handle run workflow event: {}", err);
         }
       }
-      RunEvent::Signal(signal) => {
+      ProtocolEvent::Signal(signal) => {
         log::trace!("Received signal: {:?}", signal);
         let astro_run_signal = self.signals.lock().get(&signal.step_id).cloned();
 

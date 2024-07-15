@@ -8,7 +8,7 @@ fn main() {
     service RemoteRunner {
       rpc GetRunnerMetadata(crate::Empty) returns (astro_run_scheduler::RunnerMetadata) {}
       rpc Run(astro_run::Context) returns (stream crate::RunResponse) {}
-      rpc SendEvent(crate::RunEvent) returns (crate::Empty) {}
+      rpc SendEvent(crate::ProtocolEvent) returns (crate::Empty) {}
       rpc CallBeforeRunStepHook(astro_run::Command) returns (astro_run::Command) {}
     }
   };

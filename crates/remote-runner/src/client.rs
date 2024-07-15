@@ -2,7 +2,7 @@ use astro_run::{Context, Error, HookBeforeRunStepResult, HookNoopResult, Result}
 use astro_run_protocol::remote_runner::RemoteRunnerClient;
 use astro_run_protocol::tonic;
 use astro_run_protocol::RunnerMetadata;
-use astro_run_protocol::{RunEvent, RunResponse};
+use astro_run_protocol::{ProtocolEvent, RunResponse};
 use astro_run_scheduler::Scheduler;
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc};
@@ -22,7 +22,7 @@ struct Client {
 pub struct AstroRunRemoteRunnerClient {
   clients: Arc<Mutex<HashMap<String, Client>>>,
   scheduler: Arc<Box<dyn Scheduler>>,
-  event_sender: broadcast::Sender<RunEvent>,
+  event_sender: broadcast::Sender<ProtocolEvent>,
 }
 
 #[astro_run::async_trait]
@@ -62,7 +62,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
   }
 
   async fn on_log(&self, log: astro_run::WorkflowLog) -> HookNoopResult {
-    let event = RunEvent::StepLog(log);
+    let event = ProtocolEvent::StepLog(log);
 
     if let Err(err) = self.event_sender.send(event) {
       log::error!("Failed to send event: {}", err);
@@ -72,7 +72,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
   }
 
   async fn on_step_completed(&self, result: astro_run::StepRunResult) -> HookNoopResult {
-    let event = RunEvent::StepCompleted(result);
+    let event = ProtocolEvent::StepCompleted(result);
 
     if let Err(err) = self.event_sender.send(event) {
       log::error!("Failed to send event: {}", err);
@@ -82,7 +82,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
   }
 
   async fn on_job_completed(&self, result: astro_run::JobRunResult) -> HookNoopResult {
-    let event = RunEvent::JobCompleted(result);
+    let event = ProtocolEvent::JobCompleted(result);
 
     if let Err(err) = self.event_sender.send(event) {
       log::error!("Failed to send event: {}", err);
@@ -92,7 +92,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
   }
 
   async fn on_workflow_completed(&self, result: astro_run::WorkflowRunResult) -> HookNoopResult {
-    let event = RunEvent::WorkflowCompleted(result);
+    let event = ProtocolEvent::WorkflowCompleted(result);
 
     if let Err(err) = self.event_sender.send(event) {
       log::error!("Failed to send event: {}", err);
@@ -102,7 +102,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
   }
 
   async fn on_state_change(&self, event: astro_run::WorkflowStateEvent) -> HookNoopResult {
-    let event = RunEvent::StateChange(event);
+    let event = ProtocolEvent::StateChange(event);
 
     if let Err(err) = self.event_sender.send(event) {
       log::error!("Failed to send event: {}", err);
@@ -112,7 +112,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
   }
 
   async fn on_run_step(&self, event: astro_run::RunStepEvent) -> HookNoopResult {
-    let event = RunEvent::RunStep(event);
+    let event = ProtocolEvent::RunStep(event);
 
     if let Err(err) = self.event_sender.send(event) {
       log::error!("Failed to send event: {}", err);
@@ -122,7 +122,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
   }
 
   async fn on_run_job(&self, event: astro_run::RunJobEvent) -> HookNoopResult {
-    let event = RunEvent::RunJob(event);
+    let event = ProtocolEvent::RunJob(event);
 
     if let Err(err) = self.event_sender.send(event) {
       log::error!("Failed to send event: {}", err);
@@ -132,7 +132,7 @@ impl astro_run::Runner for AstroRunRemoteRunnerClient {
   }
 
   async fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) -> HookNoopResult {
-    let event = RunEvent::RunWorkflow(event);
+    let event = ProtocolEvent::RunWorkflow(event);
 
     if let Err(err) = self.event_sender.send(event) {
       log::error!("Failed to send event: {}", err);
@@ -286,7 +286,7 @@ impl AstroRunRemoteRunnerClient {
             step_id: context.id.clone(),
             signal,
           };
-          let event = RunEvent::Signal(signal_event);
+          let event = ProtocolEvent::Signal(signal_event);
 
           client
             .client
