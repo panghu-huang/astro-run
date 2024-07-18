@@ -4,7 +4,7 @@ mod envs;
 mod error;
 mod id;
 mod results;
-mod workflow_event;
+mod trigger_event;
 mod workflow_state;
 mod workflow_state_event;
 
@@ -14,7 +14,7 @@ pub use envs::*;
 pub use error::*;
 pub use id::*;
 pub use results::*;
-pub use workflow_event::*;
+pub use trigger_event::*;
 pub use workflow_state::*;
 pub use workflow_state_event::*;
 

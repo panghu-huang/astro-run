@@ -1,5 +1,5 @@
 use astro_run::{
-  stream, AstroRun, AstroRunPlugin, Context, RunResult, Runner, Workflow, WorkflowEvent,
+  stream, AstroRun, AstroRunPlugin, Context, RunResult, Runner, TriggerEvent, Workflow,
   WorkflowState,
 };
 use parking_lot::Mutex;
@@ -39,8 +39,8 @@ fn assert_logs_plugin(excepted_logs: Vec<&'static str>) -> AstroRunPlugin {
     .build()
 }
 
-fn get_push_event() -> WorkflowEvent {
-  WorkflowEvent {
+fn get_push_event() -> TriggerEvent {
+  TriggerEvent {
     // https://github.com/panghu-huang/astro-run/commit/2cef9002f2d23840c0820b9df2e549ab767e71ef
     // Changed files:
     //  - .cargo/config.toml
@@ -56,8 +56,8 @@ fn get_push_event() -> WorkflowEvent {
   }
 }
 
-fn get_pull_request_event() -> WorkflowEvent {
-  WorkflowEvent {
+fn get_pull_request_event() -> TriggerEvent {
+  TriggerEvent {
     // https://github.com/panghu-huang/astro-run/pull/1
     // Changed files:
     //  - .cargo/config.toml

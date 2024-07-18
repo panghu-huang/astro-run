@@ -115,6 +115,7 @@ mod tests {
       command: Default::default(),
       event: None,
       signal: astro_run::AstroRunSignal::new(),
+      payload: None,
     };
 
     let ctx = driver.on_before_run(ctx).await;

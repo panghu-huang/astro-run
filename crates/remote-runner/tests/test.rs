@@ -1,3 +1,4 @@
+use astro_run::typetag;
 use astro_run::{
   stream, AstroRun, AstroRunPlugin, Context, Error, HookNoopResult, JobRunResult, Result,
   RunJobEvent, RunResult, RunStepEvent, RunWorkflowEvent, Runner, StepRunResult, Workflow,
@@ -7,6 +8,7 @@ use astro_run_remote_runner::{
   AstroRunRemoteRunnerClient, AstroRunRemoteRunnerServer, DefaultScheduler,
 };
 use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
 
 struct TestRunner;
 
@@ -290,27 +292,30 @@ async fn connect_to_invalid_url() {
   handle.abort();
 }
 
-//#[derive(Debug, Serialize, Deserialize)]
-//struct WorkflowPayload(String);
-//
-//#[astro_run::serde_context_payload]
-//impl ContextPayload for WorkflowPayload {
-//  fn as_any(&self) ->  &dyn std::any::Any {
-//    self
-//  }
-//}
-//
-//fn assert_workflow_payload_plugin(expected: impl Into<String>) -> AstroRunPlugin {
-//  let expected = expected.into();
-//
-//  AstroRunPlugin::builder("assert_workflow_payload_plugin")
-//    .on_run_workflow(move |event| {
-//      let payload: WorkflowPayload = event.payload.payload().unwrap();
-//      assert_eq!(payload.0, expected);
-//      Ok(())
-//    })
-//    .build()
-//}
+#[derive(Debug, Serialize, Deserialize)]
+struct WorkflowPayload(String);
+
+#[astro_run::typetag::serde]
+impl astro_run::ContextPayloadExt for WorkflowPayload {
+  fn as_any(&self) -> &dyn std::any::Any {
+    self
+  }
+}
+
+fn assert_workflow_payload_plugin(expected: impl Into<String>) -> AstroRunPlugin {
+  let expected = expected.into();
+
+  AstroRunPlugin::builder("assert_workflow_payload_plugin")
+    .on_run_workflow(move |event| {
+      let context_payload = event.payload.unwrap();
+      let payload = context_payload.payload::<WorkflowPayload>().unwrap();
+
+      assert_eq!(payload.0, expected);
+
+      Ok(())
+    })
+    .build()
+}
 
 #[astro_run_test::test]
 async fn test_remote_runner_workflow_payload() -> Result<()> {
@@ -342,7 +347,7 @@ async fn test_remote_runner_workflow_payload() -> Result<()> {
 
     let astro_run = AstroRun::builder()
       .plugin(assert_logs_plugin(vec!["Hello World"]))
-      //.plugin(assert_workflow_payload_plugin("This is a payload"))
+      .plugin(assert_workflow_payload_plugin("This is a payload"))
       .runner(client_runner)
       .build();
 
@@ -359,12 +364,14 @@ async fn test_remote_runner_workflow_payload() -> Result<()> {
 
     let workflow = Workflow::builder()
       .config(workflow)
-      //.payload(WorkflowPayload("This is a payload".to_string()))
       .build(&astro_run)
       .await
       .unwrap();
 
-    let ctx = astro_run.execution_context().build();
+    let ctx = astro_run
+      .execution_context()
+      .payload(WorkflowPayload("This is a payload".to_string()))
+      .build();
 
     let res = workflow.run(ctx).await;
 
@@ -383,7 +390,7 @@ async fn test_remote_runner_workflow_payload() -> Result<()> {
       .id("test-runner")
       .runner(runner)
       .max_runs(5)
-      //.plugin(assert_workflow_payload_plugin("This is a payload"))
+      .plugin(assert_workflow_payload_plugin("This is a payload"))
       .plugin(
         AstroRunPlugin::builder("test-plugin")
           .on_workflow_completed(move |_| {

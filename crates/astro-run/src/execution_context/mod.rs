@@ -7,40 +7,67 @@ use crate::{
   RunStepEvent, Runner, SharedPluginDriver, Signal, SignalManager, Step, StepRunResult, StreamExt,
   Workflow, WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
-use std::{any::Any, sync::Arc};
+use serde::{Deserialize, Serialize};
+use std::{any::Any, ops::Deref, sync::Arc};
 use tokio::time;
 
 #[typetag::serde]
-pub trait ContextPayload: Any + Send + Sync {
+pub trait ContextPayloadExt: Any + Send + Sync {
   fn as_any(&self) -> &dyn Any;
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ContextPayload(Box<dyn ContextPayloadExt>);
+
+impl ContextPayload {
+  pub fn new<P>(payload: P) -> Self
+  where
+    P: ContextPayloadExt,
+  {
+    ContextPayload(Box::new(payload))
+  }
+
+  pub fn payload<P>(&self) -> Option<&P>
+  where
+    P: ContextPayloadExt + 'static,
+  {
+    self.0.as_ref().as_any().downcast_ref::<P>()
+  }
+}
+
+impl Deref for ContextPayload {
+  type Target = Box<dyn ContextPayloadExt>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+impl std::fmt::Debug for ContextPayload {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    // Implement a empty payload for debug
+    let payload = "N/A";
+    f.debug_tuple("ContextPayload").field(&payload).finish()
+  }
+}
+
+impl Clone for ContextPayload {
+  fn clone(&self) -> Self {
+    let payload_string = serde_json::to_string(&self.0).unwrap();
+
+    let payload: Box<dyn ContextPayloadExt> = serde_json::from_str(&payload_string).unwrap();
+
+    ContextPayload(payload)
+  }
+}
+
+#[derive(Clone)]
 pub struct ExecutionContext {
   runner: Arc<Box<dyn Runner>>,
   plugin_driver: SharedPluginDriver,
   signal_manager: SignalManager,
   condition_matcher: condition_matcher::ConditionMatcher,
-  payload: Option<Box<dyn ContextPayload>>,
-}
-
-impl Clone for ExecutionContext {
-  fn clone(&self) -> Self {
-    let payload = self.payload.as_ref().map(|p| {
-      let payload_string = serde_json::to_string(p).unwrap();
-
-      let payload: Box<dyn ContextPayload> = serde_json::from_str(&payload_string).unwrap();
-
-      payload
-    });
-
-    ExecutionContext {
-      runner: self.runner.clone(),
-      plugin_driver: self.plugin_driver.clone(),
-      signal_manager: self.signal_manager.clone(),
-      condition_matcher: self.condition_matcher.clone(),
-      payload,
-    }
-  }
+  payload: Option<ContextPayload>,
 }
 
 impl ExecutionContext {
@@ -53,8 +80,9 @@ impl ExecutionContext {
     let started_at = chrono::Utc::now();
 
     let event = crate::RunStepEvent {
-      payload: step.clone(),
-      workflow_event: self.condition_matcher.event.clone(),
+      source: step.clone(),
+      trigger_event: self.condition_matcher.event.clone(),
+      payload: self.payload.clone(),
     };
 
     self.call_on_run_step(event.clone()).await;
@@ -83,6 +111,7 @@ impl ExecutionContext {
         signal: signal.clone(),
         command: step.into(),
         event: self.condition_matcher.event.clone(),
+        payload: self.payload_string(),
       })
       .await
     {
@@ -224,8 +253,9 @@ impl ExecutionContext {
 
   pub(crate) async fn call_on_run_workflow(&self, workflow: Workflow) {
     let event = crate::RunWorkflowEvent {
-      payload: workflow,
-      workflow_event: self.condition_matcher.event.clone(),
+      source: workflow,
+      trigger_event: self.condition_matcher.event.clone(),
+      payload: self.payload.clone(),
     };
     self.plugin_driver.on_run_workflow(event.clone()).await;
     if let Err(err) = self.runner.on_run_workflow(event).await {
@@ -239,8 +269,9 @@ impl ExecutionContext {
       .register_signal(job.id.clone(), AstroRunSignal::new());
 
     let event = crate::RunJobEvent {
-      payload: job,
-      workflow_event: self.condition_matcher.event.clone(),
+      source: job,
+      trigger_event: self.condition_matcher.event.clone(),
+      payload: self.payload.clone(),
     };
     self.plugin_driver.on_run_job(event.clone()).await;
     if let Err(err) = self.runner.on_run_job(event).await {
@@ -303,6 +334,7 @@ impl ExecutionContext {
 
   pub(crate) async fn call_on_log(&self, log: WorkflowLog) {
     self.plugin_driver.on_log(log.clone()).await;
+
     if let Err(err) = self.runner.on_log(log).await {
       log::error!("Failed to handle log: {:?}", err);
     }
@@ -314,19 +346,15 @@ impl ExecutionContext {
 
   pub fn payload<P>(&self) -> Option<&P>
   where
-    P: ContextPayload + 'static,
+    P: ContextPayloadExt + 'static,
   {
+    self.payload.as_ref().and_then(|p| p.payload())
+  }
+
+  fn payload_string(&self) -> Option<String> {
     self
       .payload
       .as_ref()
-      .map(|p| p.as_any())
-      .and_then(|p| p.downcast_ref::<P>())
-  }
-
-  pub fn set_payload<P>(&mut self, payload: P)
-  where
-    P: ContextPayload + 'static,
-  {
-    self.payload = Some(Box::new(payload));
+      .map(|p| serde_json::to_string(&p).expect("Failed to serialize payload"))
   }
 }

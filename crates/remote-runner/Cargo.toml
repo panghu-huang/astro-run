@@ -30,6 +30,7 @@ tokio = { workspace = true, features = [
   "rt-multi-thread",
   "time",
 ] }
+serde = { workspace = true }
 
 astro-run-scheduler = { workspace = true }
 

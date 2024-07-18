@@ -34,8 +34,8 @@ impl Runner for TestRunner {
 
   async fn on_run_workflow(&self, event: astro_run::RunWorkflowEvent) -> HookNoopResult {
     self.current_event_count.lock().add_assign(1);
-    assert_eq!(event.payload.name.unwrap(), "CI");
-    assert_eq!(event.workflow_event.unwrap().sha, "123456789");
+    assert_eq!(event.source.name.unwrap(), "CI");
+    assert_eq!(event.trigger_event.unwrap().sha, "123456789");
 
     Ok(())
   }
@@ -43,9 +43,9 @@ impl Runner for TestRunner {
   async fn on_run_job(&self, event: astro_run::RunJobEvent) -> HookNoopResult {
     self.current_event_count.lock().add_assign(1);
 
-    assert_eq!(event.workflow_event.unwrap().sha, "123456789");
+    assert_eq!(event.trigger_event.unwrap().sha, "123456789");
 
-    let job = event.payload;
+    let job = event.source;
 
     assert_eq!(job.name.unwrap(), "Test Job");
     let step = job.steps[0].clone();
@@ -188,7 +188,7 @@ async fn test_protocol() -> Result<()> {
 
     let ctx = astro_run
       .execution_context()
-      .event(astro_run::WorkflowEvent {
+      .event(astro_run::TriggerEvent {
         sha: "123456789".to_string(),
         ..Default::default()
       })

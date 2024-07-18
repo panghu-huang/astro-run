@@ -21,6 +21,9 @@ pub use user_config::*;
 pub use workflow::*;
 
 pub use async_trait::async_trait;
-pub use typetag::serde as serde_context_payload;
+
+pub mod typetag {
+  pub use typetag::*;
+}
 
 pub type Result<T> = std::result::Result<T, Error>;

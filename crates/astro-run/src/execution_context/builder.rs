@@ -1,7 +1,7 @@
 use super::condition_matcher::ConditionMatcher;
 use crate::{
-  ContextPayload, Error, ExecutionContext, GithubAuthorization, Runner, SharedPluginDriver,
-  SignalManager, WorkflowEvent,
+  ContextPayload, ContextPayloadExt, Error, ExecutionContext, GithubAuthorization, Runner,
+  SharedPluginDriver, SignalManager, TriggerEvent,
 };
 use std::sync::Arc;
 
@@ -10,9 +10,9 @@ pub struct ExecutionContextBuilder {
   runner: Option<Arc<Box<dyn Runner>>>,
   plugin_driver: Option<SharedPluginDriver>,
   signal_manager: Option<SignalManager>,
-  event: Option<WorkflowEvent>,
+  event: Option<TriggerEvent>,
   github_auth: Option<GithubAuthorization>,
-  payload: Option<Box<dyn ContextPayload>>,
+  payload: Option<ContextPayload>,
 }
 
 impl ExecutionContextBuilder {
@@ -43,7 +43,7 @@ impl ExecutionContextBuilder {
     self
   }
 
-  pub fn event(mut self, event: WorkflowEvent) -> Self {
+  pub fn event(mut self, event: TriggerEvent) -> Self {
     self.event = Some(event);
     self
   }
@@ -55,9 +55,11 @@ impl ExecutionContextBuilder {
 
   pub fn payload<P>(mut self, payload: P) -> Self
   where
-    P: ContextPayload + 'static,
+    P: ContextPayloadExt + 'static,
   {
-    self.payload = Some(Box::new(payload) as Box<dyn ContextPayload>);
+    let payload = ContextPayload::new(payload);
+    self.payload = Some(payload);
+
     self
   }
 

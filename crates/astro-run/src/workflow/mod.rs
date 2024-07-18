@@ -178,7 +178,7 @@ mod tests {
   use std::any::Any;
 
   use super::*;
-  use crate::{async_trait, serde_context_payload, AstroRun, Context, RunResponse, Runner};
+  use crate::{async_trait, AstroRun, Context, RunResponse, Runner};
 
   struct TestRunner;
 
@@ -211,8 +211,8 @@ mod tests {
       message: String,
     }
 
-    #[serde_context_payload]
-    impl crate::ContextPayload for TestPayload {
+    #[typetag::serde]
+    impl crate::ContextPayloadExt for TestPayload {
       fn as_any(&self) -> &dyn Any {
         self
       }
