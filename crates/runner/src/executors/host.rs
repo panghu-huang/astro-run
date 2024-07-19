@@ -1,5 +1,5 @@
 use crate::{command::Command, executors::Executor, metadata::Metadata};
-use astro_run::{Context, Result, StreamSender, WorkflowEvent};
+use astro_run::{Context, Result, StreamSender, TriggerEvent};
 use std::path::PathBuf;
 use tokio::fs;
 
@@ -13,7 +13,7 @@ impl Executor for HostExecutor {
     &self,
     ctx: Context,
     sender: StreamSender,
-    event: Option<WorkflowEvent>,
+    event: Option<TriggerEvent>,
   ) -> Result<()> {
     // Runner working directory
     let mut builder = Metadata::builder()

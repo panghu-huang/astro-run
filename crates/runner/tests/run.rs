@@ -236,7 +236,7 @@ async fn test_before_run() {
 
   let ctx = astro_run
     .execution_context()
-    .event(astro_run::WorkflowEvent::default())
+    .event(astro_run::TriggerEvent::default())
     .build();
 
   let res = workflow.run(ctx).await;
@@ -329,7 +329,7 @@ async fn test_docker_cancel() {
 
   let ctx = astro_run
     .execution_context()
-    .event(astro_run::WorkflowEvent::default())
+    .event(astro_run::TriggerEvent::default())
     .build();
 
   tokio::task::spawn({
@@ -390,7 +390,7 @@ async fn test_host_cancel() {
 
   let ctx = astro_run
     .execution_context()
-    .event(astro_run::WorkflowEvent::default())
+    .event(astro_run::TriggerEvent::default())
     .build();
 
   tokio::task::spawn({
@@ -452,7 +452,7 @@ async fn test_host_timeout() {
 
   let ctx = astro_run
     .execution_context()
-    .event(astro_run::WorkflowEvent::default())
+    .event(astro_run::TriggerEvent::default())
     .build();
 
   let res = workflow.run(ctx).await;
@@ -493,7 +493,7 @@ async fn test_docker_timeout() {
 
   let ctx = astro_run
     .execution_context()
-    .event(astro_run::WorkflowEvent::default())
+    .event(astro_run::TriggerEvent::default())
     .build();
 
   let res = workflow.run(ctx).await;

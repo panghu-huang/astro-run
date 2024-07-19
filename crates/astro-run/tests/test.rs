@@ -1,7 +1,7 @@
 use astro_run::{
-  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Error,
-  HookBeforeRunStepResult, RunResult, Runner, Step, UserActionStep, UserCommandStep, UserStep,
-  Workflow, WorkflowEvent, WorkflowState,
+  stream, Action, ActionSteps, AstroRun, AstroRunPlugin, Context, Error, HookBeforeRunStepResult,
+  RunResult, Runner, Step, TriggerEvent, UserActionStep, UserCommandStep, UserStep, Workflow,
+  WorkflowState,
 };
 use parking_lot::Mutex;
 
@@ -468,7 +468,7 @@ jobs:
     .plugin(
       AstroRunPlugin::builder("test")
         .on_run_workflow(|event| {
-          let workflow = event.payload;
+          let workflow = event.source;
           assert_eq!(workflow.name.unwrap(), "Test Workflow");
           assert_eq!(workflow.jobs.len(), 1);
           assert_eq!(workflow.id.inner(), "id");
@@ -476,7 +476,7 @@ jobs:
           Ok(())
         })
         .on_run_job(|event| {
-          let job = event.payload;
+          let job = event.source;
           assert_eq!(job.id.job_key(), "test");
           assert_eq!(job.name.unwrap(), "Test Job");
 
@@ -497,7 +497,7 @@ jobs:
           Ok(())
         })
         .on_run_step(|event| {
-          let step = event.payload;
+          let step = event.source;
           let index = step.id.step_number();
           match index {
             0 => {
@@ -617,7 +617,7 @@ jobs:
 
   let ctx = astro_run
     .execution_context()
-    .event(WorkflowEvent {
+    .event(TriggerEvent {
       event: "push".to_string(),
       ..Default::default()
     })
@@ -629,7 +629,7 @@ jobs:
 
   let ctx = astro_run
     .execution_context()
-    .event(WorkflowEvent {
+    .event(TriggerEvent {
       event: "pull_request".to_string(),
       ..Default::default()
     })

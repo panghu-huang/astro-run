@@ -1,7 +1,7 @@
 mod docker;
 mod host;
 
-use astro_run::{Context, Result, StreamSender, WorkflowEvent};
+use astro_run::{Context, Result, StreamSender, TriggerEvent};
 pub use docker::DockerExecutor;
 pub use host::HostExecutor;
 
@@ -11,6 +11,6 @@ pub trait Executor: Send + Sync {
     &self,
     ctx: Context,
     sender: StreamSender,
-    event: Option<WorkflowEvent>,
+    event: Option<TriggerEvent>,
   ) -> Result<()>;
 }

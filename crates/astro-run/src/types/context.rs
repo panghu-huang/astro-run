@@ -1,4 +1,4 @@
-use crate::{AstroRunSignal, ContainerOptions, EnvironmentVariables, StepId, WorkflowEvent};
+use crate::{AstroRunSignal, ContainerOptions, EnvironmentVariables, StepId, TriggerEvent};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -20,5 +20,6 @@ pub struct Context {
   #[serde(skip)]
   pub signal: AstroRunSignal,
   pub command: Command,
-  pub event: Option<WorkflowEvent>,
+  pub event: Option<TriggerEvent>,
+  pub payload: Option<String>,
 }

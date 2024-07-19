@@ -5,7 +5,7 @@ use crate::{
   metadata::{Metadata, PathBufTryToString},
   utils,
 };
-use astro_run::{Context, Result, StreamSender, WorkflowEvent};
+use astro_run::{Context, Result, StreamSender, TriggerEvent};
 use std::path::PathBuf;
 use tokio::fs;
 
@@ -23,7 +23,7 @@ impl Executor for DockerExecutor {
     &self,
     ctx: Context,
     sender: StreamSender,
-    event: Option<WorkflowEvent>,
+    event: Option<TriggerEvent>,
   ) -> Result<()> {
     // Runner working directory
     let mut builder = Metadata::builder()

@@ -1,4 +1,4 @@
-use crate::{Condition, ConditionPayload, Error, GithubAuthorization, Result, WorkflowEvent};
+use crate::{Condition, ConditionPayload, Error, GithubAuthorization, Result, TriggerEvent};
 use octocrate::{GithubAPI, GithubApp, GithubPersonalAccessToken};
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -6,12 +6,12 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct ConditionMatcher {
   pub github_auth: Option<GithubAuthorization>,
-  pub event: Option<WorkflowEvent>,
+  pub event: Option<TriggerEvent>,
   pub payload: Arc<Mutex<Option<ConditionPayload>>>,
 }
 
 impl ConditionMatcher {
-  pub fn new(event: Option<WorkflowEvent>, github_auth: Option<GithubAuthorization>) -> Self {
+  pub fn new(event: Option<TriggerEvent>, github_auth: Option<GithubAuthorization>) -> Self {
     Self {
       github_auth,
       event,
@@ -51,7 +51,7 @@ impl ConditionMatcher {
   }
 
   async fn condition_payload(&self) -> Result<ConditionPayload> {
-    let WorkflowEvent { event, branch, .. } = self.event.as_ref().unwrap();
+    let TriggerEvent { event, branch, .. } = self.event.as_ref().unwrap();
 
     let files = self.get_changed_files().await?;
     let payload = ConditionPayload {
@@ -66,7 +66,7 @@ impl ConditionMatcher {
   }
 
   async fn get_changed_files(&self) -> Result<Vec<String>> {
-    let WorkflowEvent { event, .. } = self.event.as_ref().unwrap();
+    let TriggerEvent { event, .. } = self.event.as_ref().unwrap();
 
     match event.as_str() {
       "push" => self.get_push_changed_files().await,
@@ -79,7 +79,7 @@ impl ConditionMatcher {
   }
 
   async fn get_push_changed_files(&self) -> Result<Vec<String>> {
-    let WorkflowEvent {
+    let TriggerEvent {
       repo_owner,
       repo_name,
       sha,
@@ -103,7 +103,7 @@ impl ConditionMatcher {
   }
 
   async fn get_pull_request_changed_files(&self) -> Result<Vec<String>> {
-    let WorkflowEvent {
+    let TriggerEvent {
       repo_owner,
       repo_name,
       pr_number,
@@ -176,7 +176,7 @@ mod tests {
   #[astro_run_test::test]
   async fn test_unsupported_event() {
     let matcher = ConditionMatcher::new(
-      Some(WorkflowEvent {
+      Some(TriggerEvent {
         event: "unsupported".to_string(),
         ..Default::default()
       }),
@@ -200,7 +200,7 @@ mod tests {
       .unwrap();
 
     let matcher = ConditionMatcher::new(
-      Some(WorkflowEvent {
+      Some(TriggerEvent {
         event: "pull_request".to_string(),
         ..Default::default()
       }),
@@ -222,7 +222,7 @@ mod tests {
     dotenv::dotenv().ok();
 
     let matcher = ConditionMatcher::new(
-      Some(WorkflowEvent {
+      Some(TriggerEvent {
         event: "pull_request".to_string(),
         ..Default::default()
       }),
@@ -244,7 +244,7 @@ mod tests {
     dotenv::dotenv().ok();
 
     let matcher = ConditionMatcher::new(
-      Some(WorkflowEvent {
+      Some(TriggerEvent {
         event: "pull_request".to_string(),
         pr_number: Some(0),
         ..Default::default()

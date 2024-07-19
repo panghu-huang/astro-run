@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct WorkflowEvent {
+pub struct TriggerEvent {
   /// push / pull_request
   pub event: String,
   pub repo_owner: String,
@@ -13,7 +13,7 @@ pub struct WorkflowEvent {
   pub ref_name: String,
 }
 
-impl Default for WorkflowEvent {
+impl Default for TriggerEvent {
   fn default() -> Self {
     Self {
       event: "push".to_string(),

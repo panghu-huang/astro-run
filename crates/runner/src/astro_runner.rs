@@ -3,14 +3,14 @@ use crate::{
   Plugin, PluginDriver, SharedPluginDriver,
 };
 use astro_run::{
-  stream, Context, Error, HookNoopResult, Result, RunResponse, RunResult, Runner, WorkflowEvent,
+  stream, Context, Error, HookNoopResult, Result, RunResponse, RunResult, Runner, TriggerEvent,
   WorkflowId,
 };
 use parking_lot::Mutex;
 use std::{collections::HashMap, env, fs, path::PathBuf, sync::Arc};
 
 struct RunnerState {
-  workflow_events: HashMap<WorkflowId, WorkflowEvent>,
+  workflow_events: HashMap<WorkflowId, TriggerEvent>,
 }
 
 #[derive(Clone)]
