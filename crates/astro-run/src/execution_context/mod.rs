@@ -1,5 +1,6 @@
 mod builder;
 mod condition_matcher;
+mod context_payload;
 
 pub use self::builder::ExecutionContextBuilder;
 use crate::{
@@ -7,59 +8,9 @@ use crate::{
   RunStepEvent, Runner, SharedPluginDriver, Signal, SignalManager, Step, StepRunResult, StreamExt,
   Workflow, WorkflowLog, WorkflowRunResult, WorkflowState, WorkflowStateEvent,
 };
-use serde::{Deserialize, Serialize};
-use std::{any::Any, ops::Deref, sync::Arc};
+pub use context_payload::*;
+use std::sync::Arc;
 use tokio::time;
-
-#[typetag::serde]
-pub trait ContextPayloadExt: Any + Send + Sync {
-  fn as_any(&self) -> &dyn Any;
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ContextPayload(Box<dyn ContextPayloadExt>);
-
-impl ContextPayload {
-  pub fn new<P>(payload: P) -> Self
-  where
-    P: ContextPayloadExt,
-  {
-    ContextPayload(Box::new(payload))
-  }
-
-  pub fn payload<P>(&self) -> Option<&P>
-  where
-    P: ContextPayloadExt + 'static,
-  {
-    self.0.as_ref().as_any().downcast_ref::<P>()
-  }
-}
-
-impl Deref for ContextPayload {
-  type Target = Box<dyn ContextPayloadExt>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
-
-impl std::fmt::Debug for ContextPayload {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    // Implement a empty payload for debug
-    let payload = "N/A";
-    f.debug_tuple("ContextPayload").field(&payload).finish()
-  }
-}
-
-impl Clone for ContextPayload {
-  fn clone(&self) -> Self {
-    let payload_string = serde_json::to_string(&self.0).unwrap();
-
-    let payload: Box<dyn ContextPayloadExt> = serde_json::from_str(&payload_string).unwrap();
-
-    ContextPayload(payload)
-  }
-}
 
 #[derive(Clone)]
 pub struct ExecutionContext {
@@ -198,6 +149,7 @@ impl ExecutionContext {
 
     let completed_at = chrono::Utc::now();
     let duration = completed_at - started_at;
+
     log::trace!(
       "Step {:?} finished with result {:?} in {} seconds",
       step_id,
@@ -273,6 +225,7 @@ impl ExecutionContext {
       trigger_event: self.condition_matcher.event.clone(),
       payload: self.payload.clone(),
     };
+
     self.plugin_driver.on_run_job(event.clone()).await;
     if let Err(err) = self.runner.on_run_job(event).await {
       log::error!("Failed to run job: {:?}", err);
@@ -281,6 +234,7 @@ impl ExecutionContext {
 
   pub(crate) async fn call_on_state_change(&self, event: WorkflowStateEvent) {
     self.plugin_driver.on_state_change(event.clone()).await;
+
     if let Err(err) = self.runner.on_state_change(event).await {
       log::error!("Failed to handle state change: {:?}", err);
     }
@@ -288,7 +242,6 @@ impl ExecutionContext {
 
   pub(crate) async fn call_on_job_completed(&self, result: JobRunResult) {
     self.signal_manager.unregister_signal(&result.id);
-
     self.plugin_driver.on_job_completed(result.clone()).await;
 
     if let Err(err) = self.runner.on_job_completed(result).await {
@@ -306,6 +259,7 @@ impl ExecutionContext {
 
   pub(crate) async fn call_on_step_completed(&self, result: StepRunResult) {
     self.plugin_driver.on_step_completed(result.clone()).await;
+
     if let Err(err) = self.runner.on_step_completed(result.clone()).await {
       log::error!("Failed to handle step completed: {:?}", err);
     }
