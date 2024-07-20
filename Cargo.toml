@@ -45,5 +45,5 @@ astro-run-test = { path = "./crates/test" }
 astro-run-logger = { path = "./crates/logger", version = "0.1.3" }
 astro-run-scheduler = { path = "./crates/scheduler", version = "0.1.3" }
 astro-run-remote-runner = { path = "./crates/remote-runner", version = "1.0.0" }
-astro-run-runner = { path = "./crates/runner", version = "1.0.0" }
+astro-runner = { path = "./crates/runner", version = "1.0.0" }
 astro-run-protocol = { path = "./crates/protocol", version = "1.0.0" }
