@@ -115,6 +115,90 @@ jobs:
 }
 
 #[astro_run_test::test]
+async fn test_push_event_with_app_authorization() {
+  dotenv::dotenv().ok();
+
+  let github_app_id = std::env::var("GH_APP_ID")
+    .expect("GH_APP_ID is required");
+
+  let github_app_private_key = std::env::var("GH_APP_PRIVATE_KEY")
+    .expect("GH_APP_PRIVATE_KEY is required");
+
+  let github_app_id = github_app_id.parse().unwrap();
+
+  let workflow = r#"
+on:
+  push:
+    branches:
+      - main
+jobs:
+  test:
+    steps:
+      - run: Skipped
+        on:
+          push:
+            branches:
+              - not-main
+          pull_request:
+            paths:
+              - crates/astro-run-server/**/*.rs
+      - run: Hello World
+      - run: Skipped
+        on:
+          pull_request:
+            paths:
+              - crates/astro-run-server/**/*.rs
+  skip:
+    on:
+      push:
+        paths:
+          - crates/astro-run/**/*.rs
+    steps:
+      - run: Skipped
+  "#;
+
+  let astro_run = AstroRun::builder()
+    .runner(TestRunner::new())
+    .github_app(github_app_id, github_app_private_key)
+    .plugin(assert_logs_plugin(vec!["Hello World"]))
+    .build();
+
+  let workflow = Workflow::builder()
+    .config(workflow)
+    .build(&astro_run)
+    .await
+    .unwrap();
+
+  let ctx = astro_run
+    .execution_context()
+    .event(get_push_event())
+    .build();
+
+  let res = workflow.run(ctx).await;
+
+  assert_eq!(res.state, WorkflowState::Succeeded);
+  assert_eq!(res.jobs.len(), 2);
+
+  let job = res.jobs.get("test").unwrap();
+  assert_eq!(job.state, WorkflowState::Succeeded);
+
+  assert_eq!(job.steps.len(), 3);
+
+  let step = job.steps.first().unwrap();
+  assert_eq!(step.state, WorkflowState::Skipped);
+
+  let step = job.steps.get(1).unwrap();
+  assert_eq!(step.state, WorkflowState::Succeeded);
+
+  let step = job.steps.get(2).unwrap();
+  assert_eq!(step.state, WorkflowState::Skipped);
+
+  let job = res.jobs.get("skip").unwrap();
+  assert_eq!(job.state, WorkflowState::Skipped);
+  assert_eq!(job.steps.len(), 0);
+}
+
+#[astro_run_test::test]
 async fn test_push_event() {
   dotenv::dotenv().ok();
 

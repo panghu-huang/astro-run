@@ -1,6 +1,6 @@
 [package]
 name = "astro-run"
-version = "0.1.7"
+version = "1.0.0"
 description = "A highly customizable workflow orchestrator"
 edition.workspace = true
 keywords.workspace = true
