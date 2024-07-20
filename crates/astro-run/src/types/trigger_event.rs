@@ -6,7 +6,7 @@ pub struct TriggerEvent {
   pub event: String,
   pub repo_owner: String,
   pub repo_name: String,
-  pub pr_number: Option<u64>,
+  pub pr_number: Option<i64>,
   pub sha: String,
   pub branch: String,
   /// refs/heads/master / refs/tags/v1.0.0 / refs/pull/1/merge

@@ -1,5 +1,5 @@
 use crate::{Condition, ConditionPayload, Error, GithubAuthorization, Result, TriggerEvent};
-use octocrate::{GithubAPI, GithubApp, GithubPersonalAccessToken};
+use octocrate::{APIConfig, AppAuthorization, GitHubAPI, PersonalAccessToken};
 use parking_lot::Mutex;
 use std::sync::Arc;
 
@@ -85,10 +85,10 @@ impl ConditionMatcher {
       sha,
       ..
     } = self.event.as_ref().unwrap();
-    let github_api = self.get_github_api(repo_owner, repo_name).await?;
+    let github_api = self.get_github_api_by_repo(repo_owner, repo_name).await?;
 
     let commit = github_api
-      .commits
+      .repos
       .get_commit(repo_owner, repo_name, sha)
       .send()
       .await
@@ -109,11 +109,11 @@ impl ConditionMatcher {
       pr_number,
       ..
     } = self.event.as_ref().unwrap();
-    let github_api = self.get_github_api(repo_owner, repo_name).await?;
+    let github_api = self.get_github_api_by_repo(repo_owner, repo_name).await?;
 
     let pull_request_files = github_api
       .pulls
-      .list_pull_request_files(
+      .list_files(
         repo_owner,
         repo_name,
         pr_number.ok_or(Error::workflow_config_error("pr_number is not provided"))?,
@@ -127,45 +127,80 @@ impl ConditionMatcher {
     Ok(pull_request_files.into_iter().map(|f| f.filename).collect())
   }
 
-  async fn get_github_api(
+  async fn get_github_api_by_repo(
     &self,
     repo_owner: &String,
     repo_name: &String,
-  ) -> crate::Result<GithubAPI> {
+  ) -> crate::Result<GitHubAPI> {
     let github_auth = self.github_auth.as_ref().unwrap();
-    let github_api = match &github_auth {
-      GithubAuthorization::PersonalAccessToken(token) => {
-        let access_token = GithubPersonalAccessToken::new(token);
 
-        GithubAPI::with_token(access_token)
+    if github_auth.is_personal_access_token() {
+      return Ok(self.create_github_api());
+    }
+
+    self
+      .create_github_api_by_app_authorization(repo_owner, repo_name)
+      .await
+  }
+
+  async fn create_github_api_by_app_authorization(
+    &self,
+    repo_owner: &String,
+    repo_name: &String,
+  ) -> crate::Result<GitHubAPI> {
+    let github_api = self.create_github_api();
+
+    let installation = github_api
+      .apps
+      .get_repo_installation(repo_owner, repo_name)
+      .send()
+      .await
+      .map_err(|err| {
+        Error::internal_runtime_error(format!(
+          "Failed to get installation for repository: {}",
+          err
+        ))
+      })?;
+
+    let installation_token = github_api
+      .apps
+      .create_installation_access_token(installation.id)
+      .send()
+      .await
+      .map_err(|err| {
+        Error::internal_runtime_error(format!(
+          "Failed to create installation access token: {}",
+          err
+        ))
+      })?;
+
+    let config = APIConfig::with_token(installation_token).shared();
+
+    Ok(GitHubAPI::new(&config))
+  }
+
+  fn create_github_api(&self) -> GitHubAPI {
+    let github_auth = self.github_auth.as_ref().unwrap();
+
+    match &github_auth {
+      GithubAuthorization::PersonalAccessToken(token) => {
+        let access_token = PersonalAccessToken::new(token);
+
+        let config = APIConfig::with_token(access_token).shared();
+
+        GitHubAPI::new(&config)
       }
       GithubAuthorization::GithubApp {
         app_id,
         private_key,
       } => {
-        let github_app = GithubApp::builder()
-          .app_id(app_id.to_string())
-          .private_key(private_key)
-          .build()
-          .unwrap();
+        let authorization = AppAuthorization::new(app_id.to_string(), private_key);
 
-        let installation = github_app
-          .get_repository_installation(repo_owner, repo_name)
-          .await
-          .map_err(|err| {
-            Error::internal_runtime_error(format!(
-              "Failed to get installation for repository: {}",
-              err
-            ))
-          })?;
+        let config = APIConfig::with_token(authorization).shared();
 
-        github_app.get_api(installation.id).await.map_err(|err| {
-          Error::internal_runtime_error(format!("Failed to get github api: {}", err))
-        })?
+        GitHubAPI::new(&config)
       }
-    };
-
-    Ok(github_api)
+    }
   }
 }
 
@@ -211,7 +246,7 @@ mod tests {
     );
 
     let res = matcher
-      .get_github_api(&"panghu-huang".to_string(), &"astro-run".to_string())
+      .get_github_api_by_repo(&"panghu-huang".to_string(), &"astro-run".to_string())
       .await;
 
     assert!(res.is_err());

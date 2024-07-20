@@ -25,7 +25,7 @@ uuid = { version = "1.4.1", features = ["serde", "v4"] }
 humantime = "2.1.0"
 serde_yaml = "0.9.17"
 glob = "0.3.1"
-octocrate = "0.1.5"
+octocrate = { version = "2.0.0", features = ["apps", "pulls", "repos"] } 
 async-trait = "0.1.73"
 colored = "2.0.4"
 prost = "0.11.9"

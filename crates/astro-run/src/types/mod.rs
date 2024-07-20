@@ -26,6 +26,12 @@ pub enum GithubAuthorization {
   GithubApp { app_id: u64, private_key: String },
 }
 
+impl GithubAuthorization {
+  pub fn is_personal_access_token(&self) -> bool {
+    matches!(self, GithubAuthorization::PersonalAccessToken(_))
+  }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkflowLogType {
